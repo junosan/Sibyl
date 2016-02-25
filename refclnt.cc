@@ -54,17 +54,17 @@ int main (int argc, char** argv) {
         // Load .ref files on first message
         if (isFirstMsg)
         {
-            for (auto iP = std::begin(p.p); iP != std::end(p.p); iP++)
+            for (const auto &code_pItem : p.map)
             {
-                std::string filename = pathData + iP->first + std::string(".ref");
+                std::string filename = pathData + code_pItem.first + std::string(".ref");
                 FILE *pf = fopen(filename.c_str(), "rb");
                 if (pf == nullptr)
                 {
                     fprintf(stderr, "%s not found\n", filename.c_str());
                     return -1;
                 }
-                auto pair = mfRef.insert(std::make_pair(iP->first, std::unique_ptr<FILE, int(*)(FILE*)>(pf, fclose)));
-                assert(pair.second == true);
+                auto it_bool = mfRef.insert(std::make_pair(code_pItem.first, std::unique_ptr<FILE, int(*)(FILE*)>(pf, fclose)));
+                assert(it_bool.second == true);
             }
             isFirstMsg = false;
         }
@@ -75,24 +75,23 @@ int main (int argc, char** argv) {
             const std::ptrdiff_t dimRef = 42;
             float bufRef[dimRef];
 
-            for (auto iP = std::begin(p.p); iP != std::end(p.p); iP++)
+            for (const auto &code_pItem : p.map)
             {
-                auto &i = *(iP->second);
-                auto imf = mfRef.find(iP->first);
+                auto &i = *code_pItem.second;
+                auto imf = mfRef.find(code_pItem.first);
                 assert(imf != std::end(mfRef));
                 std::size_t szRead = fread(bufRef, sizeof(float), dimRef, &*(imf->second));
                 if (szRead == dimRef)
                 {
                     i.G0.s = bufRef[0];
                     i.G0.b = bufRef[1];
-                    for (auto iG = std::begin(i.G); iG != std::end(i.G); iG++)
+                    std::ptrdiff_t tck = 0;
+                    for (auto &gn : i.G)
                     {
-                        auto &gn = *iG;
-                        std::ptrdiff_t tck = iG - std::begin(i.G);
-                        gn.s  = bufRef[ 2 + tck];
-                        gn.b  = bufRef[12 + tck]; 
-                        gn.cs = bufRef[22 + tck];
-                        gn.cb = bufRef[32 + tck]; 
+                        gn.s  = bufRef[ 2 + tck  ];
+                        gn.b  = bufRef[12 + tck  ]; 
+                        gn.cs = bufRef[22 + tck  ];
+                        gn.cb = bufRef[32 + tck++]; 
                     }
                 }
                 else
@@ -103,7 +102,7 @@ int main (int argc, char** argv) {
                     for (int iB = 0; iB < (int)dimRef; iB++)
                     {
                         if ((std::abs(bufRef[iB]) > 1.0f) && (std::abs(bufRef[iB]) < 100.0f))
-                            fprintf(stderr, "Warning: [%5d] {%s} G = %f too large (iB %d) (ps1 %d, pb1 %d)\n", p.time, iP->first.c_str(), bufRef[iB], iB, i.Tck2P(0, kOrdSell), i.Tck2P(0, kOrdBuy));
+                            fprintf(stderr, "Warning: [%5d] {%s} G = %f too large (iB %d) (ps1 %d, pb1 %d)\n", p.time, code_pItem.first.c_str(), bufRef[iB], iB, i.Tck2P(0, kOrdSell), i.Tck2P(0, kOrdBuy));
                     }
                 }
             }

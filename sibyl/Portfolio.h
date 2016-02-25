@@ -85,7 +85,7 @@ private:
 class GTck {
 public:
     FLOAT G;
-    std::map<std::string, std::unique_ptr<Item>>::iterator iP; // iterator in p
+    std::map<std::string, std::unique_ptr<Item>>::iterator iM;
     int tick;           // 0-based index of price (-1: Gs0/Gb0, and so on)
     GTck() : G(0.0f), tick(0) {}
 };
@@ -94,7 +94,7 @@ class GReq {
 public:
     FLOAT G;            // GTck * price * quant * (1 +- fee/tax)
     ReqType type;    
-    std::map<std::string, std::unique_ptr<Item>>::iterator iP; // iterator in p
+    std::map<std::string, std::unique_ptr<Item>>::iterator iM;
     INT price;          // actual price
     INT quant;          // actual quantity
     INT modprice;       // actual mod price
@@ -135,7 +135,7 @@ int Portfolio::ReadMsgIn(char *msg)
         logMsgIn.write(msg, (std::streamsize)strlen(msg));
     }
     
-    auto iP = std::end(p);
+    auto iM = std::end(map);
     for (char *pcLine = strtok(msg, "\n"); pcLine != nullptr; pcLine = strtok(nullptr, "\n"))
     {
         int iW = 0; // index of word
@@ -161,7 +161,7 @@ int Portfolio::ReadMsgIn(char *msg)
         }
         if (pcLine[0] == 'd')
         {
-            iP = std::end(p);
+            iM = std::end(map);
             for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
             {
                 while (*pcWord == ' ') pcWord++;
@@ -172,24 +172,24 @@ int Portfolio::ReadMsgIn(char *msg)
                     std::string c(pcWord);
                     if (pcSpace != nullptr) *pcSpace = ' ';
                     
-                    iP = p.find(c);
-                    if (iP == std::end(p))
+                    iM = map.find(c);
+                    if (iM == std::end(map))
                     {
-                        auto pair = p.insert(std::make_pair(c, std::unique_ptr<Item>(new Stock<Item>)));
-                        assert(pair.second == true); // assure successful insertion
-                        iP = pair.first;
+                        auto it_bool = map.insert(std::make_pair(c, std::unique_ptr<Item>(new Stock<Item>)));
+                        assert(it_bool.second == true); // assure successful insertion
+                        iM = it_bool.first;
                         
                         if (pathLog.empty() == false)
                         {
-                            std::string filename = pathLog + iP->first + ".ref";
+                            std::string filename = pathLog + iM->first + ".ref";
                             FILE *pf = fopen(filename.c_str(), "wb");
                             assert(pf != nullptr); // kill, as fclose(nullptr) is a crash anyways
-                            auto pair = mfRef.insert(std::make_pair(c, std::unique_ptr<FILE, int(*)(FILE*)>(pf, fclose)));
-                            assert(pair.second == true);
+                            auto it_bool = mfRef.insert(std::make_pair(c, std::unique_ptr<FILE, int(*)(FILE*)>(pf, fclose)));
+                            assert(it_bool.second == true);
                         }
                     }
                 }
-                auto &i = *(iP->second); // reference to Item
+                auto &i = *(iM->second); // reference to Item
                 if  (iW ==  2)               sscanf(pcWord, "%f"      , &i.pr);
                 if  (iW ==  3)               sscanf(pcWord, "%" SCNd64, &i.qr);
                 if ((iW >=  4) && (iW < 24)) sscanf(pcWord, "%d"      , &i.tbr[(std::size_t)(iW -  4)].p);
@@ -198,16 +198,16 @@ int Portfolio::ReadMsgIn(char *msg)
         }
         if (pcLine[0] == 'e')
         {
-            if (iP->second->Type() == kSecStock) // on first run: reallocate as ELW
+            if (iM->second->Type() == kSecStock) // on first run: reallocate as ELW
             {
-                auto &ptr = iP->second;
+                auto &ptr = iM->second;
                 Stock<Item> temp = *dynamic_cast<Stock<Item>*>(ptr.get());
                 ptr.reset(new ELW<Item>);
                 ptr->pr   = temp.pr;
                 ptr->qr   = temp.qr;
                 ptr->tbr  = temp.tbr;
             }
-            auto &i = *dynamic_cast<ELW<Item>*>(iP->second.get()); // reference to ELW<Item>
+            auto &i = *dynamic_cast<ELW<Item>*>(iM->second.get()); // reference to ELW<Item>
             
             OptType optType = kOptNull;
             int expiry = -1;
@@ -225,7 +225,7 @@ int Portfolio::ReadMsgIn(char *msg)
         }
         if (pcLine[0] == 'o')
         {
-            auto &i = *(iP->second); // reference to Item
+            auto &i = *(iM->second); // reference to Item
             i.ord.clear();
             Order o;
             for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
@@ -252,14 +252,14 @@ int Portfolio::ReadMsgIn(char *msg)
     if (logVecOut.is_open() == true) // log t, pr, qr, tbr values
     {
         logVecOut << "[t = " << time << "]\n";
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
-            Item &i = *(iP->second);
-            sprintf(bufLine, "{%s}\n"  , iP->first.c_str()); logVecOut << bufLine;
-            sprintf(bufLine, "t\t%10d\n"  , time);           logVecOut << bufLine;
-            sprintf(bufLine, "pr\t%.4e\n", i.pr);            logVecOut << bufLine;
-            sprintf(bufLine, "qr\t%10" PRId64 "\n" , i.qr);  logVecOut << bufLine;
-            sprintf(bufLine, "     \ttbpr\t\ttbqr\n");       logVecOut << bufLine;
+            Item &i = *code_pItem.second;
+            sprintf(bufLine, "{%s}\n"               , code_pItem.first.c_str()); logVecOut << bufLine;
+            sprintf(bufLine, "t\t%10d\n"            , time);                     logVecOut << bufLine;
+            sprintf(bufLine, "pr\t%.4e\n"           , i.pr);                     logVecOut << bufLine;
+            sprintf(bufLine, "qr\t%10" PRId64 "\n"  , i.qr);                     logVecOut << bufLine;
+            sprintf(bufLine, "     \ttbpr\t\ttbqr\n");                           logVecOut << bufLine;
             for (std::ptrdiff_t idx = 0; idx < szTb; idx++)
             {
                 sprintf(bufLine, "[%s%2d]\t%10d\t%10d\n", (idx <= idxPs1 ? "s" : "b"), (idx <= idxPs1 ? (int)(idxPs1 - idx + 1) : (int)(idx - idxPb1 + 1)), i.tbr[(std::size_t)idx].p, i.tbr[(std::size_t)idx].q);
@@ -300,14 +300,14 @@ void Portfolio::BuildMsgOut(std::string &msg)
         (time >= timeInit) && (time < timeStop))
     {
         logVecIn << "[t = " << time << "]\n";
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
             // text log
-            Item &i = *(iP->second);
-            sprintf(bufLine, "{%s}\n"   , iP->first.c_str()); logVecIn << bufLine;
-            sprintf(bufLine, "Gs0\t%+.3e\n", i.G0.s);         logVecIn << bufLine;
-            sprintf(bufLine, "Gb0\t%+.3e\n", i.G0.b);         logVecIn << bufLine;
-            sprintf(bufLine, "     \tGs/b\t\tGcs/cb\n");      logVecIn << bufLine;
+            Item &i = *code_pItem.second;
+            sprintf(bufLine, "{%s}\n"                 , code_pItem.first.c_str()); logVecIn << bufLine;
+            sprintf(bufLine, "Gs0\t%+.3e\n"           , i.G0.s);                   logVecIn << bufLine;
+            sprintf(bufLine, "Gb0\t%+.3e\n"           , i.G0.b);                   logVecIn << bufLine;
+            sprintf(bufLine, "     \tGs/b\t\tGcs/cb\n");                           logVecIn << bufLine;
             for (std::ptrdiff_t idx = 0; idx <= idxPs1; idx++) {
                 sprintf(bufLine, "[s%2d]\t%+.3e\t%+.3e\n", (int)(1 + idxPs1 - idx), i.G[(std::size_t)(idxPs1 - idx)].s, i.G[(std::size_t)(idxPs1 - idx)].cs);
                 logVecIn << bufLine;
@@ -320,19 +320,19 @@ void Portfolio::BuildMsgOut(std::string &msg)
             // binary log
             std::size_t szDim = 42;
             float data[szDim];
-            auto imf = mfRef.find(iP->first);
+            auto imf = mfRef.find(code_pItem.first);
             assert(imf != std::end(mfRef));
             FILE *pf = &*(imf->second);
             data[0] = i.G0.s;
             data[1] = i.G0.b;
-            for (auto iG = std::begin(i.G); iG != std::end(i.G); iG++)
+            
+            std::ptrdiff_t tck = 0;
+            for (const auto &gn : i.G)
             {
-                auto &gn = *iG;
-                std::ptrdiff_t tck = iG - std::begin(i.G);
-                data[ 2 + tck] = gn.s;
-                data[12 + tck] = gn.b; 
-                data[22 + tck] = gn.cs;
-                data[32 + tck] = gn.cb; 
+                data[ 2 + tck  ] = gn.s;
+                data[12 + tck  ] = gn.b; 
+                data[22 + tck  ] = gn.cs;
+                data[32 + tck++] = gn.cb; 
             }
             fwrite(data, sizeof(float), szDim, pf);
         }
@@ -343,48 +343,51 @@ void Portfolio::BuildMsgOut(std::string &msg)
     // Stop buying anything between 14:30 and 14:50
     if ((time >= timeStop - 1200) && (time < timeStop))
     {
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
-            auto &i = *(iP->second);
+            auto &i = *code_pItem.second;
             i.G0.b    = -100.0f;
-            std::for_each(std::begin(i.G), std::end(i.G), [](Item::Gn &gn) {
+            for (auto &gn : i.G)
+            {
                 gn.b  = -100.0f;
                 gn.cb =  100.0f;
-            });
+            }
         }
     }
     
     // Don't do anything between 14:50 and 15:01
     if ((time >= timeStop) && (time < timeCancelAll))
     {
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
-            auto &i = *(iP->second);
+            auto &i = *code_pItem.second;
             i.G0.b    = -100.0f;
             i.G0.s    = -100.0f;
-            std::for_each(std::begin(i.G), std::end(i.G), [](Item::Gn &gn) {
+            for (auto &gn : i.G)
+            {
                 gn.b  = -100.0f;
                 gn.cb =  100.0f;
                 gn.s  = -100.0f;
                 gn.cs = -100.0f;
-            });
+            }
         }
     }
     
     // Cancel everything after 15:01
     if (time >= timeCancelAll)
     {
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
-            auto &i = *(iP->second);
+            auto &i = *code_pItem.second;
             i.G0.b    = -100.0f;
             i.G0.s    = -100.0f;
-            std::for_each(std::begin(i.G), std::end(i.G), [](Item::Gn &gn) {
+            for (auto &gn : i.G)
+            {
                 gn.b  = -100.0f;
                 gn.cb =  100.0f;
                 gn.s  = -100.0f;
                 gn.cs =  100.0f;
-            });
+            }
         }        
     }
     
@@ -398,14 +401,15 @@ void Portfolio::BuildMsgOut(std::string &msg)
                 else       { b = b - a; a = 0.0f; }
             } 
         };
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
-            auto &i = *(iP->second);
+            auto &i = *code_pItem.second;
             Annihilate(i.G0.b, i.G0.s);
-            std::for_each(std::begin(i.G), std::end(i.G), [&Annihilate](Item::Gn &gn) {
+            for (auto &gn : i.G)
+            {
                 Annihilate(gn.b, gn.cb);
                 Annihilate(gn.s, gn.cs);
-            });
+            }
         }
         
         nMsgCurTick = 0;
@@ -413,9 +417,10 @@ void Portfolio::BuildMsgOut(std::string &msg)
         std::vector<GReq> oReq; // Buf for s, ms, b, mb 
 
         // Sell reqs
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (auto iM = std::begin(map); iM != std::end(map); iM++)
         {
-            Item &i = *(iP->second);
+            const auto &code_pItem = *iM;
+            const auto &i = *code_pItem.second;
 
             // Register positive Gs in intermediate buf and calculate EG 
             std::vector<GTck> vPosGs;
@@ -440,9 +445,8 @@ void Portfolio::BuildMsgOut(std::string &msg)
             // Register cs reqs in cReq and add canceled cnt
             GReq reqGcs;
             INT cntAvail = i.cnt;
-            for (auto iO = std::begin(i.ord); iO != std::end(i.ord); iO++)
+            for (const auto &o : i.ord)
             {
-                Order &o = *iO;
                 if (o.type == kOrdSell)
                 {
                     int tck = i.P2Tck(o.p, kOrdSell); // 0-based tick
@@ -465,7 +469,7 @@ void Portfolio::BuildMsgOut(std::string &msg)
                     {
                         cntAvail    += o.q;
                         reqGcs.type  = kReq_cs;
-                        reqGcs.iP    = iP;
+                        reqGcs.iM    = iM;
                         reqGcs.price = o.p;
                         reqGcs.quant = o.q;
                         cReq.push_back(reqGcs);
@@ -476,25 +480,25 @@ void Portfolio::BuildMsgOut(std::string &msg)
             // Register s reqs in oReq and add bal from s0
             GReq reqGs;
             INT cntLeft = cntAvail;
-            for (auto iS = std::begin(vPosGs); iS != std::end(vPosGs); iS++)
+            for (const auto &req : vPosGs)
             {
-                reqGs.price = i.Tck2P(iS->tick, kOrdSell);
-                if (i.Type() == kSecELW) reqGs.quant = 10 * (INT)std::round((double)cntAvail * iS->G / sumPosGs / 10.0);
-                else                     reqGs.quant =      (INT)std::round((double)cntAvail * iS->G / sumPosGs       );
+                reqGs.price = i.Tck2P(req.tick, kOrdSell);
+                if (i.Type() == kSecELW) reqGs.quant = 10 * (INT)std::round((double)cntAvail * req.G / sumPosGs / 10.0);
+                else                     reqGs.quant =      (INT)std::round((double)cntAvail * req.G / sumPosGs       );
                 reqGs.quant = (reqGs.quant > cntLeft ? cntLeft : reqGs.quant);
                 if ((reqGs.price > 0) && (reqGs.quant > 0))
                 {
                     cntLeft -= reqGs.quant;
-                    if (iS->tick == -1)
+                    if (req.tick == -1)
                     {
                         INT64 delta = (INT64)reqGs.price * reqGs.quant;
                         bal += delta - i.SFee(delta);
                         reqGs.G = (FLOAT)(i.G0.s                          * i.Ps0() * reqGs.quant * (1.0 - i.dSF()));
                     }
                     else
-                        reqGs.G = (FLOAT)(i.G.at((std::size_t)iS->tick).s * i.Ps0() * reqGs.quant * (1.0 - i.dSF()));
+                        reqGs.G = (FLOAT)(i.G.at((std::size_t)req.tick).s * i.Ps0() * reqGs.quant * (1.0 - i.dSF()));
                     reqGs.type = kReq_s;
-                    reqGs.iP   = iP;
+                    reqGs.iM   = iM;
                     oReq.push_back(reqGs);
                     if (cntLeft <= 0) break;
                 }
@@ -507,15 +511,16 @@ void Portfolio::BuildMsgOut(std::string &msg)
         GTck posGb;
         double sumPosGb  = 0.0;
         double sumPosGb2 = 0.0;
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (auto iM = std::begin(map); iM != std::end(map); iM++)
         {
-            auto &i = *(iP->second); // reference to Item
+            const auto &code_pItem = *iM;
+            const auto &i = *code_pItem.second;
             bool doG0b = true;
             for (auto iG = std::begin(i.G); iG != std::end(i.G);) {
                 if ((posGb.G   = (doG0b == true ? i.G0.b : iG->b)) > 0.0f)
                 {
                     posGb.tick = (doG0b == true ? -1 : (int)(iG - std::begin(i.G)));
-                    posGb.iP   = iP;
+                    posGb.iM   = iM;
                     sumPosGb  += posGb.G;
                     sumPosGb2 += posGb.G * posGb.G;
                     vPosGb.push_back(posGb);
@@ -535,12 +540,12 @@ void Portfolio::BuildMsgOut(std::string &msg)
         // Register cb reqs in cReq and add canceled bal
         GReq reqGcb;
         INT64 balAvail = bal;
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (auto iM = std::begin(map); iM != std::end(map); iM++)
         {
-            auto &i = *(iP->second); // reference to Item
-            for (auto iO = std::begin(i.ord); iO != std::end(i.ord); iO++)
+            const auto &code_pItem = *iM;
+            const auto &i = *code_pItem.second;
+            for (const auto &o : i.ord)
             {
-                Order &o = *iO;
                 if (o.type == kOrdBuy)
                 {
                     int tck = i.P2Tck(o.p, kOrdBuy);
@@ -563,8 +568,8 @@ void Portfolio::BuildMsgOut(std::string &msg)
                     {
                         INT64 delta = (INT64)o.p * o.q;
                         balAvail += delta + i.BFee(delta);
-                        reqGcb.type  = kReq_cb;
-                        reqGcb.iP    = iP;
+                        reqGcb.type = kReq_cb;
+                        reqGcb.iM   = iM;
                         reqGcb.price = o.p;
                         reqGcb.quant = o.q;
                         cReq.push_back(reqGcb);
@@ -576,11 +581,11 @@ void Portfolio::BuildMsgOut(std::string &msg)
         // Register b reqs in oReq
         GReq reqGb;
         INT64 balLeft = balAvail - (INT64)std::round(balAvail * rhoWeight * lastRho / sumPosGb); // invest in unused fund first
-        for (auto iB = std::begin(vPosGb); iB != std::end(vPosGb); iB++)
+        for (const auto &req : vPosGb)
         {
-            auto &i = *(iB->iP->second); // reference to Item
-            reqGb.price = i.Tck2P(iB->tick, kOrdBuy);
-            INT64 balDist = (INT64)std::round((double)balAvail * iB->G / sumPosGb);
+            auto &i = *(req.iM->second); // reference to Item
+            reqGb.price = i.Tck2P(req.tick, kOrdBuy);
+            INT64 balDist = (INT64)std::round((double)balAvail * req.G / sumPosGb);
             if (reqGb.price > 0) {
                 if (i.Type() == kSecELW) reqGb.quant = 10 * (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF()) * 10));
                 else                     reqGb.quant =      (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF())     ));
@@ -597,10 +602,10 @@ void Portfolio::BuildMsgOut(std::string &msg)
             if ((reqGb.price > 0) && (reqGb.quant > 0) && (balLeft - delta >= 0))
             {
                 balLeft -= delta;
-                if (iB->tick == -1) reqGb.G = FLOAT(i.G0.b                          * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
-                else                reqGb.G = FLOAT(i.G.at((std::size_t)iB->tick).b * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
+                if (req.tick == -1) reqGb.G = FLOAT(i.G0.b                          * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
+                else                reqGb.G = FLOAT(i.G.at((std::size_t)req.tick).b * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
                 reqGb.type = kReq_b;
-                reqGb.iP   = iB->iP;
+                reqGb.iM   = req.iM;
                 oReq.push_back(reqGb);
                 if (balLeft <= 0) break;
             }
@@ -612,20 +617,20 @@ void Portfolio::BuildMsgOut(std::string &msg)
         std::sort(std::begin(oReq), std::end(oReq), [](const GReq &a, const GReq &b) { return a.G > b.G; });
         
         bool bBreak = false;
-        for (auto iC = std::begin(cReq); iC != std::end(cReq); iC++)
+        for (const auto &req : cReq)
         {
-            if (true == (bBreak = CatReq(msg, (iC->type == kReq_cb ? "cb" : "cs"), iC->iP->first, iC->price, iC->quant))) 
+            if (true == (bBreak = CatReq(msg, (req.type == kReq_cb ? "cb" : "cs"), req.iM->first, req.price, req.quant))) 
                 break;
         }
         if (bBreak == false)
         {
-            for (auto iO = std::begin(oReq); iO != std::end(oReq); iO++)
+            for (const auto &req : oReq)
             {
-                if      ( ((iO->type == kReq_b ) || (iO->type == kReq_s )) &&
-                     (true == (bBreak = CatReq(msg, (iO->type == kReq_b  ? "b"  : "s" ), iO->iP->first, iO->price, iO->quant              ))) )
+                if      ( ((req.type == kReq_b ) || (req.type == kReq_s )) &&
+                     (true == (bBreak = CatReq(msg, (req.type == kReq_b  ? "b"  : "s" ), req.iM->first, req.price, req.quant              ))) )
                     break;
-                else if ( ((iO->type == kReq_mb) || (iO->type == kReq_ms)) &&
-                     (true == (bBreak = CatReq(msg, (iO->type == kReq_mb ? "mb" : "ms"), iO->iP->first, iO->price, iO->quant, iO->modprice))) )
+                else if ( ((req.type == kReq_mb) || (req.type == kReq_ms)) &&
+                     (true == (bBreak = CatReq(msg, (req.type == kReq_mb ? "mb" : "ms"), req.iM->first, req.price, req.quant, req.modprice))) )
                     break;
             }            
         }
@@ -670,12 +675,12 @@ void Portfolio::WriteState()
         fputs("\nCnt list\n", pf);
         int iCnt = 0;    // number of items in current line
         int nOrdTot = 0; // total number of orders
-        for (auto iP = std::begin(p); iP != std::end(p); iP++)
+        for (const auto &code_pItem : map)
         {
-            auto const& i = *(iP->second);
+            const auto &i = *code_pItem.second;
             if (i.cnt > 0)
             {
-                fprintf(pf, "      {%s} %8d (%5d)", iP->first.c_str(), i.Ps0(), i.cnt);
+                fprintf(pf, "      {%s} %8d (%5d)", code_pItem.first.c_str(), i.Ps0(), i.cnt);
                 if (nItemPerLine == ++iCnt)
                 {
                     fputs("\n", pf);
@@ -690,15 +695,14 @@ void Portfolio::WriteState()
         
         auto ListOrder = [&](const OrdType &type) {
             int iCnt = 0;
-            for (auto iP = std::begin(p); iP != std::end(p); iP++)
+            for (const auto &code_pItem : map)
             {
-                auto const& i = *(iP->second);
-                for (auto iO = std::begin(i.ord); iO != std::end(i.ord); iO++)
+                const auto &i = *code_pItem.second;
+                for (const auto &o : i.ord)
                 {
-                    auto const& o = *iO;
                     int tck = i.P2Tck(o.p, o.type); // 0-based tick
                     if (tck == szTck) tck = 98;     // display as 99 if not found
-                    fprintf(pf, "[%s%2d] {%s} %8d (%5d)", (type == kOrdBuy ? "b" : "s"), tck + 1, iP->first.c_str(), o.p, o.q);
+                    fprintf(pf, "[%s%2d] {%s} %8d (%5d)", (type == kOrdBuy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                     if (nItemPerLine == ++iCnt)
                     {
                         fputs("\n", pf);
@@ -730,16 +734,16 @@ void Portfolio::WritePosGCnt()
     filename.append("posGCnt.log");
     
     static std::array<int, szTb + 2> posGCnt = { 0 };
-    for (auto iP = std::begin(p); iP != std::end(p); iP++)
+    for (const auto &code_pItem : map)
     {
-        auto const& i = *(iP->second); // reference to Item
+        const auto &i = *code_pItem.second;
         if (i.G0.s > 0.0f) posGCnt[szTb + 0]++;
         if (i.G0.b > 0.0f) posGCnt[szTb + 1]++;
-        for (auto iG = std::begin(i.G); iG != std::end(i.G); iG++)
+        std::ptrdiff_t tck = 0;
+        for (const auto &gn : i.G)
         {
-            std::ptrdiff_t idx = iG - std::begin(i.G);
-            if (iG->s > 0.0f) posGCnt[(std::size_t)(idxPs1 - idx)]++;
-            if (iG->b > 0.0f) posGCnt[(std::size_t)(idxPb1 + idx)]++;
+            if (gn.s > 0.0f) posGCnt[(std::size_t)(idxPs1 - tck  )]++;
+            if (gn.b > 0.0f) posGCnt[(std::size_t)(idxPb1 + tck++)]++;
         }
     }
     

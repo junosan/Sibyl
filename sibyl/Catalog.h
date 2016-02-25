@@ -19,7 +19,7 @@ public:
         INT64 sell;
         INT64 feetax;
     } sum;
-    std::map<std::string, std::unique_ptr<TItem>> p;
+    std::map<std::string, std::unique_ptr<TItem>> map;
 
     void SetTimeBoundaries(int ref, int init, int stop, int end) {
         timeRef = ref; timeInit = init; timeStop = stop; timeEnd = end;
@@ -69,21 +69,22 @@ struct Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
     SEval se;
     se.balU  = se.evalTot = bal;
     se.balBO = se.evalCnt = se.evalSO = 0;
-    for (auto iP = std::begin(p); iP != std::end(p); iP++)
+    for (const auto &code_pItem : map)
     {
-        auto &i = *(iP->second);
+        auto &i = *code_pItem.second;
         INT64 delta = (INT64)i.Ps0() * i.cnt;
         delta = delta - i.SFee(delta);
         se.evalCnt += delta; se.evalTot += delta;
-        for (auto iO = std::begin(i.ord); iO != std::end(i.ord); iO++) {
-            assert(iO->type != kOrdNull);
-            if (iO->type == kOrdBuy) {
-                delta = (INT64)iO->p * iO->q;
+        for (const auto &o : i.ord)
+        {
+            assert(o.type != kOrdNull);
+            if (o.type == kOrdBuy) {
+                delta = (INT64)o.p * o.q;
                 delta = delta + i.BFee(delta);
                 se.balBO += delta; se.evalTot += delta;
             } else
-            if (iO->type == kOrdSell) {
-                delta = (INT64)i.Ps0() * iO->q;
+            if (o.type == kOrdSell) {
+                delta = (INT64)i.Ps0() * o.q;
                 delta = delta - i.SFee(delta);
                 se.evalSO += delta; se.evalTot += delta;
             }

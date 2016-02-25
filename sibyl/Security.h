@@ -53,10 +53,10 @@ public:
         out[idxPb1].p = (trPs1 > 0 ? TckLo(trPs1) : trPb1);
         for (auto iO = std::begin(out) + idxPs1; iO > std::begin(out)  ; iO--) (iO - 1)->p = TckHi(iO->p);
         for (auto iO = std::begin(out) + idxPb1; iO < std::end(out) - 1; iO++) (iO + 1)->p = TckLo(iO->p);
-        std::for_each(std::begin(out), std::end(out), [&in](PQ &o) {
+        for (auto &o : out) {
             auto iI = std::find_if(std::begin(in), std::end(in), [&o](const PQ &i) { return i.p == o.p; });
             o.q = (iI != std::end(in) ? iI->q : 0);        
-        });
+        }
         in = out;
     }
     void Requantize(INT trPs1, INT trPb1) { Requantize(tbr, trPs1, trPb1); }

@@ -212,7 +212,7 @@ int main(int argc, char *argv[])
         
         if(initRNN == true)
         {
-            nStream = p.p.size();
+            nStream = p.map.size();
 
             matInput.Resize(inputDim, nStream);
             matOutput.Resize(outputDim, nStream);
@@ -232,9 +232,9 @@ int main(int argc, char *argv[])
 
             /* Generate the input matrix */
             int codeIdx = 0;
-            for (auto iP = std::begin(p.p); iP != std::end(p.p); iP++, codeIdx++)
+            for (const auto &code_pItem : p.map)
             {
-                Item &it = *(iP->second);
+                Item &it = *code_pItem.second;
 
                 FLOAT *vecIn = matInput.GetHostData() + codeIdx * inputDim;
                 FLOAT logCurPrice = (FLOAT) std::log((FLOAT) it.pr) * 100;
@@ -265,6 +265,7 @@ int main(int argc, char *argv[])
                     vecIn[23 + i] = (FLOAT) std::log((FLOAT) 1 + it.tbr[i].q) / 4;
                 }
                 
+                codeIdx++;
             }
 
             /* Run RNN */
@@ -304,9 +305,9 @@ int main(int argc, char *argv[])
 
             /* Get gain values from the output matrix */
             codeIdx = 0;
-            for (auto iP = std::begin(p.p); iP != std::end(p.p); iP++, codeIdx++)
+            for (const auto &code_pItem : p.map)
             {
-                Item &it = *(iP->second);
+                Item &it = *code_pItem.second;
                 
                 int i = 0;
                 
@@ -339,6 +340,7 @@ int main(int argc, char *argv[])
                 verify(i == (int)outputDim);  
 
                 //std::cout << pfGs0[codeIdx] << " " << ppfGs[codeIdx][0] << " " << pfGb0[codeIdx] << " " << ppfGb[codeIdx][0] << std::endl;
+                codeIdx++;
             }
             
             frameIdx++;
