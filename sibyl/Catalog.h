@@ -1,9 +1,11 @@
 #ifndef SIBYL_CATALOG_H_
 #define SIBYL_CATALOG_H_
 
+#include <memory>
 #include <map>
 
 #include "Security.h"
+#include "Participant.h"
 
 namespace sibyl
 {
@@ -15,53 +17,61 @@ public:
     int   time;
     INT64 bal;
     struct {
-        INT64 buy;
-        INT64 sell;
-        INT64 feetax;
+        INT64 buy, sell, feetax;
+        struct tck_orig_sum {
+            INT64 bal, q, evt;
+        };
+        std::array<tck_orig_sum, szTb + 2> tck_orig;
     } sum;
-    std::map<std::string, std::unique_ptr<TItem>> map;
+    std::map<STR, std::unique_ptr<TItem>> items;
 
-    void SetTimeBoundaries(int ref, int init, int stop, int end) {
-        timeRef = ref; timeInit = init; timeStop = stop; timeEnd = end;
-    }
-    void UpdateRefInitBal ();
-
+    void   SetTimeBounds   (TimeBounds timeBounds_); // to be called by Participant
+    void   UpdateRefInitBal();
+    double GetProfitRate   (); // based on balInit
+    
     struct SEval { INT64 balU, balBO, evalCnt, evalSO, evalTot; };
     SEval Evaluate() const;
     
-    constexpr static const int timeDefault = -9 * 3600;
-    Catalog() : time(timeDefault), bal(0), sum{0, 0, 0},
-                isFirstTick(true), balRef(0), balInit(0),
-                timeRef (timeDefault), 
-                timeInit(timeDefault),
-                timeStop(timeDefault),
-                timeEnd (timeDefault) {}
+    Catalog() : time(TimeBounds::null), bal(0), sum{0, 0, 0, {}},
+                balRef(0), balInit(0), timeBounds(TimeBounds::null), isFirstTick(true) {}
 protected:
-    bool isFirstTick;
     INT64 balRef;  // evaluation with 'reference price' (= ending price from the previous day)
     INT64 balInit; // evaluation with 'starting price'  (= price right after marken opens)
     
-    int timeRef;   // (08:00:00) last ref price reference
-    int timeInit;  // (09:00:10) start input to rnn
-    int timeStop;  // (14:50:00) stop input to rnn
-    int timeEnd;   // (15:10:00) terminate
+    TimeBounds timeBounds;
+    
+private:
+    bool isFirstTick;
 };
+
+template <class TItem>
+void Catalog<TItem>::SetTimeBounds(TimeBounds timeBounds_)
+{
+    timeBounds = timeBounds_;
+}
 
 template <class TItem>
 void Catalog<TItem>::UpdateRefInitBal()
 {
-    if ((isFirstTick == true) || (time <= timeRef) || (time <= timeInit))
+    if ((isFirstTick == true) || (time <= timeBounds.ref) || (time <= timeBounds.init))
     {
         SEval se = Evaluate();
         
-        if ((isFirstTick == true) || (time <= timeRef))
+        if ((isFirstTick == true) || (time <= timeBounds.ref))
         {
             balRef = se.evalTot;
             isFirstTick = false;
         }
-        if (time <= timeInit)
+        if (time <= timeBounds.init)
             balInit = se.evalTot;
     }
+}
+
+template <class TItem>
+double Catalog<TItem>::GetProfitRate()
+{
+    SEval se = Evaluate();
+    return (double)se.evalTot / balInit;
 }
 
 template <class TItem>
@@ -69,14 +79,15 @@ struct Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
     SEval se;
     se.balU  = se.evalTot = bal;
     se.balBO = se.evalCnt = se.evalSO = 0;
-    for (const auto &code_pItem : map)
+    for (const auto &code_pItem : items)
     {
         auto &i = *code_pItem.second;
         INT64 delta = (INT64)i.Ps0() * i.cnt;
         delta = delta - i.SFee(delta);
         se.evalCnt += delta; se.evalTot += delta;
-        for (const auto &o : i.ord)
+        for (const auto &price_TOrder : i.ord)
         {
+            const auto &o = price_TOrder.second;
             assert(o.type != kOrdNull);
             if (o.type == kOrdBuy) {
                 delta = (INT64)o.p * o.q;

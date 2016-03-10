@@ -1,47 +1,29 @@
-#ifndef SIBYL_NETCLIENT_H_
-#define SIBYL_NETCLIENT_H_
+#ifndef SIBYL_CLIENT_NETCLIENT_H_
+#define SIBYL_CLIENT_NETCLIENT_H_
 
-#include <fstream>
 #include <cstring>
 
-#include <netdb.h>
-#include <unistd.h>
-// #include <netinet/in.h>
-// #include <sys/socket.h>
-// #include <sys/stat.h>
-// #include <arpa/inet.h>
-
-#include "Portfolio.h"
+#include "../NetAgent.h"
+#include "Trader.h"
 
 namespace sibyl
 {
 
-class NetClient {
+class NetClient : public NetAgent
+{
 public:
-    void SetPortfolio(Portfolio *p_) { p = p_;             }
-    void SetVerbose  (bool verbose_) { verbose = verbose_; }
-    
-    int  Connect     (const std::string &addr, const std::string &port); // returns 0 for success, non-0 otherwise
+    int  Connect     (CSTR &addr, CSTR &port); // returns 0 for success, non-0 otherwise
     int  RecvNextTick();                                                 // returns 0 for success, non-0 otherwise
     void SendResponse();
 
-    NetClient() : p(nullptr), sock(-1), verbose(false) {}
+    NetClient(Trader *ptr) : pTrader(ptr), sock(sock_fail) {}
 private:
-    Portfolio *p;
+    Trader *pTrader;
     int sock;
-    bool verbose;
-    
-    static char bufTCP[kTCPBufSize];
-    static char bufMsg[kTCPBufSize];
 };
 
-char NetClient::bufTCP[kTCPBufSize];
-char NetClient::bufMsg[kTCPBufSize];
-
-int NetClient::Connect(const std::string &addr, const std::string &port)
+int NetClient::Connect(CSTR &addr, CSTR &port)
 {
-    assert(p != nullptr);
-    
     addrinfo hints, *ai;
     memset(&hints, 0, sizeof(addrinfo));
     hints.ai_family   = AF_UNSPEC;
@@ -49,8 +31,8 @@ int NetClient::Connect(const std::string &addr, const std::string &port)
     hints.ai_protocol = IPPROTO_TCP;
     
     getaddrinfo(addr.c_str(), port.c_str(), &hints, &ai);
-    int ret     = sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
-    if (-1 != ret) ret = connect(sock, ai->ai_addr, ai->ai_addrlen);
+    int ret            = sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
+    if (sock_fail != ret) ret = connect(sock, ai->ai_addr, ai->ai_addrlen);
     freeaddrinfo(ai);
     
     if ( 0 == ret) send(sock, kTCPPassword.c_str(), kTCPPassword.size(), 0);
@@ -59,9 +41,7 @@ int NetClient::Connect(const std::string &addr, const std::string &port)
 }
 
 int NetClient::RecvNextTick()
-{
-    assert(sock != -1); // must call Connect(const char *, const char *) first
-    
+{   
     // Process packets until a full message is received
     std::size_t lenMark       = 3;
     const char  pcStartMark[] = "/*\n";
@@ -95,16 +75,16 @@ int NetClient::RecvNextTick()
         {
             if (verbose) std::cout << "Server disconnected" << std::endl;
             close(sock);
-            sock = -1;
+            sock = sock_fail;
             return -1;
         }
     }
     if (verbose) std::cout << bufMsg << std::endl;
     
-    if (0 != p->ReadMsgIn(bufMsg))
+    if (0 != pTrader->ApplyMsgIn(bufMsg))
     {
         close(sock);
-        sock = -1;
+        sock = sock_fail;
         return -1;
     }
     return 0;
@@ -112,14 +92,11 @@ int NetClient::RecvNextTick()
 
 void NetClient::SendResponse()
 {
-    assert(sock != -1);
-    
-    std::string msg;
-    p->BuildMsgOut(msg); 
+    auto &msg = pTrader->BuildMsgOut(); 
     send(sock, msg.c_str(), msg.size(), 0);
     if (verbose) std::cout << msg << std::endl;
 }
 
 }
 
-#endif  /* SIBYL_NETCLIENT_H_ */
+#endif  /* SIBYL_CLIENT_NETCLIENT_H_ */

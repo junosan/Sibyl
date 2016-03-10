@@ -1,67 +1,52 @@
 
-#include <ctime>
-#include <cstdio>
 #include <string>
-#include <sstream>
 #include <iostream>
+#include <fstream>
+#include <memory>
 
 #include <fractal/fractal.h>
 
-#include "TradeDataSet.h"
+#include "rnn/TradeRnn.h"
 
-#include "sibyl/Portfolio.h"
-#include "sibyl/NetClient.h"
+#include "sibyl/client/Trader.h"
+#include "sibyl/client/NetClient.h"
 
 void printUsage(const char *argv0)
 {
-    std::cout << "Usage: " << argv0 << " -n <workspace path> <ipaddress> <port> [ -v ]" << std::endl;
+    std::cerr << "Usage: " << argv0 << " <workspace list> <ipaddress> <port> [ -v ]" << std::endl;
 }
-
 
 int main(int argc, char *argv[])
 {
-    /* ============================================= */
-    /*                  Setup sibyl                  */
-    /* ============================================= */
-    
-    using namespace sibyl;
-    Portfolio p;
-    NetClient nc;
-    
-    nc.SetPortfolio(&p);
-    
-    if(std::string(argv[1]) == "-n" && (argc == 5 || argc == 6))
-    {
-        if ((argc == 6) && (std::string(argv[5]) == "-v"))
-            nc.SetVerbose(true);
-        else if (argc == 6)
-        {
-            printUsage(argv[0]);
-            exit(1);
-        }
-    }
-    else
+    if ( (argc != 4 && argc != 5)                     ||
+         (argc == 5 && std::string(argv[4]) != "-v") )
     {
         printUsage(argv[0]);
         exit(1);
     }
 
-    const int timeRef  = -3600;        // (08:00:00) last ref price reference
-    const int timeInit = kTimeTickSec; // (09:00:10) start input to rnn
-    const int timeStop = 21000;        // (14:50:00) stop input to rnn
-    const int timeEnd  = 22200;        // (15:10:00) terminate
-    p.SetTimeBoundaries(timeRef, timeInit, timeStop, timeEnd);
 
-    const double timeConst = 60.0;
-    const double rhoWeight = 30.0;
-    const double rhoInit   = 0.001;
-    p.SetParams(timeConst, rhoWeight, rhoInit);
+    /* ============================================= */
+    /*                  Setup sibyl                  */
+    /* ============================================= */
 
-    std::string pathState(argv[0]), pathLog(argv[0]);
-    auto pos  = pathState.find_last_of('/');
-    pathState = pathState.substr(0, pos) + std::string("/state/");
-    pathLog   = pathLog  .substr(0, pos) + std::string("/log/");
-    p.SetStateLogPaths(pathState, pathLog);
+    std::string path(argv[0]);
+    path.resize(path.find_last_of('/'));
+    
+    using namespace sibyl;
+    
+    Trader trader;
+    trader.Initialize(TimeBounds(       -3600 /* ref       */,
+                                 kTimeTickSec /* init      */,
+                                        21000 /* stop      */,
+                                        22200 /* end       */));    
+    trader.model.SetParams(              60.0 /* timeConst */,
+                                         30.0 /* rhoWeight */,
+                                        0.001 /* rhoInit   */);    
+    trader.SetStateLogPaths(path + "/state", path + "/log");
+
+    NetClient netClient(&trader);
+    netClient.SetVerbose((argc == 5) && (std::string(argv[4]) == "-v"));
     
     
     /* =============================================== */
@@ -69,130 +54,33 @@ int main(int argc, char *argv[])
     /* =============================================== */
     
     using namespace fractal;
-    Rnn rnn;
+    
     Engine engine;
-    InitWeightParamUniform initWeightParam;
-    unsigned long long randomSeed;
-
-    struct timespec ts;
-    unsigned long inputChannel, outputChannel, inputDim, outputDim;
-
-    std::string workspacePath;
-    std::string dataPath;
-
-    rnn.SetEngine(&engine);
-    rnn.SetComputeLocs({1});
-
-
-    // initWeightParam.stdev = 1e-2;
-    initWeightParam.a = -2e-2;
-    initWeightParam.b = 2e-2;
-    initWeightParam.isValid = true;
     
-
-    /* Set random seed */
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    randomSeed = ts.tv_nsec;
-    randomSeed = 0;
+    std::vector<std::unique_ptr<TradeRnn>> vecRnn;
+    std::ifstream pathList(argv[1]);
+    if (pathList.is_open() == false)
+    {
+        std::cerr << "<workspace list> inaccessible at " << argv[1] << std::endl;
+        exit(1);
+    }
+    for (std::string workspace; std::getline(pathList, workspace);)
+    {
+        if (workspace.empty() == true) continue;
+        if (workspace[0] != '/') workspace = path + "/" + workspace;
+        vecRnn.push_back(std::unique_ptr<TradeRnn>(new TradeRnn()));
+        vecRnn.back()->Configure(engine, TradeRnn::RunType::kNetwork, "", workspace);
+    }
+    std::size_t nRnn = vecRnn.size();
     
-    TradeDataSet trainData, devData;
-    DataStream trainDataStream, devDataStream;
-
-    inputChannel = TradeDataSet::CHANNEL_INPUT;
-    outputChannel = TradeDataSet::CHANNEL_TARGET;
-
-    inputDim = devData.GetChannelInfo(inputChannel).frameDim;
-    outputDim = devData.GetChannelInfo(outputChannel).frameDim;
-
-    /* Setting random seeds */
-    engine.SetRandomSeed(randomSeed);
-    trainDataStream.SetRandomSeed(randomSeed);
-    devDataStream.SetRandomSeed(randomSeed);
-
-
-    long N = 2048;
-
-    LayerParam dropoutLayerParam;
-
-    dropoutLayerParam.dropoutRate = 0.0;
-
-    rnn.AddLayer("BIAS", ACT_BIAS, AGG_DONTCARE, 1);
-    rnn.AddLayer("INPUT", ACT_LINEAR, AGG_DONTCARE, inputDim);
-    rnn.AddLayer("RESET", ACT_ONE_MINUS_LINEAR, AGG_DONTCARE, 1);
-    rnn.AddLayer("OUTPUT", ACT_LINEAR, AGG_SUM, outputDim);
-
-    basicLayers::AddFastLstmLayer(rnn, "LSTM[0]", "BIAS", 1, N, true, initWeightParam);
-    basicLayers::AddFastLstmLayer(rnn, "LSTM[1]", "BIAS", 1, N, true, initWeightParam);
-    basicLayers::AddFastLstmLayer(rnn, "LSTM[2]", "BIAS", 1, N, true, initWeightParam);
-    basicLayers::AddFastLstmLayer(rnn, "LSTM[3]", "BIAS", 1, N, true, initWeightParam);
-    //    basicLayers::AddFastLstmLayer(rnn, "LSTM[4]", "BIAS", 1, N, true, initWeightParam);
-
-    rnn.AddLayer("LSTM[0].DROPOUT", ACT_DROPOUT, AGG_SUM, N, dropoutLayerParam);
-    rnn.AddLayer("LSTM[1].DROPOUT", ACT_DROPOUT, AGG_SUM, N, dropoutLayerParam);
-    rnn.AddLayer("LSTM[2].DROPOUT", ACT_DROPOUT, AGG_SUM, N, dropoutLayerParam);
-    rnn.AddLayer("LSTM[3].DROPOUT", ACT_DROPOUT, AGG_SUM, N, dropoutLayerParam);
-    //    rnn.AddLayer("LSTM[4].DROPOUT", ACT_DROPOUT, AGG_SUM, N, dropoutLayerParam);
-
-    rnn.AddConnection("INPUT", "LSTM[0].INPUT", initWeightParam);
-    rnn.AddConnection("RESET", "LSTM[0].MEMORY_CELL.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("RESET", "LSTM[0].OUTPUT.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("LSTM[0].OUTPUT", "LSTM[0].DROPOUT", CONN_IDENTITY);
-
-    rnn.AddConnection("LSTM[0].DROPOUT", "LSTM[1].INPUT", initWeightParam);
-    rnn.AddConnection("RESET", "LSTM[1].MEMORY_CELL.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("RESET", "LSTM[1].OUTPUT.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("LSTM[1].OUTPUT", "LSTM[1].DROPOUT", CONN_IDENTITY);
-
-    rnn.AddConnection("LSTM[1].DROPOUT", "LSTM[2].INPUT", initWeightParam);
-    rnn.AddConnection("RESET", "LSTM[2].MEMORY_CELL.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("RESET", "LSTM[2].OUTPUT.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("LSTM[2].OUTPUT", "LSTM[2].DROPOUT", CONN_IDENTITY);
-
-    rnn.AddConnection("LSTM[2].DROPOUT", "LSTM[3].INPUT", initWeightParam);
-    rnn.AddConnection("RESET", "LSTM[3].MEMORY_CELL.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("RESET", "LSTM[3].OUTPUT.DELAYED", CONN_BROADCAST);
-    rnn.AddConnection("LSTM[3].OUTPUT", "LSTM[3].DROPOUT", CONN_IDENTITY);
-    /*
-       rnn.AddConnection("LSTM[3].DROPOUT", "LSTM[4].INPUT", initWeightParam);
-       rnn.AddConnection("RESET", "LSTM[4].MEMORY_CELL.DELAYED", CONN_BROADCAST);
-       rnn.AddConnection("RESET", "LSTM[4].OUTPUT.DELAYED", CONN_BROADCAST);
-       rnn.AddConnection("LSTM[4].OUTPUT", "LSTM[4].DROPOUT", CONN_IDENTITY);
-     */
-    rnn.AddConnection("LSTM[3].DROPOUT", "OUTPUT", initWeightParam);
-    rnn.AddConnection("BIAS", "OUTPUT", initWeightParam);
-
-
-    workspacePath = argv[2];
-
-    rnn.DeleteLayer("RESET");
-    rnn.LoadState(workspacePath + "/net/best/");
-
-    /* ================================================================ */
-    /*                  Get data from the RNN output                    */
-    /* ================================================================ */
-
-    unsigned long nUnroll = 2, nStream;
-    InputProbe inputProbe;
-    OutputProbe outputProbe;
-
-    Matrix<FLOAT> matInput;
-    Matrix<FLOAT> matOutput;
-
-    /* Set engine */
-    matInput.SetEngine(&engine);
-    matOutput.SetEngine(&engine);
-
-
-    /* Link I/O probes */
-    rnn.LinkProbe(inputProbe, "INPUT");
-    rnn.LinkProbe(outputProbe, "OUTPUT");
-
-
-    const long interval = kTimeTickSec; // seconds
-    const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
-    std::vector<FLOAT> logStartPrice;
-    int frameIdx = 0;
-    bool initRNN = true;
+    TradeDataSet tradeData;
+    unsigned long inputDim  = tradeData.reshaper.GetInputDim ();
+    unsigned long outputDim = tradeData.reshaper.GetTargetDim();
+    
+    unsigned long nUnroll = 2;
+    unsigned long nStream = 0; // will be set below
+    
+    bool is_init = true;
 
     
     /* ===================================== */
@@ -200,157 +88,65 @@ int main(int argc, char *argv[])
     /* ===================================== */
 
     /* Connect to server */
-    int ret = nc.Connect(std::string(argv[3]), std::string(argv[4]));
-    if (ret != 0) exit(1);
+    if (0 != netClient.Connect(argv[2], argv[3])) exit(1);
 
     /* Network main loop */
     while (true)
     {
         /* Receive data and fill Portfolio entries */
-        ret = nc.RecvNextTick();
-        if (ret != 0) break;
+        if (0 != netClient.RecvNextTick()) break;
         
-        if(initRNN == true)
+        /* Initialize nUnroll & nStream */
+        if(is_init == true)
         {
-            nStream = p.map.size();
-
-            matInput.Resize(inputDim, nStream);
-            matOutput.Resize(outputDim, nStream);
-
-            /* Unroll the network nUnroll times and replicate it nStream times */
-            rnn.SetBatchSize(nStream, nUnroll);
-
-            /* Initialize the forward activations */
-            rnn.InitForward(0, nUnroll - 1);
-
-            initRNN = false;
+            nStream = trader.portfolio.items.size();
+            for (auto &pRnn : vecRnn)
+                pRnn->InitUnrollStream(nUnroll, nStream);
+            is_init = false;
         }
         
-        // between 09:00:int and 14:50:00
-        if ((p.time >= timeInit) && (p.time < timeStop)) 
+        // Rnn is run only between 09:00:int and 14:50:00
+        if ( (trader.portfolio.time >= trader.timeBounds.init) &&
+             (trader.portfolio.time <  trader.timeBounds.stop) ) 
         {
+            /* Retrieve state vector for current frame */
+            const auto &vecState = trader.portfolio.GetStateVec();
 
             /* Generate the input matrix */
-            int codeIdx = 0;
-            for (const auto &code_pItem : p.map)
+            for (auto &pRnn : vecRnn)
             {
-                Item &it = *code_pItem.second;
-
-                FLOAT *vecIn = matInput.GetHostData() + codeIdx * inputDim;
-                FLOAT logCurPrice = (FLOAT) std::log((FLOAT) it.pr) * 100;
-
-                if(frameIdx == 0) {
-                    assert((std::size_t)codeIdx == logStartPrice.size());
-                    logStartPrice.push_back(logCurPrice);
-                }
-
-                // t
-                vecIn[0] = (FLOAT) p.time / (interval * T);
-
-                // pr
-                vecIn[1] = logCurPrice - logStartPrice[codeIdx];
-
-                // qr
-                vecIn[2] = (FLOAT) std::log((FLOAT) 1 + it.qr) / 4;
-
-                // tbpr(1:20)
-                for(int i = 0; i < 20; i++)
-                {
-                    vecIn[3 + i] = (FLOAT) std::log((FLOAT) it.tbr[i].p) * 100 - logStartPrice[codeIdx];
-                }
-
-                // tbqr(1:20)
-                for(int i = 0; i < 20; i++)
-                {
-                    vecIn[23 + i] = (FLOAT) std::log((FLOAT) 1 + it.tbr[i].q) / 4;
-                }
-                
-                codeIdx++;
+                FLOAT *vecIn = pRnn->GetInputVec();
+                for (std::size_t codeIdx = 0; codeIdx < nStream; codeIdx++)
+                    tradeData.reshaper.State2Vec(vecIn + codeIdx * inputDim, vecState[codeIdx]);
             }
 
             /* Run RNN */
-            {
-                int curFrameBufIdx = frameIdx % nUnroll;
+            for (auto &pRnn : vecRnn)
+                pRnn->RunOneFrame();
 
-                /* Copy the input sequence to the RNN (asynchronous) */
-                Matrix<FLOAT> stateSub(inputProbe.GetState(), nStream * curFrameBufIdx, nStream * curFrameBufIdx + nStream - 1);
-                Matrix<FLOAT> inputSub(matInput, 0, nStream - 1);
-
-                matInput.HostPush();
-                engine.MatCopy(inputSub, stateSub, inputProbe.GetPStream());
-                inputProbe.EventRecord();
-
-
-                /* Forward computation */
-                /* Automatically scheduled to be executed after the copy event through the input probe */
-                rnn.Forward(curFrameBufIdx, curFrameBufIdx);
-
-
-                /* Copy the output sequence from the RNN to the GPU memory of matOutput */
-                /* Automatically scheduled to be executed after finishing the forward activation */
-                Matrix<FLOAT> actSub(outputProbe.GetActivation(), nStream * curFrameBufIdx, nStream * curFrameBufIdx + nStream - 1);
-                Matrix<FLOAT> outputSub(matOutput, 0, nStream - 1);
-
-                outputProbe.Wait();
-                engine.MatCopy(actSub, outputSub, outputProbe.GetPStream());
-
-
-                /* Copy the output matrix from the device (GPU) to the host (CPU) */
-                matOutput.HostPull(outputProbe.GetPStream());
-                outputProbe.EventRecord();
-
-                /* Since the above operations are asynchronous, synchronization is required */
-                outputProbe.EventSynchronize();
-            }
+            /* Allocate 0-filled rewards vector */
+            auto &vecReward = trader.model.GetRewardVec(); 
 
             /* Get gain values from the output matrix */
-            codeIdx = 0;
-            for (const auto &code_pItem : p.map)
+            for (auto &pRnn : vecRnn)
             {
-                Item &it = *code_pItem.second;
-                
-                int i = 0;
-                
-                FLOAT *vecOut = matOutput.GetHostData() + codeIdx * outputDim;
-
-                it.G0.s = vecOut[i++] / (FLOAT) 100;
-                it.G0.b = vecOut[i++] / (FLOAT) 100;
-
-                for(int j = 0; j < 10; j++)                                                                               
-                {                                                                                                         
-                    if(j < G_MAX_TICK) it.G[j].s = vecOut[i++] / (FLOAT) 100;                                        
-                    else               it.G[j].s = 0;                                                                           
-                }                                                                                                         
-                                                                                                                            
-                for(int j = 0; j < 10; j++)                                                                               
-                {                                                                                                         
-                    if(j < G_MAX_TICK) it.G[j].b = vecOut[i++] / (FLOAT) 100;                                        
-                    else               it.G[j].b = 0;                                                                           
-                }                                                                                                         
-                for(int j = 0; j < 10; j++)                                                                               
-                {                                                                                                         
-                    if(j < G_MAX_TICK) it.G[j].cs = vecOut[i++] / (FLOAT) 100;                                       
-                    else               it.G[j].cs = 100;                                                                        
-                }                                                                                                         
-                for(int j = 0; j < 10; j++)                                                                               
-                {                                                                                                         
-                    if(j < G_MAX_TICK) it.G[j].cb = vecOut[i++] / (FLOAT) 100;                                       
-                    else               it.G[j].cb = 100;                                                                        
-                }                                                                                                         
-                verify(i == (int)outputDim);  
-
-                //std::cout << pfGs0[codeIdx] << " " << ppfGs[codeIdx][0] << " " << pfGb0[codeIdx] << " " << ppfGb[codeIdx][0] << std::endl;
-                codeIdx++;
+                FLOAT *vecOut = pRnn->GetOutputVec();
+                for (std::size_t codeIdx = 0; codeIdx < nStream; codeIdx++)
+                {
+                    Reward temp;
+                    tradeData.reshaper.Vec2Reward(temp, vecOut + codeIdx * outputDim, vecState[codeIdx].code);
+                    vecReward[codeIdx] += temp;
+                }
             }
+            for (auto &reward : vecReward) reward *= (FLOAT) 1 / nRnn;
             
-            frameIdx++;
+            /* Send rewards vector back to model */
+            trader.model.SetRewardVec(vecReward); 
         }
         
-        /* Build orders and send */
-        nc.SendResponse();
+        /* Calculate based on vecState/vecReward and send requests */
+        netClient.SendResponse();
     }
-
-    rnn.SetEngine(NULL);
 
     return 0;
 }
