@@ -11,27 +11,22 @@
 #include "sibyl/client/Trader.h"
 #include "sibyl/client/NetClient.h"
 
-void printUsage(const char *argv0)
-{
-    std::cerr << "Usage: " << argv0 << " <workspace list> <ipaddress> <port> [ -v ]" << std::endl;
-}
-
 int main(int argc, char *argv[])
 {
-    if ( (argc != 4 && argc != 5)                     ||
+    if ( (argc != 4 && argc != 5)                   ||
          (argc == 5 && std::string(argv[4]) != "-v") )
     {
-        printUsage(argv[0]);
+        std::cerr << "USAGE: rnnclnt <workspace list> <ipaddress> <port> [ -v ]" << std::endl;
         exit(1);
     }
+
+    std::string path(argv[0]);
+    path.resize(path.find_last_of('/'));
 
 
     /* ============================================= */
     /*                  Setup sibyl                  */
     /* ============================================= */
-
-    std::string path(argv[0]);
-    path.resize(path.find_last_of('/'));
     
     using namespace sibyl;
     
@@ -41,7 +36,7 @@ int main(int argc, char *argv[])
                                         21000 /* stop      */,
                                         22200 /* end       */));    
     trader.model.SetParams(              60.0 /* timeConst */,
-                                         30.0 /* rhoWeight */,
+                                          1.0 /* rhoWeight */,
                                         0.001 /* rhoInit   */);    
     trader.SetStateLogPaths(path + "/state", path + "/log");
 

@@ -17,18 +17,12 @@ class Participant
 {
 public:
     TimeBounds timeBounds;
-    void Initialize(TimeBounds timeBounds_);
+    void Initialize(TimeBounds timeBounds_) { timeBounds = timeBounds_; InitializeMembers(); }
     
     Participant() : timeBounds(TimeBounds::null) {}
 protected:
     virtual void InitializeMembers() = 0;
 };
-
-void Participant::Initialize(TimeBounds timeBounds_)
-{
-    timeBounds = timeBounds_;
-    InitializeMembers();
-}
 
 }
 

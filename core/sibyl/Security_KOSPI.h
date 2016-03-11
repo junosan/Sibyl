@@ -1,6 +1,8 @@
 #ifndef SIBYL_SECURITY_KOSPI_
 #define SIBYL_SECURITY_KOSPI_
 
+#include <cmath>
+
 #include "Security.h"
 
 namespace sibyl

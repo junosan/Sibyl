@@ -1,15 +1,16 @@
-#include <iostream>
-#include <cstdio>
-#include <cerrno>
 
-#include "sibyl/client/Trader.h"
-#include "sibyl/client/NetClient.h"
+#include <iostream>
+#include <string>
+
+#include <sibyl/client/Trader.h>
+#include <sibyl/client/NetClient.h>
 
 int main (int argc, char *argv[]) {
-    if (((argc != 4) && (argc != 5)) || ((argc == 5) && (std::string(argv[4]) != "-v")))
+    if ( (argc != 4 && argc != 5)                   ||
+         (argc == 5 && std::string(argv[4]) != "-v") )
     {
-        std::cerr << "USAGE: refclnt <ipaddress> <port> <datagpath> [-v]\n   -v\tVerbose output" << std::endl;
-        return 0;
+        std::cerr << "USAGE: refclnt <ref path> <ipaddress> <port> [-v]\n   -v\tVerbose output" << std::endl;
+        exit(1);
     }
 
     std::string path(argv[0]);
@@ -25,13 +26,13 @@ int main (int argc, char *argv[]) {
     trader.model.SetParams(              60.0 /* timeConst */,
                                          30.0 /* rhoWeight */,
                                         0.001 /* rhoInit   */);
-    trader.model.SetRefPath(argv[3]);
+    trader.model.SetRefPath(argv[1]);
     trader.SetStateLogPaths(path + "/state", "");
 
     NetClient netclient(&trader);
     netclient.SetVerbose((argc == 5) && (std::string(argv[4]) == "-v"));
 
-    if (0 != netclient.Connect(argv[1], argv[2]))
+    if (0 != netclient.Connect(argv[2], argv[3]))
         exit(1);
         
     while (true)

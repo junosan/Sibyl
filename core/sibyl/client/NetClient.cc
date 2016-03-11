@@ -1,26 +1,11 @@
-#ifndef SIBYL_CLIENT_NETCLIENT_H_
-#define SIBYL_CLIENT_NETCLIENT_H_
 
 #include <cstring>
+#include <iostream>
 
-#include "../NetAgent.h"
-#include "Trader.h"
+#include "NetClient.h"
 
 namespace sibyl
 {
-
-class NetClient : public NetAgent
-{
-public:
-    int  Connect     (CSTR &addr, CSTR &port); // returns 0 for success, non-0 otherwise
-    int  RecvNextTick();                                                 // returns 0 for success, non-0 otherwise
-    void SendResponse();
-
-    NetClient(Trader *ptr) : pTrader(ptr), sock(sock_fail) {}
-private:
-    Trader *pTrader;
-    int sock;
-};
 
 int NetClient::Connect(CSTR &addr, CSTR &port)
 {
@@ -98,5 +83,3 @@ void NetClient::SendResponse()
 }
 
 }
-
-#endif  /* SIBYL_CLIENT_NETCLIENT_H_ */

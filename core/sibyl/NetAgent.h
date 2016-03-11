@@ -24,9 +24,6 @@ protected:
     static char bufMsg[kTCPBufSize];
 };
 
-char NetAgent::bufTCP[kTCPBufSize];
-char NetAgent::bufMsg[kTCPBufSize];
-
 }
 
 #endif /* SIBYL_NETAGENT_H_ */

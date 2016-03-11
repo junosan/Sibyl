@@ -5,8 +5,6 @@
 #include <array>
 #include <map>
 #include <algorithm>
-#include <vector>
-#include <cmath>
 #include <cassert>
 
 #include "SibylCommon.h"
@@ -126,7 +124,6 @@ INT Security<TOrd>::Tck2Q(int tck, OrdType type) const
     }
     assert(false);
 }
-
 
 }
 

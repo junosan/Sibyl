@@ -1,55 +1,12 @@
-#ifndef SIBYL_CLIENT_PORTFOLIO_H_
-#define SIBYL_CLIENT_PORTFOLIO_H_
 
 #include <iostream>
 #include <cinttypes>
 #include <cstring>
-#include <fstream>
 
-#include "../Security.h"
-#include "../Security_KOSPI.h"
-#include "../Security_ELW.h"
-#include "../Catalog.h"
-#include "ItemState.h"
+#include "Portfolio.h"
 
 namespace sibyl
 {
-
-class Order : public PQ
-{
-public:
-    OrdType type;
-    Order() : type(kOrdNull) {}
-};
-
-class Item : public Security<Order> // abstract class; derive as stock, ELW, ETF, option, etc.
-{
-public:
-    virtual ~Item() {}
-};
-
-class Portfolio : public Catalog<Item>
-{
-public:
-    // to be used by rnn client
-    const std::vector<ItemState>& GetStateVec();
-    
-    // to be called by Trader
-    void SetStateLogPaths(CSTR &state, CSTR &log);
-    int  ApplyMsgIn      (char *msg); // this destroys msg during parsing; returns non-0 to signal termination
-private:
-    std::vector<ItemState> vecState;
-    
-    STR pathState;
-    STR pathLog;
-    
-    void WriteState(); // writes only if state path was set
-    
-    std::ofstream logMsgIn;  // full state msg
-    std::ofstream logVecOut; // t, pr, qr, tbr
-    
-    char bufLine[1 << 10];
-};
 
 const std::vector<ItemState>& Portfolio::GetStateVec()
 {
@@ -108,44 +65,44 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
         if (pc != NULL) *pc = '\0';
         if (strlen(pcLine) == 0) continue;
         
-        int iW = 0; // index of word
         if (pcLine[0] == 'b')
         {
-            for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
+            // char cW : index of word (warning: overflows at 127)
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if (iW == 1) sscanf(pcWord, "%d"      , &time);
-                if (iW == 2) sscanf(pcWord, "%" SCNd64, &bal);
-                if (iW == 3) sscanf(pcWord, "%" SCNd64, &sum.buy);
-                if (iW == 4) sscanf(pcWord, "%" SCNd64, &sum.sell);
-                if (iW == 5) sscanf(pcWord, "%" SCNd64, &sum.feetax);
+                if (cW == 1) sscanf(pcWord, "%d"      , &time);
+                if (cW == 2) sscanf(pcWord, "%" SCNd64, &bal);
+                if (cW == 3) sscanf(pcWord, "%" SCNd64, &sum.buy);
+                if (cW == 4) sscanf(pcWord, "%" SCNd64, &sum.sell);
+                if (cW == 5) sscanf(pcWord, "%" SCNd64, &sum.feetax);
             }
         }
         if (pcLine[0] == 's')
         {
-            for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if ((iW - 1) % 3 == 0) sscanf(pcWord, "%" SCNd64, &sum.tck_orig[(std::size_t)((iW - 1) / 3)].bal);
-                if ((iW - 1) % 3 == 1) sscanf(pcWord, "%" SCNd64, &sum.tck_orig[(std::size_t)((iW - 1) / 3)].q  );
-                if ((iW - 1) % 3 == 2) sscanf(pcWord, "%" SCNd64, &sum.tck_orig[(std::size_t)((iW - 1) / 3)].evt);
+                if ((cW - 1) % 3 == 0) sscanf(pcWord, "%" SCNd64, &sum.tck_orig[(std::size_t)((cW - 1) / 3)].bal);
+                if ((cW - 1) % 3 == 1) sscanf(pcWord, "%" SCNd64, &sum.tck_orig[(std::size_t)((cW - 1) / 3)].q  );
+                if ((cW - 1) % 3 == 2) sscanf(pcWord, "%" SCNd64, &sum.tck_orig[(std::size_t)((cW - 1) / 3)].evt);
             }
         }
         if (pcLine[0] == 'k')
         {
-            for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if (iW == 1) sscanf(pcWord, "%f", &ELW<Item>::kospi200);
+                if (cW == 1) sscanf(pcWord, "%f", &ELW<Item>::kospi200);
             }
         }
         if (pcLine[0] == 'd')
         {
             iM = std::end(items);
-            for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if (iW == 1)
+                if (cW == 1)
                 {
                     char *pcSpace = strchr(pcWord, ' ');
                     if (pcSpace != nullptr) *pcSpace = '\0';
@@ -161,10 +118,10 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
                     }
                 }
                 auto &i = *(iM->second); // reference to Item
-                if  (iW ==  2)               sscanf(pcWord, "%f"      , &i.pr);
-                if  (iW ==  3)               sscanf(pcWord, "%" SCNd64, &i.qr);
-                if ((iW >=  4) && (iW < 24)) sscanf(pcWord, "%d"      , &i.tbr[(std::size_t)(iW -  4)].p);
-                if ((iW >= 24) && (iW < 44)) sscanf(pcWord, "%d"      , &i.tbr[(std::size_t)(iW - 24)].q);
+                if  (cW ==  2)               sscanf(pcWord, "%f"      , &i.pr);
+                if  (cW ==  3)               sscanf(pcWord, "%" SCNd64, &i.qr);
+                if ((cW >=  4) && (cW < 24)) sscanf(pcWord, "%d"      , &i.tbr[(std::size_t)(cW -  4)].p);
+                if ((cW >= 24) && (cW < 44)) sscanf(pcWord, "%d"      , &i.tbr[(std::size_t)(cW - 24)].q);
             }
         }
         if (pcLine[0] == 'e')
@@ -183,12 +140,12 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             OptType optType = kOptNull;
             int expiry = -1;
             int iCP = 0;
-            for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if  (iW ==  2)               sscanf(pcWord, "%d", &iCP);
-                if  (iW ==  3)               sscanf(pcWord, "%d", &expiry);
-                if ((iW >=  4) && (iW < 12)) sscanf(pcWord, "%f", &i.thr[(std::size_t)(iW - 4)]);
+                if  (cW ==  2)               sscanf(pcWord, "%d", &iCP);
+                if  (cW ==  3)               sscanf(pcWord, "%d", &expiry);
+                if ((cW >=  4) && (cW < 12)) sscanf(pcWord, "%f", &i.thr[(std::size_t)(cW - 4)]);
             }
             if (iCP == +1) optType = kOptCall;
             if (iCP == -1) optType = kOptPut;
@@ -199,12 +156,12 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             auto &i = *(iM->second); // reference to Item
             i.ord.clear();
             Order o;
-            for (char *pcWord = strchr(pcLine, ' '), iW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), iW++)
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if  (iW == 2)                 sscanf(pcWord, "%d", &i.cnt);
-                if ((iW >= 3) &&  (iW & 0x1)) sscanf(pcWord, "%d", &o.p);
-                if ((iW >= 3) && !(iW & 0x1))
+                if  (cW == 2)                 sscanf(pcWord, "%d", &i.cnt);
+                if ((cW >= 3) &&  (cW & 0x1)) sscanf(pcWord, "%d", &o.p);
+                if ((cW >= 3) && !(cW & 0x1))
                 {
                     sscanf(pcWord, "%d", &o.q);
                     assert(o.q != 0);
@@ -349,5 +306,3 @@ void Portfolio::WriteState()
 }
 
 }
-
-#endif  /* SIBYL_CLIENT_PORTFOLIO_H_ */

@@ -2,8 +2,12 @@
 #define SIBYL_COMMON_H_
 
 /* ============================================================================== */
+/*         SIBYL: Simulation of Intraday Books and Yields by Limit-orders         */
+/* ============================================================================== */
+
+/* ============================================================================== */
 /*                                Inheritance tree                                */
-/* ============================================================================== */ 
+/* ------------------------------------------------------------------------------ */ 
 /* (^: abstract class)                                                            */
 /*     PQ - Order (application specific)                                          */
 /*     Security<container<Order>>^ - Item^ (application specific) - KOSPI, ELW    */
@@ -17,9 +21,11 @@
 /*              - NetServer (TCP server and &Broker interface)                    */
 /*     TxtData^ - TxtDataTr, TxtDataTb, TxtDataVec                                */
 /* ============================================================================== */
-/*                                  Terminology                                   */
+
 /* ============================================================================== */
-/*    ord : bid/ask registered in Security by my request (buy/sell)               */
+/*                                  Terminology                                   */
+/* ------------------------------------------------------------------------------ */
+/*    ord : buy/sell (a.k.a. bid/ask) registered in Security by my request        */
 /*    req : request for action from client to server (b/s/cb/cs/mb/ms/etc.)       */
 /*    msg : content of TCP communication                                          */
 /* ============================================================================== */
@@ -70,7 +76,7 @@ enum ReqType {   kReqNull     = 0,
                  kReq_ca         ,
                  kReq_sa           };
 
-class PQ // derive first as Order with application specific members (e.g., order type, order number, original tick, etc.)
+class PQ
 {
 public:
     INT p;

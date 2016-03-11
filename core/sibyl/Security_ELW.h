@@ -1,6 +1,8 @@
 #ifndef SIBYL_SECURITY_ELW_
 #define SIBYL_SECURITY_ELW_
 
+#include <cmath>
+
 #include "Security.h"
 
 namespace sibyl
@@ -39,6 +41,7 @@ private:
     OptType optType;
     INT     expiry;
 };
+    
 template <class TItem>
 FLOAT ELW<TItem>::kospi200 = 0.0f;
 
