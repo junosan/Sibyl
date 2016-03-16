@@ -67,7 +67,9 @@ public:
 template <class TOrder, class TItem>
 class OrderBook : public Catalog<TItem> //  /**/ mutex'd  
 {
-public:    
+public:
+    void SetVerbose(bool verbose_) { verbose = verbose_; }
+
 /**/CSTR& BuildMsgOut      (bool addMyOrd);
 /**/void  RemoveEmptyOrders(); // called every new tick
     const // correct/split a single UnnamedReq based on most up-to-date state
@@ -78,7 +80,10 @@ public:
 /**/void             ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrder> iOrd, PQ  pq); // Simulation: insert->trade for instant orders
 /**/void             ApplyCancel(it_itm_t<TItem> iItems, it_ord_t<TOrder> iOrd, INT q );
     
+    OrderBook() : verbose(false) {}
 private:
+    bool verbose;
+    
     std::recursive_mutex mutexData;
 
     std::vector<NamedReq<TOrder, TItem>> nreq;
@@ -218,6 +223,20 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
 {
     std::lock_guard<std::recursive_mutex> lock(mutexData);
     
+    if (verbose == true)
+    {
+        std::cout << "Allot:   ";
+        if      (req.type == kReq_b ) std::cout << "b";
+        else if (req.type == kReq_s ) std::cout << "s";
+        else if (req.type == kReq_cb) std::cout << "cb";
+        else if (req.type == kReq_cs) std::cout << "cs";
+        else if (req.type == kReq_mb) std::cout << "mb";
+        else if (req.type == kReq_ms) std::cout << "ms";
+        std::cout << " {" << req.iItems->first << "} " << req.p << " (" << req.q << ")";
+        if (req.type == kReq_mb || req.type == kReq_ms) std::cout << " " << req.mp;
+        std::cout << std::endl;
+    }
+    
     nreq.clear();
     
     // validation
@@ -262,6 +281,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     temp.p      = req.p;
                     temp.q      = req.q;
                     nreq.push_back(temp);
+                    if (verbose == true) std::cout << "                 -> " << req.p << " (" << req.q << ")" << std::endl; 
                 }
             } else
             
@@ -277,15 +297,13 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     temp.p    = req.p;
                     temp.q    = req.q;
                     nreq.push_back(temp);
+                    if (verbose == true) std::cout << "                 -> " << req.p << " (" << req.q << ")" << std::endl;
                 }
             } else
                 
             if ((req.type == kReq_cb) || (req.type == kReq_cs) || (req.type == kReq_mb) || (req.type == kReq_ms))
             {
                 INT  qleft   = req.q;
-                OrdType reqOrdType(kOrdNull);
-                if      ((req.type == kReq_cb) || (req.type == kReq_mb)) reqOrdType = kOrdBuy;
-                else if ((req.type == kReq_cs) || (req.type == kReq_ms)) reqOrdType = kOrdSell;
                 
                 if (req.type == kReq_mb) req.mp = std::min(req.mp, i.Pb0());
                 if (req.type == kReq_ms) req.mp = std::max(req.mp, i.Ps0());
@@ -325,7 +343,14 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                             if ((req.type == kReq_mb) || (req.type == kReq_ms)) temp.p = req.mp;
                             temp.q      = deltaq;
                             temp.iOrd   = iO;
-                            nreq.push_back(temp); 
+                            nreq.push_back(temp);
+                            if (verbose == true)
+                            {
+                                std::cout << "                 -> (" << deltaq << ")";
+                                if ((req.type == kReq_mb) || (req.type == kReq_ms))
+                                    std::cout << " " << req.mp;
+                                std::cout << std::endl;
+                            }
                         }
                         
                         if ((limited == true) && (qleft <= 0)) break;
@@ -352,6 +377,13 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     temp.q      = o.q;
                     temp.iOrd   = iO;
                     nreq.push_back(temp);
+                    if (verbose == true)
+                    {
+                        std::cout << " -> ";
+                        if (o.type == kOrdBuy ) std::cout << "cb";
+                        if (o.type == kOrdSell) std::cout << "cs";
+                        std::cout << " {" << code_pItem.first << "} " << o.p << " (" << o.q << ")" << std::endl;
+                    }
                 }
             }
         }
@@ -370,6 +402,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 temp.p      = i.Ps0();
                 temp.q      = i.cnt;
                 nreq.push_back(temp);
+                if (verbose == true) std::cout << " -> s {" << code_pItem.first << "} " << temp.p << " (" << temp.q << ")" << std::endl;
             }
         }
     }
@@ -384,15 +417,21 @@ it_ord_t<TOrder> OrderBook<TOrder, TItem>::ApplyInsert(it_itm_t<TItem> iItems, T
     
     assert(o.q > 0);   
     auto &i = *iItems->second;
+    if (verbose == true) std::cout << "<Insert> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ")" << std::endl;
+    
     if (o.type == kOrdBuy)
     {
+        if (verbose == true) std::cout << "    [bal]: " << this->bal << " [-] " << o.p << " * (" <<  o.q << ") * (1 + f_b) = ";
         INT64 raw = (INT64)o.p * o.q;
         this->bal -= raw + i.BFee(raw);
+        if (verbose == true) std::cout << this->bal << std::endl;
         if (this->bal < 0) std::cerr << "OrderBook.ApplyInsert: Nagative bal reached" << std::endl;
     } else
     if (o.type == kOrdSell)
     {
+        if (verbose == true) std::cout << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [-] (" << o.q << ") = "; 
         i.cnt -= o.q;
+        if (verbose == true) std::cout << i.cnt << std::endl;
         if (i.cnt < 0) std::cerr << "OrderBook.ApplyInsert: Nagative cnt reached" << std::endl;
     }
     
@@ -411,15 +450,23 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
     {
         auto &i = *iItems->second;
         auto &o = iOrd->second;
+        if (verbose == true) std::cout << "<Trade>  " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] " << pq.p << " (" << pq.q << ") = (" << o.q - pq.q << ")" << std::endl; 
         if (o.type == kOrdBuy)
         {
             assert(o.p >= pq.p);
-            INT64 raw = (INT64)(o.p - pq.p) * pq.q;
-            this->bal += raw + i.BFee(raw); // if traded price was lower than requested
+            if (o.p > pq.p) // if traded price was lower than requested
+            {
+                if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << (o.p - pq.p) << " * (" << pq.q << ") * (1 + f_b) = ";
+                INT64 raw = (INT64)(o.p - pq.p) * pq.q;
+                this->bal += raw + i.BFee(raw);
+                if (verbose == true) std::cout << this->bal << std::endl;
+            }
             
+            if (verbose == true) std::cout << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << pq.q << ") = ";
             i.cnt += pq.q;
+            if (verbose == true) std::cout << i.cnt << std::endl;
             
-            raw = (INT64)pq.p * pq.q;
+            INT64 raw = (INT64)pq.p * pq.q;
             this->sum.buy    += raw;
             this->sum.feetax += i.BFee(raw);
             
@@ -433,8 +480,10 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
         if (o.type == kOrdSell)
         {
             assert(o.p <= pq.p);
+            if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << pq.p << " * (" << pq.q << ") * (1 - f_s) = ";
             INT64 raw = (INT64)pq.p * pq.q;
             this->bal += raw - i.SFee(raw);
+            if (verbose == true) std::cout << this->bal << std::endl;
             
             this->sum.sell   += raw;
             this->sum.feetax += i.SFee(raw);
@@ -460,14 +509,20 @@ void OrderBook<TOrder, TItem>::ApplyCancel(it_itm_t<TItem> iItems, it_ord_t<TOrd
     {
         auto &i = *iItems->second;
         auto &o = iOrd->second;
+        if (verbose == true) std::cout << "<Cancel> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] (" << q << ") = (" << o.q - q << ")" << std::endl;
+        
         if (o.type == kOrdBuy)
         {
+            if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << o.p << " * (" << q << ") * (1 + f_b) = ";
             INT64 raw = (INT64)o.p * q;
             this->bal += raw + i.BFee(raw);
+            if (verbose == true) std::cout << this->bal << std::endl;
         } else
         if (o.type == kOrdSell)
         {
+            if (verbose == true) std::cout << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << q << ") = ";
             i.cnt += q;
+            if (verbose == true) std::cout << i.cnt << std::endl;
         }
         o.q -= q;
         if (o.q < 0) std::cerr << "OrderBook.ApplyCancel: Negative order q reached" << std::endl;

@@ -2,7 +2,7 @@
 #define SIBYL_COMMON_H_
 
 /* ============================================================================== */
-/*         SIBYL: Simulation of Intraday Books and Yields by Limit-orders         */
+/*         SIBYL: Simulation of Intraday Book and Yield with Limit-orders         */
 /* ============================================================================== */
 
 /* ============================================================================== */

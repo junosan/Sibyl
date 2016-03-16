@@ -86,7 +86,11 @@ int NetServer<TOrder, TItem>::Initialize(CSTR &port)
         else
             return DisplayString("[Fail] Receive password", true);
     }
-    if (verbose) DisplayString("[Done] Client connection established");
+    if (verbose == true)
+    {
+        DisplayString("[Done] Client connection established");
+        pBroker->SetVerbose(true);
+    }
     
     return 0; 
 }

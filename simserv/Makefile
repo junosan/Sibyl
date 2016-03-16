@@ -2,7 +2,14 @@
 
 .PHONY: clean realclean
 
-CC=clang++
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+    CC=g++
+endif
+ifeq ($(UNAME_S),Darwin)
+    CC=clang++
+endif
+
 OUTNAME_BIN=simserv
 BUILDDIR_BIN=../../bin
 OBJDIR=../../obj
@@ -30,20 +37,24 @@ CPPFLAGS+=$(OPTFLAGS)
 LDFLAGS+=$(OPTFLAGS)
 
 # COREDIR files
+HDRS=$(wildcard $(COREDIR_HDRS)/**/**/*.h)
 HDRS=$(wildcard $(COREDIR_HDRS)/**/*.h)
 HDRS+=$(wildcard $(COREDIR_HDRS)/*.h)
+HDRS+=$(wildcard $(COREDIR_HDRS)/**/**/*.hxx)
 HDRS+=$(wildcard $(COREDIR_HDRS)/**/*.hxx)
 HDRS+=$(wildcard $(COREDIR_HDRS)/*.hxx)
-
+OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/**/**/*.cc))
 OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/**/*.cc))
 OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/*.cc))
 
 # SRCDIR files
+HDRS=$(wildcard $(SRCDIR_HDRS)/**/**/*.h)
 HDRS=$(wildcard $(SRCDIR_HDRS)/**/*.h)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/*.h)
+HDRS+=$(wildcard $(SRCDIR_HDRS)/**/**/*.hxx)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/**/*.hxx)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/*.hxx)
-
+OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/**/**/*.cc))
 OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/**/*.cc))
 OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/*.cc))
 

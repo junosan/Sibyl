@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <sstream>
+#include <cstring>
 
 #include "../Participant.h"
 #include "../Security.h"
@@ -115,14 +116,14 @@ template <class T>
 int TxtDataVec<T>::ReadLine(const char *pcLine)
 {
     bool invalid = false;
-    std::size_t iField = 0;
-    for (char *pcWord = strchr(pcLine, '\t'); pcWord != NULL; pcWord = strchr(pcWord, '\t'))
+    int iField = 0;
+    for (const char *pcWord = strchr(pcLine, '\t'); pcWord != NULL; pcWord = strchr(pcWord, '\t'))
     {
         if (iField < nFields)
         {
             while (*pcWord == '\t') pcWord++;
             std::stringstream ss(pcWord);
-            ss >> cur[iField++];
+            ss >> cur[(std::size_t)(iField++)];
             if (ss.fail() == true)
             {
                 invalid = true;

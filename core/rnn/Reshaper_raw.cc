@@ -1,18 +1,15 @@
 
-#include "Reshaper.h"
+#include "Reshaper_raw.h"
 
 namespace sibyl
 {
 
-Reshaper::Reshaper(unsigned long maxGTck_)
+Reshaper_raw::Reshaper_raw(unsigned long maxGTck_) : Reshaper(maxGTck_)
 {
-    assert(maxGTck_ >= 0);
-    maxGTck = maxGTck_;
     inputDim  = 43;
-    targetDim = 2 + 4 * maxGTck;
 }
 
-void Reshaper::State2Vec(FLOAT *vec, const ItemState &state)
+void Reshaper_raw::State2Vec(FLOAT *vec, const ItemState &state)
 {
     const long interval = 10; // seconds
     const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
@@ -49,7 +46,7 @@ void Reshaper::State2Vec(FLOAT *vec, const ItemState &state)
     assert(inputDim == idxInput);
 }
 
-void Reshaper::Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code)
+void Reshaper_raw::Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code)
 {
     unsigned long idxTarget = 0;
     
@@ -60,21 +57,6 @@ void Reshaper::Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code)
     for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].b );
     for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cs);
     for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cb);
-    
-    assert(targetDim == idxTarget);
-}
-
-void Reshaper::Vec2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
-{
-    unsigned long idxTarget = 0;
-    
-    reward.G0.s = ReshapeG_V2R(vec[idxTarget++]);
-    reward.G0.b = ReshapeG_V2R(vec[idxTarget++]);
-    
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].s  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT)   0.0);
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].b  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT)   0.0);
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].cs = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT) 100.0);
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].cb = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT) 100.0);
     
     assert(targetDim == idxTarget);
 }

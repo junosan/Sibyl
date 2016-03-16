@@ -15,7 +15,7 @@ TradeRnn::~TradeRnn()
     if (runType != RunType::kNull) SetEngine(NULL);
 }
 
-void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_)
+void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_, bool cont)
 {
     assert(runType_ != RunType::kNull);
     
@@ -136,6 +136,9 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
     {
         PrintNetwork(std::cout);
         printf("Number of weights: %ld\n\n", GetNumWeights());
+        
+        if (cont == true)
+            LoadState(workspacePath + "/net/best/");
     }
     
     if (runType == RunType::kDump || runType == RunType::kNetwork)

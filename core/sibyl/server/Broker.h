@@ -2,6 +2,7 @@
 #define SIBYL_SERVER_BROKER_H_
 
 #include <mutex>
+#include <condition_variable>
 #include <iostream>
 
 #include "../Participant.h"
@@ -16,6 +17,8 @@ class Broker : public Participant
 public:
     OrderBook<TOrder, TItem> orderbook;
     
+    void SetVerbose(bool verbose_) { verbose = verbose_; orderbook.SetVerbose(verbose); }
+    
     // interface for wait/wake mechanism 
     bool IsWoken();
     void Wake   ();
@@ -26,8 +29,10 @@ public:
     CSTR& BuildMsgOut() = 0;
     void  ApplyMsgIn (char *msg);
     
-    Broker() : wake_bool(false) {}
+    Broker() : verbose(false), wake_bool(false) {}
 protected:
+    bool verbose;
+
     bool                    wake_bool;  // don't use this without locking wake_mutex
     std::mutex              wake_mutex;
     std::condition_variable wake_cv;
@@ -78,7 +83,7 @@ const std::vector<UnnamedReq<TItem>>& Broker<TOrder, TItem>::ParseMsgIn(char *ms
         if (pc != NULL) *pc = '\0';
         if (strlen(pcLine) == 0) continue;            
         
-        UnnamedReq<TItem> req;    
+        UnnamedReq<TItem> req;
         bool fail = true;
         int iW = 0;
         for (char *pcWord = pcLine; pcWord != NULL; pcWord = strchr (pcWord, ' '), iW++)
@@ -135,7 +140,11 @@ const std::vector<UnnamedReq<TItem>>& Broker<TOrder, TItem>::ParseMsgIn(char *ms
             }
         }
         
-        if (fail == false) ureq.push_back(req);
+        if (fail == false)
+        {
+            ureq.push_back(req);
+            if (verbose == true) std::cout << "MsgIn: " << pcLine << std::endl;
+        }
         else
         {
             std::cerr << "Invalid order: " << pcLine << std::endl;

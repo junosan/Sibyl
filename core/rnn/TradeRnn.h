@@ -19,7 +19,7 @@ class TradeRnn : public Rnn
 public:
     enum class RunType { kNull, kTrain, kDump, kNetwork };
     
-    void Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_);
+    void Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_, bool cont = false);
     void InitUnrollStream(unsigned long nUnroll_, unsigned long nStream_);
     
     /*  kTrain  */

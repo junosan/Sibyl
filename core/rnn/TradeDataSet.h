@@ -7,7 +7,7 @@
 
 #include <fractal/fractal.h>
 
-#include "Reshaper.h"
+#include "Reshaper_delta.h"
 
 class TradeDataSet : public fractal::DataSet
 {
@@ -36,7 +36,7 @@ public:
     void GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
             const unsigned long frameIdx, void *const frame);
     
-    sibyl::Reshaper reshaper;
+    sibyl::Reshaper_delta reshaper;
 protected:
     const unsigned long ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename);
     const unsigned long ReadRefFile(std::vector<fractal::FLOAT> &vec, const std::string &filename);

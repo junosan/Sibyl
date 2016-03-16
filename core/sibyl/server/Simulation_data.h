@@ -62,7 +62,7 @@ public:
     void AdvanceTime(int timeTarget);
     void SetDelay   (int d);
 
-    ELWSim() : dataTb(kSecELW), dataTh(1 + szTh) {}
+    ELWSim()                 :            dataTb(kSecELW), dataTh(1 + szTh) {}
     ELWSim(OptType t, INT e) : ELW(t, e), dataTb(kSecELW), dataTh(1 + szTh) {}
 private:
     TxtDataTb         dataTb;

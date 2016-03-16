@@ -5,9 +5,10 @@
 
 int main(int argc, char *argv[])
 {
-    if (argc != 4)
+    if ( (argc != 4 && argc != 5)                   ||
+         (argc == 5 && std::string(argv[4]) != "-v") )
     {
-        std::cerr << "USAGE: simserv <config file> <data path> <port>" << std::endl;
+        std::cerr << "USAGE: simserv <config file> <data path> <port> [-v]\n   -v\tVerbose output" << std::endl;
         exit(1);
     }
     
@@ -22,6 +23,7 @@ int main(int argc, char *argv[])
         exit(1);
     
     NetServer<OrderSim, ItemSim> netserver(&simulation);
+    netserver.SetVerbose(argc == 5 && std::string(argv[4]) == "-v");
     netserver.Run(argv[3]);
     
     std::cout << std::setprecision(6) << std::fixed

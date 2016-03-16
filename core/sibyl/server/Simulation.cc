@@ -196,6 +196,7 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
     }
     
     if (orderbook.items.size() == 0) return DisplayLoadError("0 items to simulate");
+    if (verbose == true) std::cout << "[Done] Load data for " << orderbook.items.size() << " items" << std::endl; 
     
     return 0;
 }
@@ -211,6 +212,8 @@ int Simulation::AdvanceTick()
     } while (orderbook.time < timeTarget);
     
     nReqThisTick = 0;
+    
+    if (verbose == true) std::cout << "[t=" << orderbook.time << "] ----------------------------------------------------------------" << std::endl;
     
     return (orderbook.time < timeBounds.end ? 0 : -1);
 }
@@ -478,7 +481,7 @@ INT64 Simulation::GetM(it_itm_t<ItemSim> iItems, OrdType type, INT p) const
     for (auto iP = first_last.first; iP != first_last.second; iP++)
     {
         const auto &o = iP->second;
-        if (o.type == type) M += o.q;
+        if (o.type == type) M += o.q; // o.q == 0 doesn't do anything
     }
     return M; 
 }
@@ -488,19 +491,18 @@ void Simulation::PopBM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
     auto &o = iOrd->second;
     if (o.q > 0) // skip already emptied orders
     {
-        INT qleft = q;
-        INT delta = (INT)std::min((INT64)qleft, o.B); 
-        qleft -= delta;
-        o.B   -= delta;
-        if (qleft > 0)
+        INT delta = (INT)std::min((INT64)q, o.B); 
+        q   -= delta;
+        o.B -= delta;
+        if (q > 0)
         {
-            delta = (INT)std::min((INT64)qleft, o.M);
-            qleft -= delta;
-            o.M   -= delta;
-            if (qleft > 0)
+            delta = (INT)std::min((INT64)q, o.M);
+            q   -= delta;
+            o.M -= delta;
+            if (q > 0)
             {
-                qleft = std::min(qleft, o.q);
-                orderbook.ApplyTrade(iItems, iOrd, PQ(o.p, qleft));
+                q = std::min(q, o.q);
+                orderbook.ApplyTrade(iItems, iOrd, PQ(o.p, q));
             }
         }
     }
@@ -509,12 +511,16 @@ void Simulation::PopBM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
 void Simulation::TrimM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
 {
     const auto &first_last = iItems->second->ord.equal_range(iOrd->first);
+    const auto type = iOrd->second.type;
     assert(iOrd != first_last.second); // iOrd must be in ItemSim pointed by iItems
     for (iOrd++; iOrd != first_last.second; iOrd++)
     {
         auto &o = iOrd->second;
-        o.M -= q;
-        assert(o.M >= 0);
+        if ((o.type == type) && (o.q > 0)) // skip already emptied orders
+        {
+            o.M -= q;
+            assert(o.M >= 0);
+        }
     }
 }
 

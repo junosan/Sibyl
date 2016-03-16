@@ -30,7 +30,7 @@ int main (int argc, char *argv[]) {
     trader.SetStateLogPaths(path + "/state", "");
 
     NetClient netclient(&trader);
-    netclient.SetVerbose((argc == 5) && (std::string(argv[4]) == "-v"));
+    netclient.SetVerbose(argc == 5 && std::string(argv[4]) == "-v");
 
     if (0 != netclient.Connect(argv[2], argv[3]))
         exit(1);

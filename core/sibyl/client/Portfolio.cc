@@ -227,16 +227,16 @@ void Portfolio::WriteState()
         SEval se = Evaluate();
         
         fprintf(pf, "t = %5d sec\n", time);
-        fprintf(pf, "   Bal  u  %12" PRId64 "\n" , se.balU      );
-        fprintf(pf, "   Bal b o %12" PRId64 "\n" , se.balBO     );
-        fprintf(pf, "   Evl cnt %12" PRId64 "\n" , se.evalCnt   );
-        fprintf(pf, "   Evl s o %12" PRId64 "\n" , se.evalSO    );
-        fprintf(pf, "   Evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot, ((double)se.evalTot / balRef - 1.0) * 100.0, ((double)se.evalTot / balInit - 1.0) * 100.0);
-        fprintf(pf, "   Sum  b  %12" PRId64 "\n" , sum.buy   );
-        fprintf(pf, "   Sum  s  %12" PRId64 "\n" , sum.sell  );
-        fprintf(pf, "   Sum f+t %12" PRId64 "\n" , sum.feetax);
+        fprintf(pf, "   bal  u  %12" PRId64 "\n" , se.balU      );
+        fprintf(pf, "   bal b o %12" PRId64 "\n" , se.balBO     );
+        fprintf(pf, "   evl cnt %12" PRId64 "\n" , se.evalCnt   );
+        fprintf(pf, "   evl s o %12" PRId64 "\n" , se.evalSO    );
+        fprintf(pf, "   evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot, ((double)se.evalTot / balRef - 1.0) * 100.0, ((double)se.evalTot / balInit - 1.0) * 100.0);
+        fprintf(pf, "   sum  b  %12" PRId64 "\n" , sum.buy   );
+        fprintf(pf, "   sum  s  %12" PRId64 "\n" , sum.sell  );
+        fprintf(pf, "   sum f+t %12" PRId64 "\n" , sum.feetax);
 
-        fputs("\nStat [tck_orig]     bal    quant      evt\n", pf);
+        fputs("\nsum  [t_o]          bal    quant      evt\n", pf);
         for (std::size_t idx = 0; idx < szTb; idx++)
         {
             fprintf(pf, "     [%s%2d] ", ((int)idx <= idxPs1 ? "s" : "b"), (idx <= idxPs1 ? (int)idxPs1 - (int)idx + 1 : (int)idx - (int)idxPb1 + 1));
@@ -250,7 +250,7 @@ void Portfolio::WriteState()
             }
         }
 
-        fputs("\nCnt\n", pf);
+        fputs("\ncnt\n", pf);
         int iCnt = 0;    // number of items in current line
         int nOrdTot = 0; // total number of orders
         for (const auto &code_pItem : items)
@@ -279,23 +279,26 @@ void Portfolio::WriteState()
                 for (const auto &price_Order : i.ord)
                 {
                     const auto &o = price_Order.second;
-                    int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                    if (tck == szTck) tck = 98;     // display as 99 if not found
-                    fprintf(pf, "[%s%2d] {%s} %8d (%6d)", (type == kOrdBuy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
-                    if (nItemPerLine == ++iCnt)
+                    if (o.type == type)
                     {
-                        fputs("\n", pf);
-                        iCnt = 0;
+                        int tck = i.P2Tck(o.p, o.type); // 0-based tick
+                        if (tck == szTck) tck = 98;     // display as 99 if not found
+                        fprintf(pf, "[%s%2d] {%s} %8d (%6d)", (type == kOrdBuy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
+                        if (nItemPerLine == ++iCnt)
+                        {
+                            fputs("\n", pf);
+                            iCnt = 0;
+                        }
+                        else
+                            fputs(itemSpacer, pf);
                     }
-                    else
-                        fputs(itemSpacer, pf);
                 }
             }
             if (iCnt != 0)
                 fputs("\n", pf);
         };
         
-        fprintf(pf, "\nOrd [tck_cur] (%4d)\n", nOrdTot);
+        fprintf(pf, "\nord  [t_c] (%4d)\n", nOrdTot);
         ListOrder(kOrdBuy) ; fputs("\n", pf);
         ListOrder(kOrdSell); fputs("\n", pf);
         

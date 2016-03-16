@@ -6,10 +6,10 @@
 
 #include <fractal/fractal.h>
 
-#include "rnn/TradeRnn.h"
+#include <rnn/TradeRnn.h>
 
-#include "sibyl/client/Trader.h"
-#include "sibyl/client/NetClient.h"
+#include <sibyl/client/Trader.h>
+#include <sibyl/client/NetClient.h>
 
 int main(int argc, char *argv[])
 {
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
     trader.model.SetParams(              60.0 /* timeConst */,
                                           1.0 /* rhoWeight */,
                                         0.001 /* rhoInit   */);    
-    trader.SetStateLogPaths(path + "/state", path + "/log");
+    trader.SetStateLogPaths(path + "/state", "");//path + "/log");
 
     NetClient netClient(&trader);
     netClient.SetVerbose((argc == 5) && (std::string(argv[4]) == "-v"));
