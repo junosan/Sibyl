@@ -379,7 +379,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     nreq.push_back(temp);
                     if (verbose == true)
                     {
-                        std::cout << " -> ";
+                        std::cout << "                 -> ";
                         if (o.type == kOrdBuy ) std::cout << "cb";
                         if (o.type == kOrdSell) std::cout << "cs";
                         std::cout << " {" << code_pItem.first << "} " << o.p << " (" << o.q << ")" << std::endl;
@@ -402,7 +402,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 temp.p      = i.Ps0();
                 temp.q      = i.cnt;
                 nreq.push_back(temp);
-                if (verbose == true) std::cout << " -> s {" << code_pItem.first << "} " << temp.p << " (" << temp.q << ")" << std::endl;
+                if (verbose == true) std::cout << "                 -> s {" << code_pItem.first << "} " << temp.p << " (" << temp.q << ")" << std::endl;
             }
         }
     }

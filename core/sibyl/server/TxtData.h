@@ -19,18 +19,18 @@ public:
     void AdvanceTime(int timeTarget); // TxtDataTr requires InitSum | InitVecTr prior to this
     void SetDelay(int d);
     
-    TxtData() : pf(nullptr), open_bool(false), time(TimeBounds::null), delay(0) {}
+    TxtData() : time(TimeBounds::null), delay(0), pf(nullptr), open_bool(false) {}
     ~TxtData() { if (pf != nullptr) fclose(pf); }
 protected:
     virtual int  ReadLine(const char *pcLine) = 0; // returns non-0 to signal invalid format
     virtual void Cur2Last(bool sum)           = 0; // backup 'cur' to 'last' & and sum last (if applicable)
+    int time, delay; // note: read only for derived classes
 private:
     void AdvanceLine(); // read new line to 'cur', read time, check eof & formatting error
     static int Txt2Time(int txt);
     FILE *pf;
     STR filename;
     bool open_bool;
-    int time, delay;
     constexpr static const std::size_t szBuf = (1 << 12);
     static char bufLine[szBuf];
 };

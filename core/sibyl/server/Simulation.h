@@ -16,6 +16,8 @@ public:
     int   AdvanceTick();
     CSTR& BuildMsgOut();
     
+    void PrintState();
+    
     Simulation() : nReqThisTick(0) {}
 private:
     void ReadData(int timeTarget); // fill TxtData classes with event info until right before timeTarget

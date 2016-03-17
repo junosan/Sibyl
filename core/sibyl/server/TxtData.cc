@@ -91,10 +91,15 @@ int TxtDataTr::ReadLine(const char *pcLine)
     bool invalid = false;
     if (5 == sscanf(pcLine, "%d %d %d %d %d", &temp, &cur.q, &cur.p, &cur.ps1, &cur.pb1))
     {
-        cur.q   = std::abs(cur.q);
-        cur.p   = std::abs(cur.p);
-        cur.ps1 = std::abs(cur.ps1);
-        cur.pb1 = std::abs(cur.pb1);
+        if (time >= 0)
+        {
+            cur.q   = std::abs(cur.q);
+            cur.p   = std::abs(cur.p);
+            cur.ps1 = std::abs(cur.ps1);
+            cur.pb1 = std::abs(cur.pb1);
+        }
+        else // ignore trade data before 09:00:00 as their ps1/pb1 values are invalid
+            cur.q = cur.p = cur.ps1 = cur.pb1 = 0;
     }
     else
         invalid = true;
@@ -110,6 +115,10 @@ void TxtDataTr::Cur2Last(bool sum)
         sumQ  += (INT64)last.q;
         sumPQ += (INT64)last.p * last.q;
         vecTr.push_back(PQ(last.p, last.q));
+    }
+    else // first line of file
+    {
+        last.ps1 = last.pb1 = 0; // prevent >= 09:00:00 values from interfering 
     }
 }
 
