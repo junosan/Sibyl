@@ -12,7 +12,7 @@
 namespace sibyl
 {
 
-template <class TOrder> // Portfolio: std::vector<Order>, OrderBook: std::multimap<INT, Order> 
+template <class TOrder> // default: Order
 class Security          // abstract class; derive first as Item with application specific members, and then derive it as KOSPI/ELW/etc.
 {
 public:
@@ -50,8 +50,8 @@ public:
     virtual ~Security() {}
 };
 
-template <class TOrd>
-void Security<TOrd>::Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1)
+template <class TOrder>
+void Security<TOrder>::Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1)
 {
     if ((trPs1 <= 0) && (trPb1 <= 0)) { trPs1 = in[idxPs1].p; trPb1 = in[idxPb1].p; }
     if ((trPs1 <= 0) && (trPb1 <= 0))                     return;
@@ -68,8 +68,8 @@ void Security<TOrd>::Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1)
     in = out;
 }
 
-template <class TOrd>
-int Security<TOrd>::P2Tck(INT p, OrdType type) const
+template <class TOrder>
+int Security<TOrder>::P2Tck(INT p, OrdType type) const
 {
     int tck = (int)szTck;
     if (type == kOrdSell) {
@@ -93,8 +93,8 @@ int Security<TOrd>::P2Tck(INT p, OrdType type) const
     return tck;
 }
 
-template <class TOrd>
-INT Security<TOrd>::Tck2P(int tck, OrdType type) const
+template <class TOrder>
+INT Security<TOrder>::Tck2P(int tck, OrdType type) const
 {
     assert((tck >= -1) && (tck < (int)szTck));
     if (type == kOrdSell) {
@@ -108,8 +108,8 @@ INT Security<TOrd>::Tck2P(int tck, OrdType type) const
     assert(false);
 }
 
-template <class TOrd>
-INT Security<TOrd>::Tck2Q(int tck, OrdType type) const
+template <class TOrder>
+INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
 {
     assert((tck >= -1) && (tck < (int)szTck));
     if (tck >=  0) {

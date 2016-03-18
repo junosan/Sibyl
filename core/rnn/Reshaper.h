@@ -33,7 +33,7 @@ public:
     virtual void State2Vec (FLOAT *vec, const ItemState &state) = 0;
     
     /*   ref   -> fractal */
-    virtual void Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code) = 0;
+    virtual void Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code);
     
     /* fractal ->  sibyl  */
     virtual void Vec2Reward(Reward &reward, const FLOAT *vec, CSTR &code);
@@ -56,6 +56,22 @@ Reshaper<TItemMem>::Reshaper(unsigned long maxGTck_)
     assert(maxGTck_ >= 0);
     maxGTck = maxGTck_;
     targetDim = 2 + 4 * maxGTck;
+}
+
+template <class TItemMem>
+void Reshaper<TItemMem>::Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code)
+{
+    unsigned long idxTarget = 0;
+    
+    vec[idxTarget++] = ReshapeG_R2V(reward.G0.s);
+    vec[idxTarget++] = ReshapeG_R2V(reward.G0.b);
+    
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].s );
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].b );
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cs);
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cb);
+    
+    assert(targetDim == idxTarget);
 }
 
 template <class TItemMem>

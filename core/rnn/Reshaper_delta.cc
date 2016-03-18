@@ -70,19 +70,4 @@ void Reshaper_delta::State2Vec(FLOAT *vec, const ItemState &state)
     assert(inputDim == idxInput);
 }
 
-void Reshaper_delta::Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code)
-{
-    unsigned long idxTarget = 0;
-    
-    vec[idxTarget++] = ReshapeG_R2V_pos(reward.G0.s);
-    vec[idxTarget++] = ReshapeG_R2V_pos(reward.G0.b);
-    
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V_pos(reward.G[j].s );
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V_pos(reward.G[j].b );
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V_pos(reward.G[j].cs);
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V_pos(reward.G[j].cb);
-    
-    assert(targetDim == idxTarget);
-}
-
 }

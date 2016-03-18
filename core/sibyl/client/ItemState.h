@@ -17,7 +17,11 @@ public:
     FLOAT pr;
     INT64 qr;
     std::array<PQ, szTb> tbr;
-    ItemState() : time(0), pr(0.0f), qr(0), tbr{} {}
+    // bool isELW;
+    // FLOAT kospi200;
+    // std::array<FLOAT, szTh> thr;
+    ItemState() : time(0), pr(0.0f), qr(0), tbr{}/*,
+                  isELW(false), kospi200(0.0f), thr{} */ {}
 };
 
 }

@@ -10,7 +10,7 @@
 /* ------------------------------------------------------------------------------ */ 
 /* (^: abstract class)                                                            */
 /*     PQ - Order (application specific)                                          */
-/*     Security<container<Order>>^ - Item^ (application specific) - KOSPI, ELW    */
+/*     Security<Order>^ - Item^ (application specific) - KOSPI, ELW               */
 /*     Catalog<Item> - Portfolio (client side data management)                    */
 /*                   - OrderBook (server side data management)                    */
 /*     Model^ - RewardModel                                                       */

@@ -4,8 +4,10 @@
 #include <vector>
 #include <string>
 #include <list>
+#include <fstream>
 
 #include <fractal/fractal.h>
+#include <Eigen/Eigenvalues>
 
 #include "Reshaper_delta.h"
 
@@ -36,7 +38,11 @@ public:
     void GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
             const unsigned long frameIdx, void *const frame);
     
+    ////////////////
     sibyl::Reshaper_delta reshaper;
+    bool ReadWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening);
+    void CalcWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening);
+    
 protected:
     const unsigned long ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename);
     const unsigned long ReadRefFile(std::vector<fractal::FLOAT> &vec, const std::string &filename);
@@ -52,7 +58,41 @@ protected:
     unsigned long nSeq;
     unsigned long inputDim;
     unsigned long targetDim;
+    
+    ////////////////
+    typedef float EScalar;
+    typedef Eigen::Matrix<EScalar, Eigen::Dynamic, Eigen::Dynamic> EMatrix;
+    
+    EMatrix matMean, matWhitening;
+    
+    template<class Matrix>
+    bool Eigen_write_binary(const std::string &filename, const Matrix &matrix);
+    template<class Matrix>
+    bool Eigen_read_binary(const std::string &filename, Matrix &matrix);
 };
+
+template<class Matrix>
+bool TradeDataSet::Eigen_write_binary(const std::string &filename, const Matrix &matrix)
+{
+    std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
+    typename Matrix::Index rows = matrix.rows(), cols = matrix.cols();
+    out.write((char*) (&rows), sizeof(typename Matrix::Index));
+    out.write((char*) (&cols), sizeof(typename Matrix::Index));
+    out.write((char*) matrix.data(), rows * cols * sizeof(typename Matrix::Scalar));
+    return out.is_open();
+}
+
+template<class Matrix>
+bool TradeDataSet::Eigen_read_binary(const std::string &filename, Matrix &matrix)
+{
+    std::ifstream in(filename, std::ios::in | std::ios::binary);
+    typename Matrix::Index rows = 0, cols = 0;
+    in.read((char*) (&rows), sizeof(typename Matrix::Index));
+    in.read((char*) (&cols), sizeof(typename Matrix::Index));
+    matrix.resize(rows, cols);
+    in.read((char *) matrix.data(), rows * cols * sizeof(typename Matrix::Scalar));
+    return in.is_open();
+}
 
 #endif /* __TRADEDATASET_H__ */
 

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cmath>
 #include <iostream>
+#include <numeric>
 
 using namespace fractal;
 
@@ -113,6 +114,53 @@ void TradeDataSet::ReadData()
     }
 }
 
+bool TradeDataSet::ReadWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening)
+{
+    return true == Eigen_read_binary(filename_mean, matMean) &&
+           matMean.rows() == (typename EMatrix::Index)1 &&
+           matMean.cols() == (typename EMatrix::Index)inputDim &&
+           true == Eigen_read_binary(filename_whitening, matWhitening) &&
+           matWhitening.rows() == (typename EMatrix::Index)inputDim &&
+           matWhitening.cols() == (typename EMatrix::Index)inputDim;
+}
+
+void TradeDataSet::CalcWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening)
+{
+    if (true == ReadWhiteningMatrix(filename_mean, filename_whitening))
+        return; // skip if already calculated for this dataset
+    
+    nSeq = fileList.size();
+    
+    // check frame count per file
+    verify(nSeq > 0);
+    std::vector<fractal::FLOAT> vecRaw;
+    unsigned long nFrame = ReadRawFile(vecRaw, fileList[0] + ".raw");
+    
+    EMatrix M;
+    M.resize(nSeq * nFrame, inputDim);
+    
+    unsigned long iRow = 0;
+    for (unsigned long iSeq = 0; iSeq < nSeq; iSeq++)
+    {
+        verify(nFrame == ReadRawFile(vecRaw, fileList[iSeq] + ".raw"));
+        for (unsigned long iFrame = 0; iFrame < nFrame; iFrame++)
+            M.row(iRow++) = Eigen::Map<EMatrix>(vecRaw.data() + iFrame * inputDim, 1, inputDim);
+    }
+    verify(iRow == nSeq * nFrame);
+    
+    matMean = M.colwise().mean();
+    EMatrix M0 = M.rowwise() - M.colwise().mean();
+    M.resize(0, 0);
+    EMatrix Q = (M0.adjoint() * M0) / EScalar(M0.rows() - 1);
+    M0.resize(0, 0);
+    
+    Eigen::SelfAdjointEigenSolver<EMatrix> saes(Q);
+    matWhitening = saes.operatorInverseSqrt();
+    Q.resize(0, 0);
+    
+    verify(true == Eigen_write_binary(filename_mean, matMean));
+    verify(true == Eigen_write_binary(filename_whitening, matWhitening));
+}
 
 void TradeDataSet::Normalize()
 {
@@ -329,7 +377,8 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
 
     /* Read features */
     fseek(f, 0, SEEK_SET);
-    fread(buf32.data(), sizeof(Data32), nRaw, f);
+    auto szRead = fread(buf32.data(), sizeof(Data32), nRaw, f);
+    verify(szRead > 0);
     fclose(f);
 
     sibyl::ItemState state;
@@ -427,7 +476,8 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
 
     /* Read features */
     fseek(f, 0, SEEK_SET);
-    fread(buf32.data(), sizeof(Data32), nRef, f);
+    auto szRead = fread(buf32.data(), sizeof(Data32), nRef, f);
+    verify(szRead > 0);
     fclose(f);
 
     sibyl::Reward reward;

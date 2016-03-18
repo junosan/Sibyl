@@ -23,12 +23,6 @@ public:
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
     void State2Vec (FLOAT *vec, const ItemState &state);
-    
-    /*   ref   -> fractal */
-    void Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code);
-    
-private:
-    FLOAT ReshapeG_R2V_pos(FLOAT g) { return (FLOAT) ((g > 0.0f ? g : -0.001f) * kR2V); } // use only positive ref G values
 };
 
 }

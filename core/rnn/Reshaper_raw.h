@@ -14,9 +14,6 @@ public:
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
     void State2Vec(FLOAT *vec, const ItemState &state);
-    
-    /*   ref   -> fractal */
-    void Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code);
 };
 
 }

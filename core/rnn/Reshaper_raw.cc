@@ -46,19 +46,4 @@ void Reshaper_raw::State2Vec(FLOAT *vec, const ItemState &state)
     assert(inputDim == idxInput);
 }
 
-void Reshaper_raw::Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code)
-{
-    unsigned long idxTarget = 0;
-    
-    vec[idxTarget++] = ReshapeG_R2V(reward.G0.s);
-    vec[idxTarget++] = ReshapeG_R2V(reward.G0.b);
-    
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].s );
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].b );
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cs);
-    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cb);
-    
-    assert(targetDim == idxTarget);
-}
-
 }
