@@ -18,6 +18,8 @@ public:
     
     void PrintState();
     
+    static int ReadTypeExpiry(CSTR &path, CSTR &code); // returns kOptType * expiry (0: non-KOSPI200; skip)
+    
     Simulation() : nReqThisTick(0) {}
 private:
     void ReadData(int timeTarget); // fill TxtData classes with event info until right before timeTarget
@@ -31,7 +33,6 @@ private:
     // helper functions for LoadData; path should have trailing '/'
     int     DisplayLoadError(CSTR &str); 
     SecType ResolveSecType  (CSTR &path, CSTR &code); // returns kSecNull for failure / already existent
-    int     ReadTypeExpiry  (CSTR &path, CSTR &code); // returns kOptType * expiry (0: non-KOSPI200; skip)
 
     int nReqThisTick;
     

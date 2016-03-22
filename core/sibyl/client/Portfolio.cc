@@ -22,6 +22,18 @@ const std::vector<ItemState>& Portfolio::GetStateVec()
         state.pr   = i.pr;
         state.qr   = i.qr;
         state.tbr  = i.tbr;
+        
+        if (i.Type() == kSecELW)
+        {
+            const auto &i = *dynamic_cast<ELW<Item>*>(code_pItem.second.get()); // reference to ELW<Item>
+            state.isELW = true;
+            state.iCP = (i.CallPut() == kOptCall) - (i.CallPut() == kOptPut);
+            state.expiry = i.Expiry(); 
+            state.kospi200 = ELW<Item>::kospi200;
+            state.thr = i.thr;
+        } else
+            state.isELW = false;
+        
         codeIdx++;
     }
     return vecState;
@@ -45,7 +57,7 @@ void Portfolio::SetStateLogPaths(CSTR &state, CSTR &log)
 
 int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
 {
-    assert((timeBounds.ref  > TimeBounds::null) &&
+    verify((timeBounds.ref  > TimeBounds::null) &&
            (timeBounds.init > TimeBounds::null) &&
            (timeBounds.stop > TimeBounds::null) &&
            (timeBounds.end  > TimeBounds::null) ); // must call SetTimeBoundaries(int, int, int, int) first
@@ -113,7 +125,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
                     if (iM == std::end(items))
                     {
                         auto it_bool = items.insert(std::make_pair(c, std::unique_ptr<Item>(new KOSPI<Item>)));
-                        assert(it_bool.second == true); // assure successful insertion
+                        verify(it_bool.second == true); // assure successful insertion
                         iM = it_bool.first;
                     }
                 }
@@ -164,7 +176,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
                 if ((cW >= 3) && !(cW & 0x1))
                 {
                     sscanf(pcWord, "%d", &o.q);
-                    assert(o.q != 0);
+                    verify(o.q != 0);
                     if      (o.q > 0)
                         o.type = kOrdBuy;
                     else if (o.q < 0) {

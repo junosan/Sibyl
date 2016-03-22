@@ -18,11 +18,14 @@ public:
 class Reshaper_delta : public Reshaper<ItemMem_delta>
 {
 public:
-    Reshaper_delta(unsigned long maxGTck_);
+    Reshaper_delta(unsigned long maxGTck_,
+                   TradeDataSet *pTradeDataSet_,
+                   std::vector<std::string> *pFileList_,
+                   const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*));
 
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
-    void State2Vec (FLOAT *vec, const ItemState &state);
+    void State2VecIn(FLOAT *vec, const ItemState &state);
 };
 
 }

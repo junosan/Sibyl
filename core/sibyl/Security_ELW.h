@@ -27,11 +27,11 @@ public:
     constexpr static const std::ptrdiff_t szTh = 8;  // number of fields in theoretical Greeks
     std::array<FLOAT, szTh>               thr;
     void    SetInfo(OptType optType_, INT expiry_) {
-        assert(((optType_ == kOptCall) || (optType_ == kOptPut)) && (expiry_ >= 0));
+        verify(((optType_ == kOptCall) || (optType_ == kOptPut)) && (expiry_ >= 0));
         optType = optType_; expiry = expiry_;
     }
-    OptType CallPut() const { assert(optType != kOptNull); return optType; }
-    INT     Expiry () const { assert(optType != kOptNull); return expiry;  }
+    OptType CallPut() const { verify(optType != kOptNull); return optType; }
+    INT     Expiry () const { verify(optType != kOptNull); return expiry;  }
     
     ELW() : thr{}, optType(kOptNull), expiry(0) {}
     ELW(OptType t, INT e) : thr{} { SetInfo(t, e); }

@@ -1,11 +1,11 @@
 #include "TradeDataSet.h"
+#include <sibyl/server/Simulation.h>
 
 #include <cstring>
 #include <fstream>
 #include <cstdint>
 #include <cmath>
 #include <iostream>
-#include <numeric>
 
 using namespace fractal;
 
@@ -13,7 +13,7 @@ const unsigned long TradeDataSet::CHANNEL_INPUT = 0;
 const unsigned long TradeDataSet::CHANNEL_TARGET = 1;
 const unsigned long TradeDataSet::CHANNEL_SIG_NEWSEQ = 2;
 
-TradeDataSet::TradeDataSet() : reshaper(1) // reshaper(maxGTck)
+TradeDataSet::TradeDataSet() : reshaper(1, this, &fileList, &ReadRawFile) // reshaper(maxGTck, &, &, &)
 {
     nSeq = 0;
 
@@ -106,60 +106,12 @@ void TradeDataSet::ReadData()
     {
         unsigned long nRaw, nRef;
 
-        nRaw = ReadRawFile(input[i], fileList[i] + ".raw");
+        nRaw = ReadRawFile(input[i], fileList[i] + ".raw", this);
         nRef = ReadRefFile(target[i], fileList[i] + ".ref");
 
         verify(nRaw == nRef);
         nFrame[i] = nRaw;
     }
-}
-
-bool TradeDataSet::ReadWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening)
-{
-    return true == Eigen_read_binary(filename_mean, matMean) &&
-           matMean.rows() == (typename EMatrix::Index)1 &&
-           matMean.cols() == (typename EMatrix::Index)inputDim &&
-           true == Eigen_read_binary(filename_whitening, matWhitening) &&
-           matWhitening.rows() == (typename EMatrix::Index)inputDim &&
-           matWhitening.cols() == (typename EMatrix::Index)inputDim;
-}
-
-void TradeDataSet::CalcWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening)
-{
-    if (true == ReadWhiteningMatrix(filename_mean, filename_whitening))
-        return; // skip if already calculated for this dataset
-    
-    nSeq = fileList.size();
-    
-    // check frame count per file
-    verify(nSeq > 0);
-    std::vector<fractal::FLOAT> vecRaw;
-    unsigned long nFrame = ReadRawFile(vecRaw, fileList[0] + ".raw");
-    
-    EMatrix M;
-    M.resize(nSeq * nFrame, inputDim);
-    
-    unsigned long iRow = 0;
-    for (unsigned long iSeq = 0; iSeq < nSeq; iSeq++)
-    {
-        verify(nFrame == ReadRawFile(vecRaw, fileList[iSeq] + ".raw"));
-        for (unsigned long iFrame = 0; iFrame < nFrame; iFrame++)
-            M.row(iRow++) = Eigen::Map<EMatrix>(vecRaw.data() + iFrame * inputDim, 1, inputDim);
-    }
-    verify(iRow == nSeq * nFrame);
-    
-    matMean = M.colwise().mean();
-    EMatrix M0 = M.rowwise() - M.colwise().mean();
-    M.resize(0, 0);
-    EMatrix Q = (M0.adjoint() * M0) / EScalar(M0.rows() - 1);
-    M0.resize(0, 0);
-    
-    Eigen::SelfAdjointEigenSolver<EMatrix> saes(Q);
-    matWhitening = saes.operatorInverseSqrt();
-    Q.resize(0, 0);
-    
-    verify(true == Eigen_write_binary(filename_mean, matMean));
-    verify(true == Eigen_write_binary(filename_whitening, matWhitening));
 }
 
 void TradeDataSet::Normalize()
@@ -315,42 +267,55 @@ void TradeDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long 
     }
 }
 
-
-const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename)
+/* static member function */
+const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename, TradeDataSet *pThis)
 {
+    verify(pThis != nullptr);
+    
     /*
-       % code.raw
-       % little endian 32bit signed int (pr is float32)
-       % (43 fields) * (T entries)
-       t pr qr tbpr(1:20) tbqr(1:20) (high->low price ordering)
+        % code.raw
+        % little endian 32bit signed int (pr is float32)
+        % (43 fields) * (T entries)
+        t pr qr tbpr(1:20) tbqr(1:20) (high->low price ordering)
+
+        % $code.thg (ELW only)
+        % little endian 32bit float
+        % (8 fields) * (T entries)
+        [ theoretical price
+        inherent volatility
+        delta
+        gamma
+        theta
+        vega
+        rho
+        LP inherent volatility ]
+        
+        % kospi200.idx (ELW only)
+        % little endian 32bit float
+        % (1 field) * (T entries)
+        [ KOSPI200_index (or equivalent) ]
     */
-
-    const long interval = 10; // seconds
-    const long rawDim = 43;
-    const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
-    const long n = inputDim * T;
-    const long nRaw = rawDim * T;
-
-    vec.resize(n);
-
-    /* Read code */
-    auto posSlash = filename.find_last_of('/');
-    auto posDot   = filename.find_last_of('.');
-    auto code     = filename.substr(posSlash + 1, posDot - posSlash - 1);
-
-    /* Read file */
+    
     FILE *f;
-
+    
     union Data32
     {
         uint32_t uint32;
         int32_t int32;
         float float32;
     } data32;
+    
+    sibyl::ItemState state;
+    
+    /* Read code from filename */
+    auto posSlash  = filename.find_last_of('/');
+    auto posDot    = filename.find_last_of('.');
+    auto path      = filename.substr(0, posSlash + 1); // includes '/'
+    auto posSlash2 = filename.substr(0, posSlash).find_last_of('/'); 
+    auto date      = filename.substr(posSlash2 + 1, posSlash - posSlash2 - 1);
+    auto code      = filename.substr(posSlash + 1, posDot - posSlash - 1);
+    state.code     = code;
 
-
-    f = fopen(filename.c_str(), "rb");
-    verify(f != NULL);
 #if 0
     /* Read the number of samples */
     fseek(f, 0, SEEK_SET);
@@ -369,61 +334,166 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
     /* Allocate memory */
     n = nFrame[seqIdx] * featDim;
     feature[seqIdx].resize(n);
-    std::vector<Data32> buf32(n);
+    std::vector<Data32> buf32_raw(n);
 #endif
 
-    /* Allocate memory */
-    std::vector<Data32> buf32(n);
-
-    /* Read features */
+    /* Number of frames */
+    const long interval = 10; // seconds
+    const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
+    
+    /* .raw file */
+    const long rawDim = 43;
+    const long nRaw = rawDim * T;
+    std::vector<Data32> buf32_raw(nRaw);
+    
+    f = fopen(filename.c_str(), "rb");
+    verify(f != nullptr);
     fseek(f, 0, SEEK_SET);
-    auto szRead = fread(buf32.data(), sizeof(Data32), nRaw, f);
+    auto szRead = fread(buf32_raw.data(), sizeof(Data32), nRaw, f);
     verify(szRead > 0);
     fclose(f);
+    
+    /* Identify ELW */
+    bool isELW(false);
+    auto infoFile = path + code + "i.txt";
+    f = fopen(infoFile.c_str(), "r");
+    if (f != nullptr)
+    {
+        fclose(f);
+        isELW = true;
+        
+        int te = sibyl::Simulation::ReadTypeExpiry(path, code);
+        verify(te != 0);
+        
+        state.isELW  = true;
+        state.iCP    = (te > 0) - (te < 0); // +1 for call, -1 for put
+        state.expiry = std::abs(te);
+    }
+    
+    /* .thg file (ELW only) */
+    const long thgDim = 8;
+    const long nThg = thgDim * T;
+    std::vector<Data32> buf32_thg; // resized below
+    
+    if (isELW == true)
+    {
+        buf32_thg.resize(nThg);
+        auto thgFile = path + code + ".thg";
+        f = fopen(thgFile.c_str(), "rb");
+        verify(f != nullptr);
+        fseek(f, 0, SEEK_SET);
+        auto szRead = fread(buf32_thg.data(), sizeof(Data32), nThg, f);
+        verify(szRead > 0);
+        fclose(f);
+    }
+    
+    /* .idx file (ELW only) */
+    const long idxDim = 1;
+    const long nIdx = idxDim * T;
+    std::vector<Data32> buf32_idx; // resized below
+    
+    if (isELW == true)
+    {
+        buf32_idx.resize(nIdx);
+        auto idxFile = path + "kospi200.idx";
+        f = fopen(idxFile.c_str(), "rb");
+        verify(f != nullptr);
+        fseek(f, 0, SEEK_SET);
+        auto szRead = fread(buf32_idx.data(), sizeof(Data32), nIdx, f);
+        verify(szRead > 0);
+        fclose(f);
+    }
 
-    sibyl::ItemState state;
-    state.code = code;
+    /* Prepare vec */
+    const long n = pThis->inputDim * T;
+    vec.resize(n);
 
     for(long t = 0; t < T; t++)
     {
-        long idxInput = t * inputDim;
+        /* .raw file frame data */
         long idxRaw = t * rawDim;
 
         // t
-        data32.uint32 = le32toh(buf32[idxRaw + 0].uint32);
+        data32.uint32 = le32toh(buf32_raw[idxRaw + 0].uint32);
         state.time = (int) data32.int32;
 
         // pr
-        data32.uint32 = le32toh(buf32[idxRaw + 1].uint32);
+        data32.uint32 = le32toh(buf32_raw[idxRaw + 1].uint32);
         state.pr = (sibyl::FLOAT) data32.float32;
 
         // qr
-        data32.uint32 = le32toh(buf32[idxRaw + 2].uint32);
+        data32.uint32 = le32toh(buf32_raw[idxRaw + 2].uint32);
         state.qr = (sibyl::INT64) data32.int32;
 
         // tbpr(1:20)
         for(long i = 0; i < (long) sibyl::szTb; i++)
         {
-            data32.uint32 = le32toh(buf32[idxRaw + 3 + i].uint32);
+            data32.uint32 = le32toh(buf32_raw[idxRaw + 3 + i].uint32);
             state.tbr[i].p = (sibyl::INT) data32.int32;
         }
 
         // tbqr(1:20)
         for(long i = 0; i < (long) sibyl::szTb; i++)
         {
-            data32.uint32 = le32toh(buf32[idxRaw + 23 + i].uint32);
+            data32.uint32 = le32toh(buf32_raw[idxRaw + 23 + i].uint32);
             state.tbr[i].q = (sibyl::INT) data32.int32;
         }
         
-        /* Write on vec based on state */ 
-        reshaper.State2Vec(vec.data() + idxInput, state);
+        if (isELW == true)
+        {            
+            /* .thg file frame data */
+            long idxThg = t * thgDim;
+            
+            // theoretical price
+            data32.uint32 = le32toh(buf32_thg[idxThg + 0].uint32);
+            state.thr[0] = (sibyl::FLOAT) data32.float32;
+            
+            // volatility
+            data32.uint32 = le32toh(buf32_thg[idxThg + 1].uint32);
+            state.thr[1] = (sibyl::FLOAT) data32.float32;
+            
+            // delta
+            data32.uint32 = le32toh(buf32_thg[idxThg + 2].uint32);
+            state.thr[2] = (sibyl::FLOAT) data32.float32;
+            
+            // gamma
+            data32.uint32 = le32toh(buf32_thg[idxThg + 3].uint32);
+            state.thr[3] = (sibyl::FLOAT) data32.float32;
+            
+            // theta
+            data32.uint32 = le32toh(buf32_thg[idxThg + 4].uint32);
+            state.thr[4] = (sibyl::FLOAT) data32.float32;
+            
+            // vega
+            data32.uint32 = le32toh(buf32_thg[idxThg + 5].uint32);
+            state.thr[5] = (sibyl::FLOAT) data32.float32;
+            
+            // rho
+            data32.uint32 = le32toh(buf32_thg[idxThg + 6].uint32);
+            state.thr[6] = (sibyl::FLOAT) data32.float32;
+            
+            // LP volatility
+            data32.uint32 = le32toh(buf32_thg[idxThg + 7].uint32);
+            state.thr[7] = (sibyl::FLOAT) data32.float32;
+            
+            /* .idx file frame data */
+            long idxIdx = t * idxDim;
+            
+            // kospi200
+            data32.uint32 = le32toh(buf32_idx[idxIdx + 0].uint32);
+            state.kospi200 = (sibyl::FLOAT) data32.float32;
+        }
+        
+        /* Write on vec based on state */
+        long idxInput = t * pThis->inputDim;
+        pThis->reshaper.State2VecIn(vec.data() + idxInput, state);
     }
 
     for(long i = 0; i < n; i++)
     {
         if(isinff(vec[i]) || isnanf(vec[i]) || isinf(vec[i]) || isnan(vec[i]))
         {
-            std::cerr << "ERR: " << filename << " (" << i / inputDim << ", " << i % inputDim << ") " << vec[i] << std::endl;
+            std::cerr << "ERR: " << date << "/" << code << " (" << i / pThis->inputDim << ", " << i % pThis->inputDim << ") " << vec[i] << std::endl;
         }
         //verify(!isnan(vec[i]));
         //verify(!isinf(vec[i]));
@@ -509,7 +579,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
         }
         
         /* Write on vec based on reward */
-        reshaper.Reward2Vec(vec.data() + t * targetDim, reward, code);
+        reshaper.Reward2VecOut(vec.data() + t * targetDim, reward, code);
     }
 
     for(long i = 0; i < n; i++)

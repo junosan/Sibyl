@@ -107,7 +107,7 @@ private:
 template <class T>
 TxtDataVec<T>::TxtDataVec(int nFields_) : nFields(nFields_)
 {
-    assert(nFields > 0);
+    verify(nFields > 0);
     cur .resize((std::size_t)nFields);
     last.resize((std::size_t)nFields);
 }

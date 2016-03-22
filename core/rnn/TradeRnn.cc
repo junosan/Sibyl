@@ -17,7 +17,7 @@ TradeRnn::~TradeRnn()
 
 void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_, bool cont)
 {
-    assert(runType_ != RunType::kNull);
+    verify(runType_ != RunType::kNull);
     
     runType       = runType_;
     dataPath      = dataPath_;
@@ -41,9 +41,21 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
         printf("Random seed: %lld\n\n", randomSeed);
     }
     
+    bool whiten = true;
+    
     if (runType == RunType::kTrain)
     {
         trainData.ReadFileList(dataPath + "/train.list");
+
+        // must appear before ReadData()
+        if (whiten == true)
+        {
+            verify(workspacePath != "");
+            verify(system(std::string("mkdir -p " + workspacePath).c_str()) == 0);
+            trainData.reshaper.CalcWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
+            verify(true == trainData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
+        }
+        
         trainData.ReadData();
         trainDataStream.LinkDataSet(&trainData);
     }
@@ -51,6 +63,13 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
     if (runType == RunType::kTrain || runType == RunType::kDump)
     {
         devData.ReadFileList(dataPath + "/dev.list");
+
+        // must appear before ReadData()
+        if (whiten == true)
+        {
+            verify(true == devData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
+        }
+
         devData.ReadData();
         devDataStream.LinkDataSet(&devData);
     }
@@ -157,11 +176,17 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
         if (runType == RunType::kDump)
             InitUnrollStream(32, 1);
     }
+    
+    if (runType == RunType::kNetwork)
+    {
+        if (true == networkData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"))
+            std::cout << "loaded matrices" << std::endl; // temporary; for debugging
+    }
 }
 
 void TradeRnn::InitUnrollStream(unsigned long nUnroll_, unsigned long nStream_)
 {
-    assert(runType == RunType::kDump || runType == RunType::kNetwork);
+    verify(runType == RunType::kDump || runType == RunType::kNetwork);
     
     nUnroll = nUnroll_;
     nStream = nStream_;
@@ -188,7 +213,7 @@ void TradeRnn::InitUnrollStream(unsigned long nUnroll_, unsigned long nStream_)
 
 void TradeRnn::Train()
 {
-    assert(runType == RunType::kTrain);
+    verify(runType == RunType::kTrain);
     
     AutoOptimizer autoOptimizer;
 
@@ -257,7 +282,7 @@ void TradeRnn::Train()
 
 void TradeRnn::Dump()
 {
-    assert(runType == RunType::kDump);
+    verify(runType == RunType::kDump);
 
     unsigned long seqIdx = 83;
     unsigned long nFrame = devData.GetNumFrame(seqIdx);
@@ -322,7 +347,7 @@ void TradeRnn::Dump()
 
 void TradeRnn::RunOneFrame()
 {
-    assert(runType == RunType::kNetwork);
+    verify(runType == RunType::kNetwork);
     
     int curFrameBufIdx = (++frameIdx) % nUnroll;
 

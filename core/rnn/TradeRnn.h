@@ -19,8 +19,8 @@ class TradeRnn : public Rnn
 public:
     enum class RunType { kNull, kTrain, kDump, kNetwork };
     
-    void Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_, bool cont = false);
-    void InitUnrollStream(unsigned long nUnroll_, unsigned long nStream_);
+    void  Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_, bool cont = false);
+    void  InitUnrollStream(unsigned long nUnroll_, unsigned long nStream_);
     
     /*  kTrain  */
     void Train();
@@ -29,9 +29,11 @@ public:
     void Dump();
     
     /* kNetwork */
-    FLOAT* GetInputVec () { assert(nStream > 0); return matInput .GetHostData(); }
+    TradeDataSet::Reshaper&
+           Reshaper    () { return networkData.reshaper; }
+    FLOAT* GetInputVec () { verify(nStream > 0); return matInput .GetHostData(); }
     void   RunOneFrame ();
-    FLOAT* GetOutputVec() { assert(nStream > 0); return matOutput.GetHostData(); }
+    FLOAT* GetOutputVec() { verify(nStream > 0); return matOutput.GetHostData(); }
     
     TradeRnn() : runType(RunType::kNull), nStream(0) {}
     ~TradeRnn();
@@ -41,7 +43,7 @@ protected:
 
     std::string dataPath;
     std::string workspacePath;
-    TradeDataSet trainData, devData;
+    TradeDataSet trainData, devData, networkData;
     unsigned long inputChannel, outputChannel, inputDim, outputDim;
     DataStream trainDataStream, devDataStream;
     

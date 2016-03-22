@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <cassert>
 
 #include <fractal/fractal.h>
 
@@ -67,10 +68,10 @@ int main(int argc, char *argv[])
         vecRnn.back()->Configure(engine, TradeRnn::RunType::kNetwork, "", workspace);
     }
     std::size_t nRnn = vecRnn.size();
+    verify(nRnn > 0);
     
-    TradeDataSet tradeData;
-    unsigned long inputDim  = tradeData.reshaper.GetInputDim ();
-    unsigned long outputDim = tradeData.reshaper.GetTargetDim();
+    unsigned long inputDim  = vecRnn[0]->Reshaper().GetInputDim ();
+    unsigned long outputDim = vecRnn[0]->Reshaper().GetTargetDim();
     
     unsigned long nUnroll = 2;
     unsigned long nStream = 0; // will be set below
@@ -112,7 +113,7 @@ int main(int argc, char *argv[])
             {
                 FLOAT *vecIn = pRnn->GetInputVec();
                 for (std::size_t codeIdx = 0; codeIdx < nStream; codeIdx++)
-                    tradeData.reshaper.State2Vec(vecIn + codeIdx * inputDim, vecState[codeIdx]);
+                    pRnn->Reshaper().State2VecIn(vecIn + codeIdx * inputDim, vecState[codeIdx]);
             }
 
             /* Run RNN */
@@ -129,7 +130,7 @@ int main(int argc, char *argv[])
                 for (std::size_t codeIdx = 0; codeIdx < nStream; codeIdx++)
                 {
                     Reward temp;
-                    tradeData.reshaper.Vec2Reward(temp, vecOut + codeIdx * outputDim, vecState[codeIdx].code);
+                    pRnn->Reshaper().VecOut2Reward(temp, vecOut + codeIdx * outputDim, vecState[codeIdx].code);
                     vecReward[codeIdx] += temp;
                 }
             }

@@ -68,7 +68,7 @@ void TxtData::AdvanceLine()
 
 void TxtData::SetDelay(int d)
 {
-    assert(d >= 0);
+    verify(d >= 0);
     delay = d;
 }
 

@@ -24,7 +24,7 @@ public:
     void GetRefData();
     
     // for rnn 
-    std::vector<Reward>& GetRewardVec(); // returns vec with correct size (no content)
+    std::vector<Reward>& GetRewardVec(); // returns vec with correct size (0-filled)
     void                 SetRewardVec(const std::vector<Reward> &vec); // put in here after filling content
 
     // virtuals from Model; to be called by Trader

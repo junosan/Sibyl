@@ -98,7 +98,7 @@ int NetServer<TOrder, TItem>::Initialize(CSTR &port)
 template <class TOrder, class TItem>
 void NetServer<TOrder, TItem>::SendMsgOut()
 {
-    assert((sock_serv != sock_fail) && (sock_conn != sock_fail));
+    verify((sock_serv != sock_fail) && (sock_conn != sock_fail));
     const auto &msg = pBroker->BuildMsgOut();
     send(sock_conn, msg.c_str(), msg.size(), 0);
 }
@@ -106,7 +106,7 @@ void NetServer<TOrder, TItem>::SendMsgOut()
 template <class TOrder, class TItem>
 int NetServer<TOrder, TItem>::RecvMsgIn()
 {
-    assert((sock_serv != sock_fail) && (sock_conn != sock_fail));
+    verify((sock_serv != sock_fail) && (sock_conn != sock_fail));
     bufMsg[0] = '\0';
     while (true)
     {

@@ -10,11 +10,11 @@ namespace sibyl
 class Model
 {
 public:
-virtual
+    virtual
     CSTR& BuildMsgOut() = 0; // build ref list based on pPortfolio and other calculated results
 
     // to be called by Trader
-virtual
+    virtual
     void SetStateLogPaths(CSTR &state, CSTR &log) = 0;
     void SetTimeBounds   (TimeBounds timeBounds_) { timeBounds = timeBounds_; }
     void SetPortfolio    (Portfolio *pPortfolio_) { pPortfolio = pPortfolio_; }

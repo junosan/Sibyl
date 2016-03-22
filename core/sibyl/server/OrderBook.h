@@ -117,7 +117,7 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
         if (code_pItem.second->Type() == kSecELW) { existELW = true; break; }
     if (existELW == true)
     {
-        assert(ELW<TItem>::kospi200 > 0.0f);
+        verify(ELW<TItem>::kospi200 > 0.0f);
         sprintf(bufLine, "k %.5e\n", ELW<TItem>::kospi200);
         msg.append(bufLine);
     }
@@ -211,7 +211,7 @@ void OrderBook<TOrder, TItem>::RemoveEmptyOrders()
         auto &i = *code_pItem.second;
         for (auto iO = std::begin(i.ord); iO != std::end(i.ord);)
         {
-            assert(iO->second.q >= 0); // there should be no negative order 
+            verify(iO->second.q >= 0); // there should be no negative order 
             if (iO->second.q == 0) iO = i.ord.erase(iO);
             else                   iO++;
         }
@@ -415,7 +415,7 @@ it_ord_t<TOrder> OrderBook<TOrder, TItem>::ApplyInsert(it_itm_t<TItem> iItems, T
 {
     std::lock_guard<std::recursive_mutex> lock(mutexData);
     
-    assert(o.q > 0);   
+    verify(o.q > 0);   
     auto &i = *iItems->second;
     if (verbose == true) std::cout << "<Insert> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ")" << std::endl;
     
@@ -453,7 +453,7 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
         if (verbose == true) std::cout << "<Trade>  " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] " << pq.p << " (" << pq.q << ") = (" << o.q - pq.q << ")" << std::endl; 
         if (o.type == kOrdBuy)
         {
-            assert(o.p >= pq.p);
+            verify(o.p >= pq.p);
             if (o.p > pq.p) // if traded price was lower than requested
             {
                 if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << (o.p - pq.p) << " * (" << pq.q << ") * (1 + f_b) = ";
@@ -479,7 +479,7 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
         } else
         if (o.type == kOrdSell)
         {
-            assert(o.p <= pq.p);
+            verify(o.p <= pq.p);
             if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << pq.p << " * (" << pq.q << ") * (1 - f_s) = ";
             INT64 raw = (INT64)pq.p * pq.q;
             this->bal += raw - i.SFee(raw);

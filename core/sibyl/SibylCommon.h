@@ -85,6 +85,13 @@ public:
     PQ(int p_, int q_) : p(p_), q(q_) {}
 };
 
+#ifdef NDEBUG
+    #define verify(expression) ((void)(expression))
+#else
+    #include <cassert>
+    #define verify(expression) assert(expression)
+#endif /* NDEBUG */
+
 }
 
 #endif /* SIBYL_COMMON_H_ */

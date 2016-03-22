@@ -88,7 +88,7 @@ struct Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
         for (const auto &price_TOrder : i.ord)
         {
             const auto &o = price_TOrder.second;
-            assert(o.type != kOrdNull);
+            verify(o.type != kOrdNull);
             if (o.type == kOrdBuy) {
                 delta = (INT64)o.p * o.q;
                 delta = delta + i.BFee(delta);

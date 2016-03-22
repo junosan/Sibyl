@@ -96,7 +96,7 @@ int Security<TOrder>::P2Tck(INT p, OrdType type) const
 template <class TOrder>
 INT Security<TOrder>::Tck2P(int tck, OrdType type) const
 {
-    assert((tck >= -1) && (tck < (int)szTck));
+    verify((tck >= -1) && (tck < (int)szTck));
     if (type == kOrdSell) {
         if (tck == -1) return Ps0();
         else           return tbr[(std::size_t)(idxPs1 - tck)].p;
@@ -105,13 +105,13 @@ INT Security<TOrder>::Tck2P(int tck, OrdType type) const
         if (tck == -1) return Pb0();
         else           return tbr[(std::size_t)(idxPb1 + tck)].p;
     }
-    assert(false);
+    verify(false);
 }
 
 template <class TOrder>
 INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
 {
-    assert((tck >= -1) && (tck < (int)szTck));
+    verify((tck >= -1) && (tck < (int)szTck));
     if (tck >=  0) {
         if      (type == kOrdSell) return tbr[(std::size_t)(idxPs1 - tck)].q;
         else if (type == kOrdBuy ) return tbr[(std::size_t)(idxPb1 + tck)].q;
@@ -122,7 +122,7 @@ INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
         for (const auto &tb : tbr) if (p == tb.p) { q = tb.q; break; }
         return q;
     }
-    assert(false);
+    verify(false);
 }
 
 }

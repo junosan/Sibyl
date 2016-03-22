@@ -440,7 +440,7 @@ int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
 {
     if (nReqThisTick < kReqNPerTick)
     {
-        assert((req.type != kReq_ca) && (req.type != kReq_sa));
+        verify(req.type != kReq_ca && req.type != kReq_sa);
         
         if ((req.type == kReq_cb) || (req.type == kReq_cs) || (req.type == kReq_mb) || (req.type == kReq_ms))
         {
@@ -597,14 +597,14 @@ void Simulation::TrimM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
 {
     const auto &first_last = iItems->second->ord.equal_range(iOrd->first);
     const auto type = iOrd->second.type;
-    assert(iOrd != first_last.second); // iOrd must be in ItemSim pointed by iItems
+    verify(iOrd != first_last.second); // iOrd must be in ItemSim pointed by iItems
     for (iOrd++; iOrd != first_last.second; iOrd++)
     {
         auto &o = iOrd->second;
         if ((o.type == type) && (o.q > 0)) // skip already emptied orders
         {
             o.M -= q;
-            assert(o.M >= 0);
+            verify(o.M >= 0);
         }
     }
 }

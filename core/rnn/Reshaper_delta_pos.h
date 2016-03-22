@@ -18,17 +18,17 @@ public:
 class Reshaper_delta_pos : public Reshaper<ItemMem_delta_pos>
 {
 public:
-    Reshaper_delta_pos(unsigned long maxGTck_);
+    Reshaper_delta_pos(unsigned long maxGTck_,
+                       TradeDataSet *pTradeDataSet_,
+                       std::vector<std::string> *pFileList_,
+                       const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*));
 
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
-    void State2Vec (FLOAT *vec, const ItemState &state);
-    
-    /*   ref   -> fractal */
-    void Reward2Vec(FLOAT *vec, const Reward &reward, CSTR &code) override;
-    
+    void State2VecIn(FLOAT *vec, const ItemState &state);
+
 private:
-    FLOAT ReshapeG_R2V_pos(FLOAT g) { return (FLOAT) ((g > 0.0f ? g : -0.001f) * kR2V); } // use only positive ref G values
+    FLOAT ReshapeG_R2V(FLOAT g) override { return (FLOAT) ((g > 0.0f ? g : -0.001f) * kR2V); } // use only positive ref G values
 };
 
 }

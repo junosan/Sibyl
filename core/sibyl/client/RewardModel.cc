@@ -8,7 +8,7 @@ namespace sibyl
 
 void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_)
 {
-    assert((timeConst_ > 0.0) && (rhoWeight_ >= 0.0) && (rhoInit_ >= 0.0));
+    verify((timeConst_ > 0.0) && (rhoWeight_ >= 0.0) && (rhoInit_ >= 0.0));
     timeConst = timeConst_; rhoWeight = rhoWeight_; rho = rhoInit_;
 }
 
@@ -36,11 +36,11 @@ void RewardModel::SetRefPath(CSTR &path)
 
 void RewardModel::InitCodes()
 {
-    assert(pPortfolio != nullptr);
+    verify(pPortfolio != nullptr);
     for (const auto &code_pItem : pPortfolio->items)
     {
         auto it_bool = rewards.insert(std::make_pair(code_pItem.first, Reward()));
-        assert(it_bool.second == true);
+        verify(it_bool.second == true);
     }
     InitGLogs();
 }
@@ -53,9 +53,9 @@ void RewardModel::InitGLogs()
         {
             STR filename = pathLog + code_reward.first + ".ref";
             FILE *pf = fopen(filename.c_str(), "wb");
-            assert(pf != nullptr); // kill, as fclose(nullptr) is a crash anyways
+            verify(pf != nullptr); // kill, as fclose(nullptr) is a crash anyways
             auto it_bool = mfLogRef.insert(std::make_pair(code_reward.first, std::unique_ptr<FILE, int(*)(FILE*)>(pf, fclose)));
-            assert(it_bool.second == true);
+            verify(it_bool.second == true);
         }
     }
 }
@@ -75,7 +75,7 @@ void RewardModel::GetRefData()
                 return;
             }
             auto it_bool = mfRef.insert(std::make_pair(code_reward.first, std::unique_ptr<FILE, int(*)(FILE*)>(pf, fclose)));
-            assert(it_bool.second == true);
+            verify(it_bool.second == true);
         }
         isFirstTick = false;
     }
@@ -88,7 +88,7 @@ void RewardModel::GetRefData()
         {
             auto &r = code_reward.second;
             auto imf = mfRef.find(code_reward.first);
-            assert(imf != std::end(mfRef));
+            verify(imf != std::end(mfRef));
             std::size_t szRead = fread(bufRef, sizeof(float), dimRef, &*(imf->second));
             if (szRead == dimRef)
             {
@@ -135,7 +135,7 @@ std::vector<Reward>& RewardModel::GetRewardVec()
 
 void RewardModel::SetRewardVec(const std::vector<Reward> &vec)
 {
-    assert(rewards.size() == vec.size());
+    verify(rewards.size() == vec.size());
     std::size_t codeIdx = 0;
     for (auto &code_reward : rewards)
     {
@@ -182,7 +182,7 @@ CSTR& RewardModel::BuildMsgOut()
 //
 // Put cancel and new order in buffers first and match cancel->new order pairs to replace with modify orders 
 {
-    assert(timeConst > 0.0);
+    verify(timeConst > 0.0);
     msg.clear();
     
     const auto &time  = pPortfolio->time;
@@ -578,7 +578,7 @@ void RewardModel::WriteGLogs()
             std::size_t szDim = 42;
             float data[szDim];
             auto imf = mfLogRef.find(code_reward.first);
-            assert(imf != std::end(mfLogRef));
+            verify(imf != std::end(mfLogRef));
             FILE *pf = &*(imf->second);
             data[0] = r.G0.s;
             data[1] = r.G0.b;
