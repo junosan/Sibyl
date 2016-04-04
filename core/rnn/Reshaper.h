@@ -33,24 +33,25 @@ public:
     Reshaper(unsigned long maxGTck_,
              TradeDataSet *pTradeDataSet_,
              std::vector<std::string> *pFileList_,
-             const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*));
+             const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*));
     
     unsigned long GetMaxGTck  () { return maxGTck;   }
     unsigned long GetInputDim () { return inputDim;  }
     unsigned long GetTargetDim() { return targetDim; }
 
-    bool ReadWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening);
-    void CalcWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening);
+    bool ReadWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening);
+    void CalcWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening);
+    void DispWhiteningMatrix();
 
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
     virtual void State2VecIn(FLOAT *vec, const ItemState &state) = 0;
     
-    /*   ref   -> fractal */
-    void Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code);
+    /*   ref   -> fractal */ /* (State2VecIn)xN, (Reward2VecOut)xN (called in batch) */
+    virtual void Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code);
     
-    /* fractal ->  sibyl  */
-    void VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code);
+    /* fractal ->  sibyl  */ /* (State2VecIn   ,  VecOut2Reward)xN (called in pairs) */
+    virtual void VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code);
     
 protected:
     virtual FLOAT ReshapePrice(FLOAT p) { return (FLOAT) (std::log((FLOAT) p) * 100.0); }
@@ -66,7 +67,7 @@ protected:
     /* TradeDataSet */
     TradeDataSet *pTradeDataSet;
     std::vector<std::string> *pFileList;
-    const unsigned long (*ReadRawFile)(std::vector<FLOAT>&, const std::string&, TradeDataSet*);
+    const unsigned long (*ReadRawFile)(std::vector<FLOAT>&, CSTR&, TradeDataSet*);
     
     /* Eigen library */
     typedef float EScalar;
@@ -82,7 +83,7 @@ template <class TItemMem>
 Reshaper<TItemMem>::Reshaper(unsigned long maxGTck_,
                              TradeDataSet *pTradeDataSet_,
                              std::vector<std::string> *pFileList_,
-                             const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*))
+                             const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
                              : useWhitening(false)
 {
     verify(maxGTck_ >= 0 && pTradeDataSet_ != nullptr && pFileList_ != nullptr && ReadRawFile_ != nullptr);
@@ -96,6 +97,12 @@ Reshaper<TItemMem>::Reshaper(unsigned long maxGTck_,
 template <class TItemMem>
 void Reshaper<TItemMem>::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
 {
+    const auto iItems = items.find(code);
+    verify(iItems != std::end(items));
+    
+    if (vec == nullptr) return; // Derived Reshaper may use this to implement special functions
+                                // e.g., rewinding any time-dependent variables
+    
     unsigned long idxTarget = 0;
     
     vec[idxTarget++] = ReshapeG_R2V(reward.G0.s);
@@ -112,6 +119,9 @@ void Reshaper<TItemMem>::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &c
 template <class TItemMem>
 void Reshaper<TItemMem>::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
 {
+    const auto iItems = items.find(code);
+    verify(iItems != std::end(items));
+    
     unsigned long idxTarget = 0;
     
     reward.G0.s = ReshapeG_V2R(vec[idxTarget++]);
@@ -137,7 +147,7 @@ bool Reshaper<TItemMem>::IsWhiteningMatrixValid()
 } 
 
 template <class TItemMem>
-bool Reshaper<TItemMem>::ReadWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening)
+bool Reshaper<TItemMem>::ReadWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening)
 {
     bool exists = ( true == Eigen::read_binary(filename_mean     , matMean     ) &&
                     true == Eigen::read_binary(filename_whitening, matWhitening) );                    
@@ -154,7 +164,7 @@ bool Reshaper<TItemMem>::ReadWhiteningMatrix(const std::string &filename_mean, c
 }
 
 template <class TItemMem>
-void Reshaper<TItemMem>::CalcWhiteningMatrix(const std::string &filename_mean, const std::string &filename_whitening)
+void Reshaper<TItemMem>::CalcWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening)
 {
     // Calculates mean vector and whitening matrix for ZCA whitening
     // See following for explanation:
@@ -203,6 +213,19 @@ void Reshaper<TItemMem>::CalcWhiteningMatrix(const std::string &filename_mean, c
     
     verify(true == Eigen::write_binary(filename_mean     , matMean     ));
     verify(true == Eigen::write_binary(filename_whitening, matWhitening));
+}
+
+template <class TItemMem>
+void Reshaper<TItemMem>::DispWhiteningMatrix()
+{
+    if (true == IsWhiteningMatrixValid())
+    {
+        std::cout << "mean vector\n"      << matMean.transpose()        << "\n\n"
+                  << "whitening matrix\n" << matWhitening               << "\n\n"
+                  << "eigenvalues\n"      << matWhitening.eigenvalues() << std::endl;
+    }
+    else
+        std::cout << "Reshaper::DispWhiteningMatrix: No valid matrix initialized" << std::endl;
 }
 
 template <class TItemMem>

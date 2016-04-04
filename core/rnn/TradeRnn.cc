@@ -179,8 +179,7 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
     
     if (runType == RunType::kNetwork)
     {
-        if (true == networkData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"))
-            std::cout << "loaded matrices" << std::endl; // temporary; for debugging
+        networkData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
     }
 }
 

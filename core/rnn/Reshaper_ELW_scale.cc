@@ -1,19 +1,19 @@
 
-#include "Reshaper_ELW.h"
+#include "Reshaper_ELW_scale.h"
 
 namespace sibyl
 {
 
-Reshaper_ELW::Reshaper_ELW(unsigned long maxGTck_,
-                           TradeDataSet *pTradeDataSet_,
-                           std::vector<std::string> *pFileList_,
-                           const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
-                           : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_)
+Reshaper_ELW_scale::Reshaper_ELW_scale(unsigned long maxGTck_,
+                                       TradeDataSet *pTradeDataSet_,
+                                       std::vector<std::string> *pFileList_,
+                                       const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
+                                       : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_)
 {
     inputDim  = 45;
 }
 
-void Reshaper_ELW::State2VecIn(FLOAT *vec, const ItemState &state)
+void Reshaper_ELW_scale::State2VecIn(FLOAT *vec, const ItemState &state)
 {
     const long interval = kTimeTickSec; // seconds
     const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
@@ -21,10 +21,11 @@ void Reshaper_ELW::State2VecIn(FLOAT *vec, const ItemState &state)
     auto iItems = items.find(state.code);
     if (iItems == std::end(items))
     {
-        auto it_bool = items.insert(std::make_pair(state.code, ItemMem_ELW()));
+        auto it_bool = items.insert(std::make_pair(state.code, ItemMem_ELW_scale()));
         verify(it_bool.second == true);
         iItems = it_bool.first;
-        iItems->second.initPr       = state.pr;
+        // iItems->second.initPr       = state.pr;
+        iItems->second.initPr       = state.tbr[idxPs1].p; // this never goes 0
         iItems->second.initKospi200 = state.kospi200;
         iItems->second.initThp      = state.thr[0];
     }
@@ -105,6 +106,49 @@ void Reshaper_ELW::State2VecIn(FLOAT *vec, const ItemState &state)
     verify(inputDim == idxInput);
     
     WhitenVector(vec); // this alters vector only if matrices are initialized
+}
+
+void Reshaper_ELW_scale::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
+{
+    const auto iItems = items.find(code);
+    verify(iItems != std::end(items));
+    
+    if (vec == nullptr) return;
+    
+    FLOAT scale = (FLOAT) (iItems->second.initPr / 20.0);
+    
+    unsigned long idxTarget = 0;
+    
+    vec[idxTarget++] = ReshapeG_R2V(reward.G0.s * scale);
+    vec[idxTarget++] = ReshapeG_R2V(reward.G0.b * scale);
+    
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].s  * scale);
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].b  * scale);
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cs * scale);
+    for (std::size_t j = 0; j < maxGTck; j++) vec[idxTarget++] = ReshapeG_R2V(reward.G[j].cb * scale);
+    
+    verify(targetDim == idxTarget);
+}
+
+void Reshaper_ELW_scale::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
+{
+    const auto iItems = items.find(code);
+    verify(iItems != std::end(items));
+    
+    // FLOAT scale = (FLOAT) (iItems->second.initPr / 20.0);
+    FLOAT scale = 1.0f;
+    
+    unsigned long idxTarget = 0;
+    
+    reward.G0.s = ReshapeG_V2R(vec[idxTarget++] / scale);
+    reward.G0.b = ReshapeG_V2R(vec[idxTarget++] / scale);
+    
+    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].s  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++] / scale) : (FLOAT)   0.0);
+    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].b  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++] / scale) : (FLOAT)   0.0);
+    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].cs = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++] / scale) : (FLOAT) 100.0);
+    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].cb = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++] / scale) : (FLOAT) 100.0);
+    
+    verify(targetDim == idxTarget);
 }
 
 }

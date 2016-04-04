@@ -17,6 +17,7 @@ int main(int argc, char *argv[])
     TradeDataSet dataset;
     dataset.ReadFileList(argv[1]);
     dataset.reshaper.CalcWhiteningMatrix(path + "/mean.matrix", path + "/whitening.matrix");
+    dataset.reshaper.DispWhiteningMatrix();
     
     return 0;
 }

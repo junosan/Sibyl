@@ -21,7 +21,7 @@ public:
     Reshaper_delta(unsigned long maxGTck_,
                    TradeDataSet *pTradeDataSet_,
                    std::vector<std::string> *pFileList_,
-                   const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*));
+                   const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*));
 
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */

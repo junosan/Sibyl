@@ -7,7 +7,7 @@ namespace sibyl
 Reshaper_raw::Reshaper_raw(unsigned long maxGTck_,
                            TradeDataSet *pTradeDataSet_,
                            std::vector<std::string> *pFileList_,
-                           const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*))
+                           const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
                            : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_)
 {
     inputDim  = 43;
@@ -15,7 +15,7 @@ Reshaper_raw::Reshaper_raw(unsigned long maxGTck_,
 
 void Reshaper_raw::State2VecIn(FLOAT *vec, const ItemState &state)
 {
-    const long interval = 10; // seconds
+    const long interval = kTimeTickSec; // seconds
     const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
     
     auto iItems = items.find(state.code);

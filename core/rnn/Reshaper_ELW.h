@@ -23,7 +23,7 @@ public:
     Reshaper_ELW(unsigned long maxGTck_,
                  TradeDataSet *pTradeDataSet_,
                  std::vector<std::string> *pFileList_,
-                 const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, const std::string&, TradeDataSet*));
+                 const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*));
 
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
@@ -33,7 +33,7 @@ private:
     FLOAT ReshapePrice(FLOAT p) override { return (FLOAT) (std::log((FLOAT) 1 + p) * 10.0); }
 
     FLOAT ReshapeG_R2V(FLOAT g) override { return (FLOAT) (std::min(std::abs(g), 0.5f) * ((g > 0.0f) - (g < 0.0f))); }
-    FLOAT ReshapeG_V2R(FLOAT g) override { return (FLOAT) g; } 
+    FLOAT ReshapeG_V2R(FLOAT g) override { return (FLOAT) g; }
 };
 
 }

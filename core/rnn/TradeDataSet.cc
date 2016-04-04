@@ -314,7 +314,10 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
     auto posSlash2 = filename.substr(0, posSlash).find_last_of('/'); 
     auto date      = filename.substr(posSlash2 + 1, posSlash - posSlash2 - 1);
     auto code      = filename.substr(posSlash + 1, posDot - posSlash - 1);
-    state.code     = code;
+    
+    verify(date.empty() == false && code.empty() == false);
+    
+    state.code = date + "/" + code;
 
 #if 0
     /* Read the number of samples */
@@ -338,7 +341,7 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
 #endif
 
     /* Number of frames */
-    const long interval = 10; // seconds
+    const long interval = sibyl::kTimeTickSec; // seconds
     const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
     
     /* .raw file */
@@ -514,7 +517,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
        Gs0 Gb0 Gs(1:10) Gb(1:10) Gcs(1:10) Gcb(1:10)
     */
 
-    const long interval = 10; // seconds
+    const long interval = sibyl::kTimeTickSec; // seconds
     const long refDim = 42;
     const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
     const long n = targetDim * T;
@@ -522,10 +525,17 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
 
     vec.resize(n);
 
-    /* Read code */
-    auto posSlash = filename.find_last_of('/');
-    auto posDot   = filename.find_last_of('.');
-    auto code     = filename.substr(posSlash + 1, posDot - posSlash - 1);
+    /* Read code from filename */
+    auto posSlash  = filename.find_last_of('/');
+    auto posDot    = filename.find_last_of('.');
+    auto path      = filename.substr(0, posSlash + 1); // includes '/'
+    auto posSlash2 = filename.substr(0, posSlash).find_last_of('/'); 
+    auto date      = filename.substr(posSlash2 + 1, posSlash - posSlash2 - 1);
+    auto code      = filename.substr(posSlash + 1, posDot - posSlash - 1);
+    
+    verify(date.empty() == false && code.empty() == false);
+    
+    code = date + "/" + code;
 
     /* Read file */
     FILE *f;
@@ -552,6 +562,9 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
 
     sibyl::Reward reward;
     long maxGTck = (long) reshaper.GetMaxGTck();
+    
+    /* (if present) rewind any time-dependent variables */
+    reshaper.Reward2VecOut(nullptr, reward, code);
 
     for(long t = 0; t < T; t++)
     {
