@@ -11,7 +11,14 @@
 #include "../Security.h"
 #include "../Security_KOSPI.h"
 #include "../Security_ELW.h"
+#include "../Security_ETF.h"
 #include "../Catalog.h"
+#include "../util/DispPrefix.h"
+
+#ifdef _WIN32 // temporarily disable minwindef.h definitions
+    #undef max
+    #undef min
+#endif /* _WIN32 */
 
 namespace sibyl
 {
@@ -69,6 +76,9 @@ class OrderBook : public Catalog<TItem> //  /**/ mutex'd
 {
 public:
     void SetVerbose(bool verbose_) { verbose = verbose_; }
+    DispPrefix dispPrefix;
+
+    std::recursive_mutex items_mutex; // use when modifying items from an external class
 
 /**/CSTR& BuildMsgOut      (bool addMyOrd);
 /**/void  RemoveEmptyOrders(); // called every new tick
@@ -83,8 +93,6 @@ public:
     OrderBook() : verbose(false) {}
 private:
     bool verbose;
-    
-    std::recursive_mutex mutexData;
 
     std::vector<NamedReq<TOrder, TItem>> nreq;
     STR msg;
@@ -94,7 +102,7 @@ private:
 template <class TOrder, class TItem>
 CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutexData);
+    std::lock_guard<std::recursive_mutex> lock(items_mutex);
     
     msg.clear();
     
@@ -117,12 +125,13 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
         if (code_pItem.second->Type() == kSecELW) { existELW = true; break; }
     if (existELW == true)
     {
-        verify(ELW<TItem>::kospi200 > 0.0f);
+        if (ELW<TItem>::kospi200 <= 0.0f)
+            std::cerr << dispPrefix << "OrderBook::BuildMsgOut: Nonpositive KOSPI200 index " << ELW<TItem>::kospi200 << std::endl; 
         sprintf(bufLine, "k %.5e\n", ELW<TItem>::kospi200);
         msg.append(bufLine);
     }
     
-    // Individual items (d, (e), o)
+    // Individual items (d, (e), (n), o)
     for (const auto &code_pItem : this->items)
     {
         const auto &i = *code_pItem.second;
@@ -167,6 +176,13 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
             msg.append(bufLine);
         }
         
+        if (i.Type() == kSecETF)
+        {
+            auto &i = *dynamic_cast<ETF<TItem>*>(code_pItem.second.get()); // reference as ETF<TItem>
+            sprintf(bufLine, "n %s %.5e\n", code_pItem.first.c_str(), i.devNAV);
+            msg.append(bufLine);
+        }
+        
         sprintf(bufLine, "o %s %d", code_pItem.first.c_str(), i.cnt);
         msg.append(bufLine);
         
@@ -204,14 +220,15 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
 template <class TOrder, class TItem>
 void OrderBook<TOrder, TItem>::RemoveEmptyOrders()
 {
-    std::lock_guard<std::recursive_mutex> lock(mutexData);
+    std::lock_guard<std::recursive_mutex> lock(items_mutex);
     
     for (const auto &code_pItem : this->items)
     {
         auto &i = *code_pItem.second;
         for (auto iO = std::begin(i.ord); iO != std::end(i.ord);)
         {
-            verify(iO->second.q >= 0); // there should be no negative order 
+            if (iO->second.q < 0)
+                std::cerr << dispPrefix << "OrderBook::RemoveEmptyOrders: o.q (" << iO->second.q << ") < 0 found" << std::endl;  
             if (iO->second.q == 0) iO = i.ord.erase(iO);
             else                   iO++;
         }
@@ -221,11 +238,11 @@ void OrderBook<TOrder, TItem>::RemoveEmptyOrders()
 template <class TOrder, class TItem>
 const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(UnnamedReq<TItem> req)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutexData);
+    std::lock_guard<std::recursive_mutex> lock(items_mutex);
     
     if (verbose == true)
     {
-        std::cout << "Allot:   ";
+        std::cout << dispPrefix << "Allot:   ";
         if      (req.type == kReq_b ) std::cout << "b";
         else if (req.type == kReq_s ) std::cout << "s";
         else if (req.type == kReq_cb) std::cout << "cb";
@@ -251,7 +268,9 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
              (req.p == req.mp)                              ||
              ((i.Type() == kSecELW) && (req.q % 10 != 0)) )
         {
-            std::cerr << "OrderBook.AllotReq: invalid req.p or req.q" << std::endl;
+            std::cerr << dispPrefix
+                      << "OrderBook::AllotReq: invalid req " << req.type << " {" << req.iItems->first.c_str() << "} "
+                      << req.p << " (" << req.q << ") " << req.mp << std::endl;
             skip = true;
         }
         
@@ -281,7 +300,9 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     temp.p      = req.p;
                     temp.q      = req.q;
                     nreq.push_back(temp);
-                    if (verbose == true) std::cout << "                 -> " << req.p << " (" << req.q << ")" << std::endl; 
+                    if (verbose == true)
+                        std::cout << dispPrefix
+                                  << "                 -> " << req.p << " (" << req.q << ")" << std::endl; 
                 }
             } else
             
@@ -297,7 +318,9 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     temp.p    = req.p;
                     temp.q    = req.q;
                     nreq.push_back(temp);
-                    if (verbose == true) std::cout << "                 -> " << req.p << " (" << req.q << ")" << std::endl;
+                    if (verbose == true)
+                        std::cout << dispPrefix
+                                  << "                 -> " << req.p << " (" << req.q << ")" << std::endl;
                 }
             } else
                 
@@ -346,7 +369,8 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                             nreq.push_back(temp);
                             if (verbose == true)
                             {
-                                std::cout << "                 -> (" << deltaq << ")";
+                                std::cout << dispPrefix
+                                          << "                 -> (" << deltaq << ")";
                                 if ((req.type == kReq_mb) || (req.type == kReq_ms))
                                     std::cout << " " << req.mp;
                                 std::cout << std::endl;
@@ -379,7 +403,8 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     nreq.push_back(temp);
                     if (verbose == true)
                     {
-                        std::cout << "                 -> ";
+                        std::cout << dispPrefix
+                                  << "                 -> ";
                         if (o.type == kOrdBuy ) std::cout << "cb";
                         if (o.type == kOrdSell) std::cout << "cs";
                         std::cout << " {" << code_pItem.first << "} " << o.p << " (" << o.q << ")" << std::endl;
@@ -402,7 +427,9 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 temp.p      = i.Ps0();
                 temp.q      = i.cnt;
                 nreq.push_back(temp);
-                if (verbose == true) std::cout << "                 -> s {" << code_pItem.first << "} " << temp.p << " (" << temp.q << ")" << std::endl;
+                if (verbose == true)
+                    std::cout << dispPrefix
+                              << "                 -> s {" << code_pItem.first << "} " << temp.p << " (" << temp.q << ")" << std::endl;
             }
         }
     }
@@ -413,26 +440,31 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
 template <class TOrder, class TItem>
 it_ord_t<TOrder> OrderBook<TOrder, TItem>::ApplyInsert(it_itm_t<TItem> iItems, TOrder o)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutexData);
+    std::lock_guard<std::recursive_mutex> lock(items_mutex);
     
-    verify(o.q > 0);   
+    if (o.q <= 0)
+    {
+        std::cerr << dispPrefix << "OrderBook::ApplyInsert: {" << iItems->first << "} o.q (" << o.q << ") <= 0 found" << std::endl;
+        o.q = 0;
+    }
+       
     auto &i = *iItems->second;
-    if (verbose == true) std::cout << "<Insert> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ")" << std::endl;
+    if (verbose == true) std::cout << dispPrefix << "<Insert> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ")" << std::endl;
     
     if (o.type == kOrdBuy)
     {
-        if (verbose == true) std::cout << "    [bal]: " << this->bal << " [-] " << o.p << " * (" <<  o.q << ") * (1 + f_b) = ";
+        if (verbose == true) std::cout << dispPrefix << "    [bal]: " << this->bal << " [-] " << o.p << " * (" <<  o.q << ") * (1 + f_b) = ";
         INT64 raw = (INT64)o.p * o.q;
         this->bal -= raw + i.BFee(raw);
         if (verbose == true) std::cout << this->bal << std::endl;
-        if (this->bal < 0) std::cerr << "OrderBook.ApplyInsert: Nagative bal reached" << std::endl;
+        if (this->bal < 0) std::cerr << dispPrefix << "OrderBook::ApplyInsert: Nagative bal reached" << std::endl;
     } else
     if (o.type == kOrdSell)
     {
-        if (verbose == true) std::cout << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [-] (" << o.q << ") = "; 
+        if (verbose == true) std::cout << dispPrefix << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [-] (" << o.q << ") = "; 
         i.cnt -= o.q;
         if (verbose == true) std::cout << i.cnt << std::endl;
-        if (i.cnt < 0) std::cerr << "OrderBook.ApplyInsert: Nagative cnt reached" << std::endl;
+        if (i.cnt < 0) std::cerr << dispPrefix << "OrderBook::ApplyInsert: Nagative cnt reached" << std::endl;
     }
     
     o.tck_orig = i.P2Tck(o.p, o.type);
@@ -444,25 +476,30 @@ it_ord_t<TOrder> OrderBook<TOrder, TItem>::ApplyInsert(it_itm_t<TItem> iItems, T
 template <class TOrder, class TItem>
 void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrder> iOrd, PQ pq)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutexData);
+    std::lock_guard<std::recursive_mutex> lock(items_mutex);
     
     if (pq.q > 0)
     {
         auto &i = *iItems->second;
         auto &o = iOrd->second;
-        if (verbose == true) std::cout << "<Trade>  " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] " << pq.p << " (" << pq.q << ") = (" << o.q - pq.q << ")" << std::endl; 
+        if (verbose == true) std::cout << dispPrefix << "<Trade>  " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] " << pq.p << " (" << pq.q << ") = (" << o.q - pq.q << ")" << std::endl; 
         if (o.type == kOrdBuy)
         {
-            verify(o.p >= pq.p);
+            if (o.p < pq.p)
+            {
+                std::cerr << dispPrefix << "OrderBook::ApplyTrade: {" << iItems->first << "} o.p (" << o.p << ") < delta.p (" << pq.p << ") for buy order found" << std::endl;
+                std::cerr << dispPrefix << "OrderBook::ApplyTrade: bal now may become inaccurate" << std::endl;
+            }
+            
             if (o.p > pq.p) // if traded price was lower than requested
             {
-                if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << (o.p - pq.p) << " * (" << pq.q << ") * (1 + f_b) = ";
+                if (verbose == true) std::cout << dispPrefix << "    [bal]: " << this->bal << " [+] " << (o.p - pq.p) << " * (" << pq.q << ") * (1 + f_b) = ";
                 INT64 raw = (INT64)(o.p - pq.p) * pq.q;
                 this->bal += raw + i.BFee(raw);
                 if (verbose == true) std::cout << this->bal << std::endl;
             }
             
-            if (verbose == true) std::cout << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << pq.q << ") = ";
+            if (verbose == true) std::cout << dispPrefix << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << pq.q << ") = ";
             i.cnt += pq.q;
             if (verbose == true) std::cout << i.cnt << std::endl;
             
@@ -479,8 +516,13 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
         } else
         if (o.type == kOrdSell)
         {
-            verify(o.p <= pq.p);
-            if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << pq.p << " * (" << pq.q << ") * (1 - f_s) = ";
+            if (o.p > pq.p)
+            {
+                std::cerr << dispPrefix << "OrderBook::ApplyTrade: {" << iItems->first << "} o.p (" << o.p << ") > delta.p (" << pq.p << ") for sell order found" << std::endl;
+                std::cerr << dispPrefix << "OrderBook::ApplyTrade: bal now may become inaccurate" << std::endl;
+            }
+            
+            if (verbose == true) std::cout << dispPrefix << "    [bal]: " << this->bal << " [+] " << pq.p << " * (" << pq.q << ") * (1 - f_s) = ";
             INT64 raw = (INT64)pq.p * pq.q;
             this->bal += raw - i.SFee(raw);
             if (verbose == true) std::cout << this->bal << std::endl;
@@ -496,39 +538,44 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             }
         }
         o.q -= pq.q;
-        if (o.q < 0) std::cerr << "OrderBook.ApplyTrade: Negative order q reached" << std::endl;
+        if (o.q < 0) std::cerr << dispPrefix << "OrderBook::ApplyTrade: Negative order q reached" << std::endl;
     }
 }
 
 template <class TOrder, class TItem>
 void OrderBook<TOrder, TItem>::ApplyCancel(it_itm_t<TItem> iItems, it_ord_t<TOrder> iOrd, INT q)
 {
-    std::lock_guard<std::recursive_mutex> lock(mutexData);
+    std::lock_guard<std::recursive_mutex> lock(items_mutex);
     
     if (q > 0)
     {
         auto &i = *iItems->second;
         auto &o = iOrd->second;
-        if (verbose == true) std::cout << "<Cancel> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] (" << q << ") = (" << o.q - q << ")" << std::endl;
+        if (verbose == true) std::cout << dispPrefix << "<Cancel> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] (" << q << ") = (" << o.q - q << ")" << std::endl;
         
         if (o.type == kOrdBuy)
         {
-            if (verbose == true) std::cout << "    [bal]: " << this->bal << " [+] " << o.p << " * (" << q << ") * (1 + f_b) = ";
+            if (verbose == true) std::cout << dispPrefix << "    [bal]: " << this->bal << " [+] " << o.p << " * (" << q << ") * (1 + f_b) = ";
             INT64 raw = (INT64)o.p * q;
             this->bal += raw + i.BFee(raw);
             if (verbose == true) std::cout << this->bal << std::endl;
         } else
         if (o.type == kOrdSell)
         {
-            if (verbose == true) std::cout << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << q << ") = ";
+            if (verbose == true) std::cout << dispPrefix << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << q << ") = ";
             i.cnt += q;
             if (verbose == true) std::cout << i.cnt << std::endl;
         }
         o.q -= q;
-        if (o.q < 0) std::cerr << "OrderBook.ApplyCancel: Negative order q reached" << std::endl;
+        if (o.q < 0) std::cerr << dispPrefix << "OrderBook::ApplyCancel: Negative order q reached" << std::endl;
     }
 }
 
 }
+
+#ifdef _WIN32 // restore minwindef.h definitions
+    #define max(a,b)            (((a) > (b)) ? (a) : (b))
+    #define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif /* _WIN32 */
 
 #endif /* SIBYL_SERVER_ORDERBOOK_H_ */

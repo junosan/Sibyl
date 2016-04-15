@@ -12,11 +12,14 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
 {
     bool usingKOSPI = true;
     bool usingELW   = true;
-    int  nELW = 0;
+    bool usingETF   = true;
+    int  nELW = 0;   // specified in config file
+    int  cntELW = 0; // actually added
     
     STR listInitCnt;
     STR listKOSPI;
-    STR listBan;
+    STR listETF;
+    STR listNotKOSPI;
     STR listDelay1h;
     
     // read config file
@@ -41,8 +44,12 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
         else if ( name == "ELW_NCNT") {
             if ((val.empty() == true) || ((nELW = std::stoi(val)) <= 0)) usingELW = false; 
         }
-        else if ((name == "BAN_CODE") && (val.empty() == false))
-            listBan = val;
+        else if ( name == "ETF_CODE") {
+            if (val.empty() == false) listETF  = val;
+            else                      usingETF = false;
+        }
+        else if ((name == "NOTKOSPI") && (val.empty() == false))
+            listNotKOSPI = val;
         else if ((name == "DELAY_1H") && (val.empty() == false))
             listDelay1h = val; 
     }
@@ -52,20 +59,29 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
     
     // auto add data
     STR path = datapath;
-    if ((path.empty() == false) && (path[path.size() - 1] != '/')) path.append("/");
+    if (path.empty() == false && path.back() != '/') path.append("/");
+    STR pathETF = path + "ETF/";
     
-    struct stat sDir;
-    if (-1 == stat(path.c_str(), &sDir)) return DisplayLoadError("Data path invalid");
-    if (S_ISDIR(sDir.st_mode) == false)  return DisplayLoadError("Data path not a directory");
+    // last argument should be a 'new' pointer 
+    auto OpenAndInsert = [&](CSTR &path, CSTR &code, ItemSim *p) {
+        bool success = p->open(path, code);
+        if (success == true)
+        {
+            auto it_bool = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemSim>(p)));
+            success = it_bool.second;
+        }
+        if (success == false) delete p;
+        return success;
+    };
     
-    if ( ((usingKOSPI == true) && (listKOSPI.empty() == true)) ||
-          (usingELW   == true) ) // auto add 
-    {
-        int cntELW = 0;
+    auto AutoAdd = [&](CSTR &path, SecType type) {
+        struct stat sDir;
+        if (-1 == stat(path.c_str(), &sDir)) return DisplayLoadError("Data path invalid");
+        if (S_ISDIR(sDir.st_mode) == false)  return DisplayLoadError("Data path not a directory");
         
         DIR *pDir = opendir(path.c_str());
-        if (pDir == nullptr) return DisplayLoadError("Data path inaccessible");
-
+        if (pDir == nullptr)                 return DisplayLoadError("Data path inaccessible");
+        
         struct dirent *pEnt;
         while ((pEnt = readdir(pDir)) != nullptr)
         {
@@ -73,74 +89,67 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
             STR ext  = ".txt";
             
             int nameSize = (int)name.size() - (int)ext.size(); 
-            if ( ( (nameSize == codeSize) || (nameSize == codeSize + 1) )      &&
+            if ( (nameSize == codeSize || nameSize == codeSize + 1)             &&
                  (0 == name.compare(name.size() - ext.size(), ext.size(), ext)) )
             {
                 STR code(name, 0, (std::size_t)codeSize);
-                auto type = ResolveSecType(path, code);
-                if (type == kSecNull) continue; // invalid or already added
-                if ((type == kSecKOSPI) && (usingKOSPI == true))
+                auto typeCur = ResolveSecType(path, code);
+                if (typeCur == type) // this also filters invalid or already added items
                 {
-                    KOSPISim *p = new KOSPISim;
-                    bool success = p->open(path, code);
-                    if (success == true)
+                    if (type == kSecKOSPI) OpenAndInsert(path, code, new KOSPISim);
+                    if (type == kSecETF  ) OpenAndInsert(path, code, new ETFSim  );    
+                    if (type == kSecELW && (nELW == 0 || cntELW < nELW))
                     {
-                        auto it_bool = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemSim>(p)));
-                        success = it_bool.second;
+                        int type_expiry = ReadTypeExpiry(path, code);
+                        if (type_expiry == 0) continue; // non-KOSPI200-related ELW
+                        bool success = OpenAndInsert(path, code, new ELWSim((type_expiry > 0 ? kOptCall    : kOptPut     ),
+                                                                            (type_expiry > 0 ? type_expiry : -type_expiry)));
+                        if (success == true) cntELW++;
                     }
-                    if (success == false) delete p;
-                }
-                if ((type == kSecELW  ) && (usingELW   == true) && ((nELW == 0) || (cntELW < nELW)))
-                {
-                    int type_expiry = ReadTypeExpiry(path, code);
-                    if (type_expiry == 0) continue; // non-KOSPI200-related ELW
-                    
-                    ELWSim *p = new ELWSim((type_expiry > 0 ? kOptCall    : kOptPut     ),
-                                           (type_expiry > 0 ? type_expiry : -type_expiry));
-                    bool success = p->open(path, code);
-                    if (success == true)
-                    {
-                        auto it_bool = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemSim>(p)));
-                        success = it_bool.second;
-                    }
-                    if (success == true) cntELW++;
-                    else                 delete p;
                 }
             }
         }
         closedir(pDir);
-    }
+        return 0;
+    };
     
-    // manual add data (KOSPI only)
-    if ((usingKOSPI == true) && (listKOSPI.size() > 0))
+    // auto-add KOSPI
+    if (usingKOSPI == true && listKOSPI.empty() == true) AutoAdd(path, kSecKOSPI);
+    
+    // auto-add ELW
+    if (usingELW   == true) AutoAdd(path, kSecELW);
+    
+    // auto-add ETF (in datapath/ETF directory)
+    if (usingETF   == true && listETF.empty() == true) AutoAdd(pathETF, kSecETF);
+     
+    // manual add data (KOSPI)
+    if (usingKOSPI == true && listKOSPI.size() > 0)
     {
         std::istringstream sKOSPI(listKOSPI);
         for (STR code; std::getline(sKOSPI, code, ';');)
-        {
             if (code.size() == codeSize)
-            {   
-                KOSPISim *p = new KOSPISim;
-                bool success = p->open(path, code);
-                if (success == true)
-                {
-                    auto it_bool = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemSim>(p)));
-                    success = it_bool.second;
-                }
-                if (success == false) delete p;
-            }
-        }
+                OpenAndInsert(path, code, new KOSPISim);
     }
 
-    // remove BAN_CODE
-    if (listBan.size() > 0)
+    // manual add data (ETF)
+    if (usingETF == true && listETF.size() > 0)
     {
-        std::istringstream sBan(listBan);
+        std::istringstream sETF(listETF);
+        for (STR code; std::getline(sETF, code, ';');)
+            if (code.size() == codeSize)
+                OpenAndInsert(pathETF, code, new ETFSim);
+    }
+
+    // remove NOTKOSPI
+    if (listNotKOSPI.size() > 0)
+    {
+        std::istringstream sBan(listNotKOSPI);
         for (STR code; std::getline(sBan, code, ';');)
         {
             if (code.size() == codeSize)
             {
                 auto it = orderbook.items.find(code);
-                if (it != std::end(orderbook.items))
+                if (it != std::end(orderbook.items) && it->second->Type() == kSecKOSPI)
                     orderbook.items.erase(it); // destructors called on unique_ptr
             }
         }
@@ -490,15 +499,9 @@ int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
     return (++nReqThisTick < kReqNPerTick ? 0 : -1);
 }
 
-void Simulation::InitializeMembers()
-{
-    orderbook.SetTimeBounds(timeBounds);
-    orderbook.time = -3600 + 600; // starts at 08:10:10 
-}
-
 int Simulation::DisplayLoadError(CSTR &str)
 {
-    std::cerr << "Simulation.LoadData: " << str << std::endl;
+    std::cerr << "Simulation::LoadData: " << str << std::endl;
     return -1;
 }
 
@@ -509,15 +512,20 @@ SecType Simulation::ResolveSecType(CSTR &path, CSTR &code)
     
     if (std::end(orderbook.items) == orderbook.items.find(code))
     {
+        // common
         std::ifstream tr(path + code + STR(".txt" ));
         std::ifstream tb(path + code + STR("t.txt"));
-        std::ifstream th(path + code + STR("g.txt"));
-        std::ifstream i (path + code + STR("i.txt"));
         
-        if ((tr.is_open() == true) && (tb.is_open() == true))
+        // type-specific
+        std::ifstream th(path + code + STR("g.txt")); // ELW only
+        std::ifstream i (path + code + STR("i.txt")); // ELW only
+        std::ifstream n (path + code + STR("n.txt")); // ETF only
+        
+        if (tr.is_open() == true && tb.is_open() == true)
         {
-            if((th.is_open() == false) && (i.is_open() == false)) type = kSecKOSPI;
-            if((th.is_open() == true ) && (i.is_open() == true )) type = kSecELW;
+            if(th.is_open() == false && i.is_open() == false && n.is_open() == false) type = kSecKOSPI;
+            if(th.is_open() == true  && i.is_open() == true  && n.is_open() == false) type = kSecELW;
+            if(th.is_open() == false && i.is_open() == false && n.is_open() == true ) type = kSecETF;
         }
         
         // files closed automatically in ~ifstream

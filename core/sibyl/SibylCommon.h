@@ -10,7 +10,7 @@
 /* ------------------------------------------------------------------------------ */ 
 /* (^: abstract class)                                                            */
 /*     PQ - Order (application specific)                                          */
-/*     Security<Order>^ - Item^ (application specific) - KOSPI, ELW               */
+/*     Security<Order>^ - Item^ (application specific) - KOSPI, ELW, ETF          */
 /*     Catalog<Item> - Portfolio (client side data management)                    */
 /*                   - OrderBook (server side data management)                    */
 /*     Model^ - RewardModel                                                       */
@@ -62,7 +62,8 @@ enum OrdType {   kOrdNull,
                  kOrdSell          };
 enum SecType {   kSecNull,
                  kSecKOSPI,
-                 kSecELW           };
+                 kSecELW,
+                 kSecETF           };
 enum OptType {   kOptNull     =  0,
                  kOptCall     = +1,   // value specified in comm_format.txt
                  kOptPut      = -1 }; // value specified in comm_format.txt
@@ -86,7 +87,16 @@ public:
 };
 
 #ifdef NDEBUG
-    #define verify(expression) ((void)(expression))
+    #ifndef _WIN32
+        #define verify(expression) ((void)(expression))
+    #else // for Visual Studio (enable verify even in Release mode)
+        #include <iostream>
+        #include <errhandlingapi.h>
+        #include <stdlib.h>
+        #include <string.h>
+        #define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
+        #define verify(expression) ((expression) == false && (std::cerr << "ERROR: " << __FILENAME__ << ", line " << __LINE__ << ", function " << __func__ << std::endl, SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX), abort(), false)) 
+    #endif /* !_WIN32 */
 #else
     #include <cassert>
     #define verify(expression) assert(expression)

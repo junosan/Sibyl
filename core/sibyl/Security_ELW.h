@@ -9,7 +9,7 @@ namespace sibyl
 {
 
 template <class TItem>
-class ELW : public TItem // derive from a specialized Security<container<TOrd>> (i.e., Item)
+class ELW : public TItem // derive from a specialized Security<TOrder> (i.e., Item)
 {
 public:
     // virtuals from Security

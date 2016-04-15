@@ -1,8 +1,15 @@
 #ifndef SIBYL_NETAGENT_H_
 #define SIBYL_NETAGENT_H_
 
-#include <netdb.h>
-#include <unistd.h>
+#ifndef _WIN32
+    #include <netdb.h>
+    #include <unistd.h>
+    #define close_socket(expression) close(expression)
+#else
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #define close_socket(expression) closesocket(expression)
+#endif /* !_WIN32 */
 
 #include "SibylCommon.h"
 

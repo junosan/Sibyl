@@ -1,12 +1,12 @@
-#ifndef SIBYL_SERVER_TXTDATA_H_
-#define SIBYL_SERVER_TXTDATA_H_
+#ifndef SIBYL_SERVER_SIMULATION_TXTDATA_H_
+#define SIBYL_SERVER_SIMULATION_TXTDATA_H_
 
 #include <vector>
 #include <sstream>
 #include <cstring>
 
-#include "../Participant.h"
-#include "../Security.h"
+#include "../../Participant.h"
+#include "../../Security.h"
 
 namespace sibyl
 {
@@ -145,4 +145,4 @@ void TxtDataVec<T>::Cur2Last(bool sum)
 
 }
 
-#endif /* SIBYL_SERVER_TXTDATA_H_ */
+#endif /* SIBYL_SERVER_SIMULATION_TXTDATA_H_ */

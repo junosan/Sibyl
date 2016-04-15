@@ -7,6 +7,7 @@
 #include "../Security.h"
 #include "../Security_KOSPI.h"
 #include "../Security_ELW.h"
+#include "../Security_ETF.h"
 #include "../Catalog.h"
 #include "ItemState.h"
 

@@ -131,7 +131,7 @@ int TxtDataTb::ReadLine(const char *pcLine)
 {
     int temp;
     bool invalid = false;
-    if ( ((type == kSecKOSPI) &&
+    if ( ((type == kSecKOSPI || type == kSecETF) &&
          (41 == sscanf(pcLine, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
                                 &temp,
                                 &cur[ 0].p, &cur[ 0].q,

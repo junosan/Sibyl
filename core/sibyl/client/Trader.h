@@ -1,7 +1,6 @@
 #ifndef SIBYL_CLIENT_TRADER_H_
 #define SIBYL_CLIENT_TRADER_H_
 
-#include "../Participant.h"
 #include "Portfolio.h"
 #include "RewardModel.h"
 
@@ -19,9 +18,12 @@ public:
     // called by NetClient
     int   ApplyMsgIn (char *msg); // this destroys msg during parsing; returns non-0 to signal termination
     CSTR& BuildMsgOut();
-private:
-    // virtual from Participant
-    void InitializeMembers();
+
+    Trader() {
+        portfolio.SetTimeBounds(timeBounds);
+        model    .SetTimeBounds(timeBounds);
+        model    .SetPortfolio (&portfolio);
+    }
 };
 
 }

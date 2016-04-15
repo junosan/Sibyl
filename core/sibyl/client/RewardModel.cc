@@ -1,15 +1,46 @@
 
 #include <iostream>
+#include <fstream>
 
 #include "RewardModel.h"
 
 namespace sibyl
 {
 
-void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_)
+void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_, bool exclusiveBuy_)
 {
     verify((timeConst_ > 0.0) && (rhoWeight_ >= 0.0) && (rhoInit_ >= 0.0));
     timeConst = timeConst_; rhoWeight = rhoWeight_; rho = rhoInit_;
+    exclusiveBuy = exclusiveBuy_;
+}
+
+void RewardModel::ReadConfig(CSTR &filename)
+{
+    std::ifstream sCfg(filename);
+    verify(sCfg.is_open() == true);
+    
+    double timeConst_(-1.0), rhoWeight_(-1.0), rhoInit_(-1.0);
+    bool exclusiveBuy_(false);
+    
+    for (STR line; std::getline(sCfg, line);)
+    {
+        if (line.back() == '\r') line.pop_back();
+        auto posEq = line.find_first_of('=');
+        if (posEq == std::string::npos) continue;
+        auto namelen = std::min(posEq, line.find_first_of(' '));
+        STR name(line, 0, namelen);
+        STR val (line, posEq + 1 );
+        if      ((name == "TIME_CONST"   ) && (val.empty() == false))
+            timeConst_    = std::stod(val);
+        else if ((name == "RHO_WEIGHT"   ) && (val.empty() == false))
+            rhoWeight_    = std::stod(val);
+        else if ((name == "RHO_INIT"     ) && (val.empty() == false))
+            rhoInit_      = std::stod(val);
+        else if ((name == "EXCLUSIVE_BUY") && (val.empty() == false))
+            exclusiveBuy_ = (std::stoi(val) != 0);
+    }
+    
+    SetParams(timeConst_, rhoWeight_, rhoInit_, exclusiveBuy_);
 }
 
 void RewardModel::SetStateLogPaths(CSTR &state, CSTR &log)
@@ -425,7 +456,8 @@ CSTR& RewardModel::BuildMsgOut()
                             push = true;
                         }
                     }
-                    if ((tck == (int)szTck) && (o.p < i.tbr.at(szTb - 1).p)) // order price lower than any value in tb
+                    if ( (tck == (int) szTck && o.p < i.tbr.at(szTb - 1).p) || // order price lower than any value in tb
+                         (exclusiveBuy == true && i.cnt > 0)                )  // exclusiveBuy (already bought)
                     {
                         reqGcb.G = 100.0f;
                         push = true;
@@ -450,32 +482,35 @@ CSTR& RewardModel::BuildMsgOut()
         for (const auto &req : vPosGb)
         {
             auto &i = *(req.iM->second); // reference to Item
-            const auto &r = rewards.find(req.iM->first)->second;
-            
-            reqGb.price = i.Tck2P(req.tick, kOrdBuy);
-            INT64 balDist = (INT64)std::round((double)balAvail * req.G / sumPosGb);
-            if (reqGb.price > 0) {
-                if (i.Type() == kSecELW) reqGb.quant = 10 * (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF()) * 10));
-                else                     reqGb.quant =      (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF())     ));
-            }   else                     reqGb.quant = 0;
-            INT64 delta = (INT64)reqGb.price * reqGb.quant;
-            delta += i.BFee(delta);
-            if (balLeft - delta < 0)
+            if (exclusiveBuy == false || i.cnt == 0)
             {
-                if (i.Type() == kSecELW) reqGb.quant -= 10;
-                else                     reqGb.quant -=  1;
-                delta  = (INT64)reqGb.price * reqGb.quant;
+                const auto &r = rewards.find(req.iM->first)->second;
+                
+                reqGb.price = i.Tck2P(req.tick, kOrdBuy);
+                INT64 balDist = (INT64)std::round((double)balAvail * req.G / sumPosGb);
+                if (reqGb.price > 0) {
+                    if (i.Type() == kSecELW) reqGb.quant = 10 * (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF()) * 10));
+                    else                     reqGb.quant =      (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF())     ));
+                }   else                     reqGb.quant = 0;
+                INT64 delta = (INT64)reqGb.price * reqGb.quant;
                 delta += i.BFee(delta);
-            }
-            if ((reqGb.price > 0) && (reqGb.quant > 0) && (balLeft - delta >= 0))
-            {
-                balLeft -= delta;
-                if (req.tick == -1) reqGb.G = FLOAT(r.G0.b                          * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
-                else                reqGb.G = FLOAT(r.G.at((std::size_t)req.tick).b * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
-                reqGb.type = kReq_b;
-                reqGb.iM   = req.iM;
-                oReq.push_back(reqGb);
-                if (balLeft <= 0) break;
+                if (balLeft - delta < 0)
+                {
+                    if (i.Type() == kSecELW) reqGb.quant -= 10;
+                    else                     reqGb.quant -=  1;
+                    delta  = (INT64)reqGb.price * reqGb.quant;
+                    delta += i.BFee(delta);
+                }
+                if ((reqGb.price > 0) && (reqGb.quant > 0) && (balLeft - delta >= 0))
+                {
+                    balLeft -= delta;
+                    if (req.tick == -1) reqGb.G = FLOAT(r.G0.b                          * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
+                    else                reqGb.G = FLOAT(r.G.at((std::size_t)req.tick).b * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
+                    reqGb.type = kReq_b;
+                    reqGb.iM   = req.iM;
+                    oReq.push_back(reqGb);
+                    if (balLeft <= 0) break;
+                }
             }
         }
 
@@ -575,7 +610,7 @@ void RewardModel::WriteGLogs()
             }
             
             // binary log
-            std::size_t szDim = 42;
+            const std::size_t szDim = 42;
             float data[szDim];
             auto imf = mfLogRef.find(code_reward.first);
             verify(imf != std::end(mfLogRef));

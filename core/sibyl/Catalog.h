@@ -27,7 +27,7 @@ public:
 
     void   SetTimeBounds   (TimeBounds timeBounds_); // to be called by Participant
     void   UpdateRefInitBal();
-    double GetProfitRate   (); // based on balInit
+    double GetProfitRate   (bool isRef = false); // based on balInit by default
     
     struct SEval { INT64 balU, balBO, evalCnt, evalSO, evalTot; };
     SEval Evaluate() const;
@@ -68,14 +68,14 @@ void Catalog<TItem>::UpdateRefInitBal()
 }
 
 template <class TItem>
-double Catalog<TItem>::GetProfitRate()
+double Catalog<TItem>::GetProfitRate(bool isRef)
 {
     SEval se = Evaluate();
-    return (double)se.evalTot / balInit;
+    return (isRef == true ? (double) se.evalTot / balRef : (double) se.evalTot / balInit);
 }
 
 template <class TItem>
-struct Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
+typename Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
     SEval se;
     se.balU  = se.evalTot = bal;
     se.balBO = se.evalCnt = se.evalSO = 0;

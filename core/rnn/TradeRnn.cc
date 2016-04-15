@@ -50,9 +50,12 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
         // must appear before ReadData()
         if (whiten == true)
         {
-            verify(workspacePath != "");
-            verify(system(std::string("mkdir -p " + workspacePath).c_str()) == 0);
-            trainData.reshaper.CalcWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
+            if (cont == false)
+            {
+                verify(workspacePath != "");
+                verify(system(std::string("mkdir -p " + workspacePath).c_str()) == 0);
+                trainData.reshaper.CalcWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
+            }
             verify(true == trainData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
         }
         

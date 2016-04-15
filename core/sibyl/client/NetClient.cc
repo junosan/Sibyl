@@ -59,7 +59,7 @@ int NetClient::RecvNextTick()
         else
         {
             if (verbose) std::cout << "Server disconnected" << std::endl;
-            close(sock);
+            close_socket(sock);
             sock = sock_fail;
             return -1;
         }
@@ -68,7 +68,7 @@ int NetClient::RecvNextTick()
     
     if (0 != pTrader->ApplyMsgIn(bufMsg))
     {
-        close(sock);
+        close_socket(sock);
         sock = sock_fail;
         return -1;
     }

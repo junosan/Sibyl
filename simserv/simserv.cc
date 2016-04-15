@@ -1,6 +1,6 @@
 #include <iomanip>
 
-#include <sibyl/server/Simulation.h>
+#include <sibyl/server/Simulation/Simulation.h>
 #include <sibyl/server/NetServer.h>
 
 int main(int argc, char *argv[])
@@ -15,10 +15,6 @@ int main(int argc, char *argv[])
     using namespace sibyl;
     
     Simulation simulation;
-    simulation.Initialize(TimeBounds(       -3600 /*ref */,
-                                     kTimeTickSec /*init*/,
-                                            21000 /*stop*/,
-                                            22200 /*end */));
     if (0 != simulation.LoadData(argv[1], argv[2]))
         exit(1);
     

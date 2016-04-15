@@ -1,12 +1,12 @@
 #ifndef SIBYL_SERVER_BROKER_H_
 #define SIBYL_SERVER_BROKER_H_
 
-#include <mutex>
-#include <condition_variable>
 #include <iostream>
+#include <atomic>
 
 #include "../Participant.h"
 #include "OrderBook.h"
+#include "../util/DispPrefix.h"
 
 namespace sibyl
 {
@@ -18,10 +18,12 @@ public:
     OrderBook<TOrder, TItem> orderbook;
     
     void SetVerbose(bool verbose_) { verbose = verbose_; orderbook.SetVerbose(verbose); }
+    DispPrefix dispPrefix;
     
-    // interface for wait/wake mechanism 
-    bool IsWoken();
-    void Wake   ();
+    // skip & interrupt mechanism 
+    bool IsSkipping   () { return skipTick;     }
+    bool IsInterrupted() { return ab_interrupt; }
+    void InterruptExec() { ab_interrupt = true; }
     
     virtual // Simulation: process data until next tick; Kiwoom: wait until event thread wakes it up
     int   AdvanceTick() = 0; // returns non-0 to signal exit
@@ -29,41 +31,26 @@ public:
     CSTR& BuildMsgOut() = 0;
     void  ApplyMsgIn (char *msg);
     
-    Broker() : verbose(false), wake_bool(false) {}
+    Broker() : verbose(false),
+               skipTick(false),
+               ab_interrupt(false) { orderbook.SetTimeBounds(timeBounds); }
 protected:
     bool verbose;
-
-    bool                    wake_bool;  // don't use this without locking wake_mutex
-    std::mutex              wake_mutex;
-    std::condition_variable wake_cv;
+    
+    // skip & interrupt mechanism
+    bool skipTick;
+    void ResetInterrupt() { ab_interrupt = false; }
 
     const
     std::vector<UnnamedReq<TItem>>& ParseMsgIn(char *msg); // this destroys msg during parsing
     void ExecuteUnnamedReqs(const std::vector<UnnamedReq<TItem>>& ureq);
     virtual
-    int  ExecuteNamedReq   (NamedReq<TOrder, TItem> req) = 0; // returns non-0 to signal exit (req count limit)
+    int ExecuteNamedReq(NamedReq<TOrder, TItem> req) = 0; // returns non-0 to signal exit (req count limit)
 
-    void InitializeMembers();
-private:    
+private:
+    std::atomic_bool ab_interrupt;
     std::vector<UnnamedReq<TItem>> ureq;
 };
-
-template <class TOrder, class TItem>
-bool Broker<TOrder, TItem>::IsWoken()
-{
-    std::lock_guard<std::mutex> lock(wake_mutex);
-    return wake_bool;
-}
-
-template <class TOrder, class TItem>
-void Broker<TOrder, TItem>::Wake()
-{
-    {
-        std::lock_guard<std::mutex> lock(wake_mutex);
-        wake_bool = true;
-    }
-    wake_cv.notify_one(); // don't notify with the mutex locked
-}
 
 template <class TOrder, class TItem>
 void Broker<TOrder, TItem>::ApplyMsgIn(char *msg)
@@ -143,11 +130,11 @@ const std::vector<UnnamedReq<TItem>>& Broker<TOrder, TItem>::ParseMsgIn(char *ms
         if (fail == false)
         {
             ureq.push_back(req);
-            if (verbose == true) std::cout << "MsgIn: " << pcLine << std::endl;
+            if (verbose == true) std::cout << dispPrefix << "ReqIn: " << pcLine << std::endl;
         }
         else
         {
-            std::cerr << "Invalid order: " << pcLine << std::endl;
+            std::cerr << dispPrefix << "Invalid req: " << pcLine << std::endl;
             continue;
         }
     }
@@ -160,22 +147,16 @@ void Broker<TOrder, TItem>::ExecuteUnnamedReqs(const std::vector<UnnamedReq<TIte
 {
     for (const auto &req : ureq)
     {
-        bool interruptible = (req.type != kReq_ca) && (req.type != kReq_sa); 
-        if ((interruptible == true) && (IsWoken() == true)) break;
+        bool interruptible = (req.type != kReq_ca && req.type != kReq_sa); 
+        if (interruptible == true && IsInterrupted() == true) break;
         const auto &nreq = orderbook.AllotReq(req);
         for (const auto &req : nreq)
         {
-            if ((interruptible == true) && (IsWoken() == true)) break;
+            if (interruptible == true && IsInterrupted() == true) break;
             int ret = ExecuteNamedReq(req);
-            if ((interruptible == true) && (ret != 0)) break; 
+            if (interruptible == true && ret != 0) break; 
         }
     }
-}
-
-template <class TOrder, class TItem>
-void Broker<TOrder, TItem>::InitializeMembers()
-{
-    orderbook.SetTimeBounds(timeBounds);
 }
 
 }

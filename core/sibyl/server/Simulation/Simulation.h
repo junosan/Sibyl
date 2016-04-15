@@ -1,8 +1,8 @@
-#ifndef SIBYL_SERVER_SIMULATION_H_
-#define SIBYL_SERVER_SIMULATION_H_
+#ifndef SIBYL_SERVER_SIMULATION_SIMULATION_H_
+#define SIBYL_SERVER_SIMULATION_SIMULATION_H_
 
 #include "Simulation_data.h"
-#include "Broker.h"
+#include "../Broker.h"
 
 namespace sibyl
 {
@@ -20,15 +20,13 @@ public:
     
     static int ReadTypeExpiry(CSTR &path, CSTR &code); // returns kOptType * expiry (0: non-KOSPI200; skip)
     
-    Simulation() : nReqThisTick(0) {}
+    Simulation() : nReqThisTick(0) { orderbook.time = -3600 + 600; } // starts at 08:10:10
 private:
     void ReadData(int timeTarget); // fill TxtData classes with event info until right before timeTarget
     void SimulateTrades();
 
     // virtual from Broker
     int  ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req); // non-0 if req count overflow
-    // overrides Broker's implementation
-    void InitializeMembers();
     
     // helper functions for LoadData; path should have trailing '/'
     int     DisplayLoadError(CSTR &str); 
@@ -47,4 +45,4 @@ private:
 
 }
 
-#endif /* SIBYL_SERVER_SIMULATION_H_ */
+#endif /* SIBYL_SERVER_SIMULATION_SIMULATION_H_ */

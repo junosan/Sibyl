@@ -1,10 +1,11 @@
-#ifndef SIBYL_SERVER_SIMULATION_DATA_H_
-#define SIBYL_SERVER_SIMULATION_DATA_H_
+#ifndef SIBYL_SERVER_SIMULATION_SIMULATION_DATA_H_
+#define SIBYL_SERVER_SIMULATION_SIMULATION_DATA_H_
 
-#include "OrderBook.h"
-#include "../Security.h"
-#include "../Security_KOSPI.h"
-#include "../Security_ELW.h"
+#include "../OrderBook.h"
+#include "../../Security.h"
+#include "../../Security_KOSPI.h"
+#include "../../Security_ELW.h"
+#include "../../Security_ETF.h"
 #include "TxtData.h"
 
 namespace sibyl
@@ -71,6 +72,24 @@ private:
     static TxtDataTb dataKOSPI200Tb; // TEMPORARY: using 005930t.txt
 };
 
+
+    /* ======================================== */
+    /*                  ETFSim                  */
+    /* ======================================== */
+
+class ETFSim : public ETF<ItemSim>
+{
+public:
+    bool open       (CSTR &path, CSTR &code);
+    void AdvanceTime(int timeTarget);
+    void SetDelay   (int d);
+
+    ETFSim() : dataTb(kSecETF), dataNAV(2) {}
+private:
+    TxtDataTb          dataTb;
+    TxtDataVec<double> dataNAV;
+};
+
 }
 
-#endif /* SIBYL_SERVER_SIMULATION_DATA_H_ */
+#endif /* SIBYL_SERVER_SIMULATION_SIMULATION_DATA_H_ */

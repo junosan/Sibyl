@@ -17,7 +17,8 @@ namespace sibyl
 class RewardModel : public Model
 {
 public:  
-    void SetParams(double timeConst_, double rhoWeight_, double rhoInit_);
+    void SetParams(double timeConst_, double rhoWeight_, double rhoInit_, bool exclusiveBuy_);
+    void ReadConfig(CSTR &filename);
 
     // for ref
     void SetRefPath(CSTR &path);
@@ -32,11 +33,13 @@ public:
     CSTR& BuildMsgOut     ();
     
     RewardModel() : timeConst(0.0), // for initialization check
-                    rhoWeight(0.0), rho(0.0), isFirstTick(true) {}
+                    rhoWeight(0.0), rho(0.0), exclusiveBuy(false),
+                    isFirstTick(true) {}
 private:
     double timeConst;
     double rhoWeight;
     double rho;
+    bool   exclusiveBuy;
 
     std::map<STR, Reward> rewards;
     void InitCodes(); // create rewards entries with codes from first msg

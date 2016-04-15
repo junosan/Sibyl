@@ -87,4 +87,39 @@ void ELWSim::SetDelay(int d)
     dataKOSPI200Tb.SetDelay(d);
 }
 
+
+    /* ========================================== */
+    /*                   ETFSim                   */
+    /* ========================================== */
+
+bool ETFSim::open(CSTR &path, CSTR &code)
+{
+    if (true != dataTr .open(path + code + STR(".txt" ))) return false;
+    if (true != dataTb .open(path + code + STR("t.txt"))) return false;
+    if (true != dataNAV.open(path + code + STR("n.txt"))) return false;
+    return true;
+}
+
+void ETFSim::AdvanceTime(int timeTarget)
+{
+    dataTr.InitVecTr();
+    dataTr.AdvanceTime(timeTarget);
+    
+    dataTb.AdvanceTime(timeTarget);
+    tbr = dataTb.Tb();
+    if (timeTarget > 0) Requantize(dataTr.TrPs1(), dataTr.TrPb1()); // after 09:00:00
+    else                Requantize();
+    
+    dataNAV.AdvanceTime(timeTarget);
+    devNAV = (FLOAT) ((std::abs(dataNAV[1] / dataNAV[0]) - 1.0) * 100.0);
+}
+
+void ETFSim::SetDelay(int d)
+{
+    dataTr .SetDelay(d);
+    dataTb .SetDelay(d);
+    dataNAV.SetDelay(d);
+}
+
+
 }

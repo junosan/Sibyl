@@ -26,8 +26,15 @@ public:
     int expiry;
     FLOAT kospi200;
     std::array<FLOAT, ELW<Security<PQ>>::szTh> thr;
+    
+    // ETF only
+    bool isETF;
+    FLOAT devNAV;
+    
     ItemState() : time(0), pr(0.0f), qr(0), tbr{},
-                  isELW(false), iCP(0), expiry(0), kospi200(0.0f), thr{} {}
+                  isELW(false), iCP(0), expiry(0), kospi200(0.0f), thr{},
+                  isETF(false), devNAV(0.0f)
+                  {}
 };
 
 }

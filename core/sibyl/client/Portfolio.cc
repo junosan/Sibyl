@@ -25,7 +25,7 @@ const std::vector<ItemState>& Portfolio::GetStateVec()
         
         if (i.Type() == kSecELW)
         {
-            const auto &i = *dynamic_cast<ELW<Item>*>(code_pItem.second.get()); // reference to ELW<Item>
+            const auto &i = *dynamic_cast<ELW<Item>*>(code_pItem.second.get()); // reference as ELW<Item>
             state.isELW = true;
             state.iCP = (i.CallPut() == kOptCall) - (i.CallPut() == kOptPut);
             state.expiry = i.Expiry(); 
@@ -33,6 +33,14 @@ const std::vector<ItemState>& Portfolio::GetStateVec()
             state.thr = i.thr;
         } else
             state.isELW = false;
+        
+        if (i.Type() == kSecETF)
+        {
+            const auto &i = *dynamic_cast<ETF<Item>*>(code_pItem.second.get()); // reference as ETF<Item>
+            state.isETF = true;
+            state.devNAV = i.devNAV;
+        } else
+            state.isETF = false;
         
         codeIdx++;
     }
@@ -141,13 +149,13 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             if (iM->second->Type() == kSecKOSPI) // on first run: reallocate as ELW
             {
                 auto &ptr = iM->second;
-                KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get());
+                KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get()); // store copy
                 ptr.reset(new ELW<Item>);
                 ptr->pr   = temp.pr;
                 ptr->qr   = temp.qr;
                 ptr->tbr  = temp.tbr;
             }
-            auto &i = *dynamic_cast<ELW<Item>*>(iM->second.get()); // reference to ELW<Item>
+            auto &i = *dynamic_cast<ELW<Item>*>(iM->second.get()); // reference as ELW<Item>
             
             OptType optType = kOptNull;
             int expiry = -1;
@@ -162,6 +170,25 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             if (iCP == +1) optType = kOptCall;
             if (iCP == -1) optType = kOptPut;
             i.SetInfo(optType, expiry);
+        }
+        if (pcLine[0] == 'n')
+        {
+            if (iM->second->Type() == kSecKOSPI) // on first run: reallocate as ETF
+            {
+                auto &ptr = iM->second;
+                KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get()); // store copy
+                ptr.reset(new ETF<Item>);
+                ptr->pr   = temp.pr;
+                ptr->qr   = temp.qr;
+                ptr->tbr  = temp.tbr;
+            }
+            auto &i = *dynamic_cast<ETF<Item>*>(iM->second.get()); // reference as ETF<Item>
+            
+            for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
+            {
+                while (*pcWord == ' ') pcWord++;
+                if  (cW ==  2)               sscanf(pcWord, "%f", &i.devNAV);
+            }
         }
         if (pcLine[0] == 'o')
         {
