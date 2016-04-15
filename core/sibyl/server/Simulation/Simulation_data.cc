@@ -40,7 +40,7 @@ void KOSPISim::SetDelay(int d)
     /* ======================================== */
 
 TxtDataTr ELWSim::dataKOSPI200Tr;
-TxtDataTb ELWSim::dataKOSPI200Tb(kSecKOSPI);
+TxtDataTb ELWSim::dataKOSPI200Tb(SecType::KOSPI);
 
 bool ELWSim::open(CSTR &path, CSTR &code)
 {

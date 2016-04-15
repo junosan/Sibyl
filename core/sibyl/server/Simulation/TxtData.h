@@ -5,7 +5,7 @@
 #include <sstream>
 #include <cstring>
 
-#include "../../Participant.h"
+#include "../../TimeBounds.h"
 #include "../../Security.h"
 
 namespace sibyl

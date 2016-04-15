@@ -20,8 +20,8 @@ int NetClient::Connect(CSTR &addr, CSTR &port)
     if (sock_fail != ret) ret = connect(sock, ai->ai_addr, ai->ai_addrlen);
     freeaddrinfo(ai);
     
-    if ( 0 == ret) send(sock, kTCPPassword.c_str(), kTCPPassword.size(), 0);
-    else           std::cerr << strerror(errno) << std::endl;
+    if (0 == ret) send(sock, kTCPPassword, strlen(kTCPPassword), 0);
+    else          std::cerr << strerror(errno) << std::endl;
     return ret;
 }
 

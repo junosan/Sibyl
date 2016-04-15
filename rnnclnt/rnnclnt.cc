@@ -32,10 +32,6 @@ int main(int argc, char *argv[])
     using namespace sibyl;
     
     Trader trader;
-    trader.Initialize(TimeBounds(       -3600 /* ref       */,
-                                 kTimeTickSec /* init      */,
-                                        21000 /* stop      */,
-                                        22200 /* end       */));
     trader.model.ReadConfig(argv[1]);    
     trader.SetStateLogPaths(path + "/state", "");//path + "/log");
 
@@ -100,8 +96,8 @@ int main(int argc, char *argv[])
         }
         
         // Rnn is run only between 09:00:int and 14:50:00
-        if ( (trader.portfolio.time >= trader.timeBounds.init) &&
-             (trader.portfolio.time <  trader.timeBounds.stop) ) 
+        if ( (trader.portfolio.time >= TimeBounds::init) &&
+             (trader.portfolio.time <  TimeBounds::stop) ) 
         {
             /* Retrieve state vector for current frame */
             const auto &vecState = trader.portfolio.GetStateVec();

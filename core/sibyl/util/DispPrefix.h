@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-#include "../SibylCommon.h"
+#include "../sibyl_common.h"
 
 namespace sibyl
 {

@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-#include "Security.h"
+#include "../Security.h"
 
 namespace sibyl
 {
@@ -13,7 +13,7 @@ class ETF : public TItem // derive from a specialized Security<TOrder> (i.e., It
 {
 public:
     // virtuals from Security
-    SecType Type  ()        const { return kSecETF;                     }
+    SecType Type  ()        const { return SecType::ETF;                }
     INT     TckHi (INT p)   const { return p + 5;                       }
     INT     TckLo (INT p)   const { return (p - 5) * (p > 0);           }
     bool    ValidP(INT p)   const { return (p > 0) && ((p % 5) == 0);   }

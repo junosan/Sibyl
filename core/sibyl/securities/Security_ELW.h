@@ -3,17 +3,21 @@
 
 #include <cmath>
 
-#include "Security.h"
+#include "../Security.h"
 
 namespace sibyl
 {
+
+enum class OptType { null =  0,
+                     call = +1,   // value specified in comm_format.txt
+                     put  = -1 }; // value specified in comm_format.txt
 
 template <class TItem>
 class ELW : public TItem // derive from a specialized Security<TOrder> (i.e., Item)
 {
 public:
     // virtuals from Security
-    SecType Type  ()        const { return kSecELW;                     }
+    SecType Type  ()        const { return SecType::ELW;                }
     INT     TckHi (INT p)   const { return p + 5;                       }
     INT     TckLo (INT p)   const { return (p - 5) * (p > 0);           }
     bool    ValidP(INT p)   const { return (p > 0) && ((p % 5) == 0);   }
@@ -27,13 +31,13 @@ public:
     constexpr static const std::ptrdiff_t szTh = 8;  // number of fields in theoretical Greeks
     std::array<FLOAT, szTh>               thr;
     void    SetInfo(OptType optType_, INT expiry_) {
-        verify(((optType_ == kOptCall) || (optType_ == kOptPut)) && (expiry_ >= 0));
+        verify((optType_ == OptType::call || optType_ == OptType::put) && expiry_ >= 0);
         optType = optType_; expiry = expiry_;
     }
-    OptType CallPut() const { verify(optType != kOptNull); return optType; }
-    INT     Expiry () const { verify(optType != kOptNull); return expiry;  }
+    OptType CallPut() const { verify(optType != OptType::null); return optType; }
+    INT     Expiry () const { verify(optType != OptType::null); return expiry;  }
     
-    ELW() : thr{}, optType(kOptNull), expiry(0) {}
+    ELW() : thr{}, optType(OptType::null), expiry(0) {}
     ELW(OptType t, INT e) : thr{} { SetInfo(t, e); }
 private:
     constexpr static const double dBF0 = 0.00015;

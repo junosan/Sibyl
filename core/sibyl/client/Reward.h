@@ -3,7 +3,7 @@
 
 #include <array>
 
-#include "../SibylCommon.h"
+#include "../sibyl_common.h"
 
 namespace sibyl
 {
@@ -21,12 +21,12 @@ public:
         FLOAT cs;
         FLOAT cb;
     };
-    std::array<Gn, szTck> G;
+    std::array<Gn, kTckN> G;
     
     Reward& operator+=(const Reward &r) {
         G0.s += r.G0.s;
         G0.b += r.G0.b;
-        for (std::size_t i = 0; i < (std::size_t) szTck; i++) {
+        for (std::size_t i = 0; i < (std::size_t) kTckN; i++) {
             G[i].s  += r.G[i].s;
             G[i].b  += r.G[i].b;
             G[i].cs += r.G[i].cs;
@@ -37,7 +37,7 @@ public:
     Reward& operator*=(FLOAT r) {
         G0.s *= r;
         G0.b *= r;
-        for (std::size_t i = 0; i < (std::size_t) szTck; i++) {
+        for (std::size_t i = 0; i < (std::size_t) kTckN; i++) {
             G[i].s  *= r;
             G[i].b  *= r;
             G[i].cs *= r;

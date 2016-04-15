@@ -4,6 +4,7 @@
 #include <fstream>
 
 #include "Simulation.h"
+#include "../../ReqType.h"
 
 namespace sibyl
 {
@@ -96,14 +97,14 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
                 auto typeCur = ResolveSecType(path, code);
                 if (typeCur == type) // this also filters invalid or already added items
                 {
-                    if (type == kSecKOSPI) OpenAndInsert(path, code, new KOSPISim);
-                    if (type == kSecETF  ) OpenAndInsert(path, code, new ETFSim  );    
-                    if (type == kSecELW && (nELW == 0 || cntELW < nELW))
+                    if (type == SecType::KOSPI) OpenAndInsert(path, code, new KOSPISim);
+                    if (type == SecType::ETF  ) OpenAndInsert(path, code, new ETFSim  );    
+                    if (type == SecType::ELW && (nELW == 0 || cntELW < nELW))
                     {
                         int type_expiry = ReadTypeExpiry(path, code);
                         if (type_expiry == 0) continue; // non-KOSPI200-related ELW
-                        bool success = OpenAndInsert(path, code, new ELWSim((type_expiry > 0 ? kOptCall    : kOptPut     ),
-                                                                            (type_expiry > 0 ? type_expiry : -type_expiry)));
+                        bool success = OpenAndInsert(path, code, new ELWSim((type_expiry > 0 ? OptType::call : OptType::put  ),
+                                                                            (type_expiry > 0 ? type_expiry   : -type_expiry)));
                         if (success == true) cntELW++;
                     }
                 }
@@ -114,13 +115,13 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
     };
     
     // auto-add KOSPI
-    if (usingKOSPI == true && listKOSPI.empty() == true) AutoAdd(path, kSecKOSPI);
+    if (usingKOSPI == true && listKOSPI.empty() == true) AutoAdd(path, SecType::KOSPI);
     
     // auto-add ELW
-    if (usingELW   == true) AutoAdd(path, kSecELW);
+    if (usingELW   == true) AutoAdd(path, SecType::ELW);
     
     // auto-add ETF (in datapath/ETF directory)
-    if (usingETF   == true && listETF.empty() == true) AutoAdd(pathETF, kSecETF);
+    if (usingETF   == true && listETF.empty() == true) AutoAdd(pathETF, SecType::ETF);
      
     // manual add data (KOSPI)
     if (usingKOSPI == true && listKOSPI.size() > 0)
@@ -149,7 +150,7 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
             if (code.size() == codeSize)
             {
                 auto it = orderbook.items.find(code);
-                if (it != std::end(orderbook.items) && it->second->Type() == kSecKOSPI)
+                if (it != std::end(orderbook.items) && it->second->Type() == SecType::KOSPI)
                     orderbook.items.erase(it); // destructors called on unique_ptr
             }
         }
@@ -224,7 +225,7 @@ int Simulation::AdvanceTick()
     
     if (verbose == true) PrintState();
     
-    return (orderbook.time < timeBounds.end ? 0 : -1);
+    return (orderbook.time < TimeBounds::end ? 0 : -1);
 }
 
 CSTR& Simulation::BuildMsgOut()
@@ -296,8 +297,8 @@ void Simulation::PrintState()
                 if (o.type == type && o.q > 0)
                 {
                     int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                    if (tck == szTck) tck = 98;     // display as 99 if not found
-                    sprintf(buf, "[%6" PRId64 ",%6" PRId64 "|%s%2d] {%s} %8d (%6d)", o.B, o.M, (type == kOrdBuy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
+                    if (tck == kTckN) tck = 98;     // display as 99 if not found
+                    sprintf(buf, "[%6" PRId64 ",%6" PRId64 "|%s%2d] {%s} %8d (%6d)", o.B, o.M, (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                     std::cout << buf;
                     if (nItemPerLine == ++nItemCur)
                     {
@@ -312,8 +313,8 @@ void Simulation::PrintState()
         if (nItemCur != 0)  std::cout << "\n";
     };
     
-    ListOrder(kOrdBuy) ;
-    ListOrder(kOrdSell);
+    ListOrder(OrdType::buy) ;
+    ListOrder(OrdType::sell);
     std::cout << std::endl;
 }
 
@@ -323,13 +324,13 @@ void Simulation::ReadData(int timeTarget)
     {
         auto &i = *code_pItem.second;
         
-        INT lastPb0 = i.Tck2P(-1, kOrdBuy );
-        INT lastPs0 = i.Tck2P(-1, kOrdSell);
+        INT lastPb0 = i.Tck2P(-1, OrdType::buy );
+        INT lastPs0 = i.Tck2P(-1, OrdType::sell);
          
         i.AdvanceTime(timeTarget);
         
-        if (i.Tck2P(-1, kOrdBuy ) != lastPb0) i.depB0 = 0; // reset depletion if ps0/pb0 shifted
-        if (i.Tck2P(-1, kOrdSell) != lastPs0) i.depS0 = 0;
+        if (i.Tck2P(-1, OrdType::buy ) != lastPb0) i.depB0 = 0; // reset depletion if ps0/pb0 shifted
+        if (i.Tck2P(-1, OrdType::sell) != lastPs0) i.depS0 = 0;
     }
 }
 
@@ -347,13 +348,13 @@ void Simulation::SimulateTrades()
             Order o(t.p, t.q);
             auto AddIfInTbr = [&](const OrdType &type) {
                 INT tck = i.P2Tck(t.p, type);
-                if ((tck >= 0) && (tck < szTck)) {
+                if ((tck >= 0) && (tck < kTckN)) {
                     o.type = type;
                     vtro.push_back(o);
                 }
             };
-            AddIfInTbr(kOrdBuy );
-            AddIfInTbr(kOrdSell);
+            AddIfInTbr(OrdType::buy );
+            AddIfInTbr(OrdType::sell);
         }
         
         // Process order queue
@@ -362,7 +363,7 @@ void Simulation::SimulateTrades()
         {
             auto &o = price_OrderSim.second;
             INT tck = i.P2Tck(o.p, o.type);
-            if ((tck >= 0) && (tck < szTck)) o.B = std::min(o.B, (INT64)i.Tck2Q(tck, o.type));
+            if ((tck >= 0) && (tck < kTckN)) o.B = std::min(o.B, (INT64)i.Tck2Q(tck, o.type));
         }
         
         // Make orders with trade events
@@ -395,7 +396,7 @@ void Simulation::SimulateTrades()
         
         // Make p0 orders with non-depleted tbqr
         auto MakeDeplete = [&](const OrdType &type) {
-            auto &dep = (type == kOrdBuy ? i.depB0 : i.depS0);
+            auto &dep = (type == OrdType::buy ? i.depB0 : i.depS0);
             INT tb0q  = i.Tck2Q(-1, type);
             INT qleft = tb0q - dep;
             if (qleft > 0)
@@ -426,18 +427,18 @@ void Simulation::SimulateTrades()
             else
                 dep = tb0q;
         };
-        MakeDeplete(kOrdBuy );
-        MakeDeplete(kOrdSell);
+        MakeDeplete(OrdType::buy );
+        MakeDeplete(OrdType::sell);
         
         // Make <-1th orders
         for (auto iOrd = std::begin(i.ord); iOrd != std::end(i.ord); iOrd++)
         {
             auto &o = iOrd->second;
-            if (o.type == kOrdBuy  && o.p > i.Pb0() && o.q > 0) {
+            if (o.type == OrdType::buy  && o.p > i.Pb0() && o.q > 0) {
                 if (verbose == true) std::cout << "- < p_-1 -" << std::endl;
                 orderbook.ApplyTrade(iItems, iOrd, PQ(o.p, o.q));
             }
-            if (o.type == kOrdSell && o.p < i.Ps0() && o.q > 0) {
+            if (o.type == OrdType::sell && o.p < i.Ps0() && o.q > 0) {
                 if (verbose == true) std::cout << "- < p_-1 -" << std::endl;
                 orderbook.ApplyTrade(iItems, iOrd, PQ(o.p, o.q));
             }
@@ -449,28 +450,28 @@ int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
 {
     if (nReqThisTick < kReqNPerTick)
     {
-        verify(req.type != kReq_ca && req.type != kReq_sa);
+        verify(req.type != ReqType::ca && req.type != ReqType::sa);
         
-        if ((req.type == kReq_cb) || (req.type == kReq_cs) || (req.type == kReq_mb) || (req.type == kReq_ms))
+        if ((req.type == ReqType::cb) || (req.type == ReqType::cs) || (req.type == ReqType::mb) || (req.type == ReqType::ms))
         {
             // q-asserts already in OrderBook's functions
             TrimM                (req.iItems, req.iOrd, req.q);
             orderbook.ApplyCancel(req.iItems, req.iOrd, req.q);
         }
         
-        if ((req.type == kReq_b ) || (req.type == kReq_s ) || (req.type == kReq_mb) || (req.type == kReq_ms))
+        if ((req.type == ReqType::b ) || (req.type == ReqType::s ) || (req.type == ReqType::mb) || (req.type == ReqType::ms))
         {
             OrderSim o;
-            o.type = (((req.type == kReq_b ) || (req.type == kReq_mb)) ? kOrdBuy : kOrdSell);
+            o.type = (((req.type == ReqType::b ) || (req.type == ReqType::mb)) ? OrdType::buy : OrdType::sell);
             o.p    = req.p;
             
             auto &i = *req.iItems->second;
             
             bool is0     = (o.p == i.Tck2P(-1, o.type));
-            bool is0Anti = (o.p == i.Tck2P(-1, o.type == kOrdBuy ? kOrdSell : kOrdBuy));
+            bool is0Anti = (o.p == i.Tck2P(-1, o.type == OrdType::buy ? OrdType::sell : OrdType::buy));
             
-            auto &dep     = (o.type == kOrdBuy ? i.depB0 : i.depS0);
-            auto &depAnti = (o.type == kOrdBuy ? i.depS0 : i.depB0);
+            auto &dep     = (o.type == OrdType::buy ? i.depB0 : i.depS0);
+            auto &depAnti = (o.type == OrdType::buy ? i.depS0 : i.depB0);
             
             // immediate order (no B & M involved)
             if (is0 == true)
@@ -508,7 +509,7 @@ int Simulation::DisplayLoadError(CSTR &str)
 
 SecType Simulation::ResolveSecType(CSTR &path, CSTR &code)
 {
-    SecType type(kSecNull);
+    SecType type(SecType::null);
     
     if (std::end(orderbook.items) == orderbook.items.find(code))
     {
@@ -523,9 +524,9 @@ SecType Simulation::ResolveSecType(CSTR &path, CSTR &code)
         
         if (tr.is_open() == true && tb.is_open() == true)
         {
-            if(th.is_open() == false && i.is_open() == false && n.is_open() == false) type = kSecKOSPI;
-            if(th.is_open() == true  && i.is_open() == true  && n.is_open() == false) type = kSecELW;
-            if(th.is_open() == false && i.is_open() == false && n.is_open() == true ) type = kSecETF;
+            if(th.is_open() == false && i.is_open() == false && n.is_open() == false) type = SecType::KOSPI;
+            if(th.is_open() == true  && i.is_open() == true  && n.is_open() == false) type = SecType::ELW;
+            if(th.is_open() == false && i.is_open() == false && n.is_open() == true ) type = SecType::ETF;
         }
         
         // files closed automatically in ~ifstream

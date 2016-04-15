@@ -1,18 +1,19 @@
 #ifndef SIBYL_SERVER_BROKER_H_
 #define SIBYL_SERVER_BROKER_H_
 
+#include <cstring>
 #include <iostream>
 #include <atomic>
 
-#include "../Participant.h"
 #include "OrderBook.h"
 #include "../util/DispPrefix.h"
+#include "../ReqType.h"
 
 namespace sibyl
 {
 
 template <class TOrder, class TItem>
-class Broker : public Participant
+class Broker
 {
 public:
     OrderBook<TOrder, TItem> orderbook;
@@ -33,7 +34,7 @@ public:
     
     Broker() : verbose(false),
                skipTick(false),
-               ab_interrupt(false) { orderbook.SetTimeBounds(timeBounds); }
+               ab_interrupt(false) {}
 protected:
     bool verbose;
     
@@ -83,16 +84,16 @@ const std::vector<UnnamedReq<TItem>>& Broker<TOrder, TItem>::ParseMsgIn(char *ms
             
             if (iW == 0) // command
             {
-                if (word == "b" ) req.type = kReq_b;
-                if (word == "s" ) req.type = kReq_s;
-                if (word == "cb") req.type = kReq_cb;
-                if (word == "cs") req.type = kReq_cs;
-                if (word == "mb") req.type = kReq_mb;
-                if (word == "ms") req.type = kReq_ms;
-                if (word == "ca") req.type = kReq_ca;
-                if (word == "sa") req.type = kReq_sa;
+                if (word == "b" ) req.type = ReqType::b;
+                if (word == "s" ) req.type = ReqType::s;
+                if (word == "cb") req.type = ReqType::cb;
+                if (word == "cs") req.type = ReqType::cs;
+                if (word == "mb") req.type = ReqType::mb;
+                if (word == "ms") req.type = ReqType::ms;
+                if (word == "ca") req.type = ReqType::ca;
+                if (word == "sa") req.type = ReqType::sa;
                 if ((word == "ca") || (word == "sa")) fail = false; // prepare to exit
-                if (req.type == kReqNull) break; // command not found
+                if (req.type == ReqType::null) break; // command not found
             }
             if (iW == 1) // code
             {
@@ -110,11 +111,11 @@ const std::vector<UnnamedReq<TItem>>& Broker<TOrder, TItem>::ParseMsgIn(char *ms
             {
                 if (false == std::all_of(std::begin(word), std::end(word), (int (*)(int))std::isdigit)) break; // not non-negative number
                 req.q = std::stoi(word);
-                if ((req.type != kReq_mb) && (req.type != kReq_ms)) fail = false; // prepare to exit
+                if ((req.type != ReqType::mb) && (req.type != ReqType::ms)) fail = false; // prepare to exit
             }
             if (iW == 4) // modprice (mb/ms only)
             {
-                if ((req.type != kReq_mb) && (req.type != kReq_ms)) { fail = true; break; } // too many words for a b/s/cb/cs command
+                if ((req.type != ReqType::mb) && (req.type != ReqType::ms)) { fail = true; break; } // too many words for a b/s/cb/cs command
                 if (false == std::all_of(std::begin(word), std::end(word), (int (*)(int))std::isdigit)) break; // not non-negative number
                 req.mp = std::stoi(word);
                 if (req.mp <= 0) break; // 0 price not allowed
@@ -147,7 +148,7 @@ void Broker<TOrder, TItem>::ExecuteUnnamedReqs(const std::vector<UnnamedReq<TIte
 {
     for (const auto &req : ureq)
     {
-        bool interruptible = (req.type != kReq_ca && req.type != kReq_sa); 
+        bool interruptible = (req.type != ReqType::ca && req.type != ReqType::sa); 
         if (interruptible == true && IsInterrupted() == true) break;
         const auto &nreq = orderbook.AllotReq(req);
         for (const auto &req : nreq)

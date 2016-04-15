@@ -8,7 +8,7 @@
 
 #include <fractal/fractal.h>
 
-#include "Reshaper_delta_whiten.h"
+#include "Reshaper_0.h"
 
 class TradeDataSet : public fractal::DataSet
 {
@@ -38,7 +38,7 @@ public:
             const unsigned long frameIdx, void *const frame);
     
     /* Reshaper */
-    typedef sibyl::Reshaper_delta_whiten Reshaper; // TradeRnn also refers TradeDataSet::Reshaper
+    typedef sibyl::Reshaper_0 Reshaper; // TradeRnn also refers TradeDataSet::Reshaper
     Reshaper reshaper;
     
 protected:

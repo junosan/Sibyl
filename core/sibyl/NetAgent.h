@@ -11,7 +11,9 @@
     #define close_socket(expression) closesocket(expression)
 #endif /* !_WIN32 */
 
-#include "SibylCommon.h"
+#include <new>
+
+#include "sibyl_common.h"
 
 namespace sibyl
 {
@@ -21,14 +23,21 @@ class NetAgent
 public:
     void SetVerbose(bool verbose_) { verbose = verbose_; }
     
-    NetAgent() : verbose(false) {}
+    NetAgent() : verbose(false)
+                { bufTCP = new char[kTCPBufSize];
+                  bufMsg = new char[kTCPBufSize]; }
+    ~NetAgent() { delete[] bufTCP;
+                  delete[] bufMsg; }
 protected:
     bool verbose;
     
-    constexpr static const int sock_fail = -1; 
+    constexpr static const char *kTCPPassword = "sendorder";
+    constexpr static       int   kTCPBacklog  = 8;
+    constexpr static       int   kTCPBufSize  = (1 << 16);
+    constexpr static       int   sock_fail    = -1; 
     
-    static char bufTCP[kTCPBufSize];
-    static char bufMsg[kTCPBufSize];
+    char *bufTCP;
+    char *bufMsg;
 };
 
 }

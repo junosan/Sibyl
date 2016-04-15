@@ -5,7 +5,7 @@
 #include <map>
 
 #include "Security.h"
-#include "Participant.h"
+#include "TimeBounds.h"
 
 namespace sibyl
 {
@@ -25,7 +25,6 @@ public:
     } sum;
     std::map<STR, std::unique_ptr<TItem>> items;
 
-    void   SetTimeBounds   (TimeBounds timeBounds_); // to be called by Participant
     void   UpdateRefInitBal();
     double GetProfitRate   (bool isRef = false); // based on balInit by default
     
@@ -33,36 +32,30 @@ public:
     SEval Evaluate() const;
     
     Catalog() : time(TimeBounds::null), bal(0), sum{0, 0, 0, {}},
-                balRef(0), balInit(0), timeBounds(TimeBounds::null), isFirstTick(true) {}
+                balRef(0), balInit(0), isFirstTick(true) {}
 protected:
     INT64 balRef;  // evaluation with 'reference price' (= ending price from the previous day)
     INT64 balInit; // evaluation with 'starting price'  (= price right after marken opens)
     
-    TimeBounds timeBounds;
-    
+    constexpr static const int idxTckOrigS0 = szTb + 0;  // not to be used on tbr
+    constexpr static const int idxTckOrigB0 = szTb + 1;  // not to be used on tbr
 private:
     bool isFirstTick;
 };
 
 template <class TItem>
-void Catalog<TItem>::SetTimeBounds(TimeBounds timeBounds_)
-{
-    timeBounds = timeBounds_;
-}
-
-template <class TItem>
 void Catalog<TItem>::UpdateRefInitBal()
 {
-    if ((isFirstTick == true) || (time <= timeBounds.ref) || (time <= timeBounds.init))
+    if ((isFirstTick == true) || (time <=  TimeBounds::ref) || (time <=  TimeBounds::init))
     {
         SEval se = Evaluate();
         
-        if ((isFirstTick == true) || (time <= timeBounds.ref))
+        if ((isFirstTick == true) || (time <=  TimeBounds::ref))
         {
             balRef = se.evalTot;
             isFirstTick = false;
         }
-        if (time <= timeBounds.init)
+        if (time <=  TimeBounds::init)
             balInit = se.evalTot;
     }
 }
@@ -88,13 +81,13 @@ typename Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
         for (const auto &price_TOrder : i.ord)
         {
             const auto &o = price_TOrder.second;
-            verify(o.type != kOrdNull);
-            if (o.type == kOrdBuy) {
+            verify(o.type != OrdType::null);
+            if (o.type == OrdType::buy) {
                 delta = (INT64)o.p * o.q;
                 delta = delta + i.BFee(delta);
                 se.balBO += delta; se.evalTot += delta;
             } else
-            if (o.type == kOrdSell) {
+            if (o.type == OrdType::sell) {
                 delta = (INT64)i.Ps0() * o.q;
                 delta = delta - i.SFee(delta);
                 se.evalSO += delta; se.evalTot += delta;

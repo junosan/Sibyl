@@ -7,7 +7,7 @@
 namespace sibyl
 {
 
-class Trader : public Participant
+class Trader
 {
 public:
     Portfolio   portfolio;
@@ -19,11 +19,7 @@ public:
     int   ApplyMsgIn (char *msg); // this destroys msg during parsing; returns non-0 to signal termination
     CSTR& BuildMsgOut();
 
-    Trader() {
-        portfolio.SetTimeBounds(timeBounds);
-        model    .SetTimeBounds(timeBounds);
-        model    .SetPortfolio (&portfolio);
-    }
+    Trader() { model.SetPortfolio(&portfolio); }
 };
 
 }

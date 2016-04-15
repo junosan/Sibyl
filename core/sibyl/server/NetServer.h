@@ -119,7 +119,7 @@ int NetServer<TOrder, TItem>::AcceptConn()
         {
             char *pc = strpbrk(bufTCP, "\r\n");
             if (pc != NULL) *pc = '\0';
-            if (kTCPPassword != bufTCP)
+            if (kTCPPassword != STR(bufTCP))
             {
                 close_socket(sock_conn);
                 sock_conn = sock_fail;

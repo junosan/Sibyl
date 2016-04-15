@@ -28,7 +28,7 @@ public:
 
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
-    void State2VecIn(FLOAT *vec, const ItemState &state);
+    void State2VecIn(FLOAT *vec, const ItemState &state) override;
     
     /*   ref   -> fractal */
     void Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code) override;

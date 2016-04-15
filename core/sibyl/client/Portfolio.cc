@@ -23,18 +23,18 @@ const std::vector<ItemState>& Portfolio::GetStateVec()
         state.qr   = i.qr;
         state.tbr  = i.tbr;
         
-        if (i.Type() == kSecELW)
+        if (i.Type() == SecType::ELW)
         {
             const auto &i = *dynamic_cast<ELW<Item>*>(code_pItem.second.get()); // reference as ELW<Item>
             state.isELW = true;
-            state.iCP = (i.CallPut() == kOptCall) - (i.CallPut() == kOptPut);
+            state.iCP = (i.CallPut() == OptType::call) - (i.CallPut() == OptType::put);
             state.expiry = i.Expiry(); 
             state.kospi200 = ELW<Item>::kospi200;
             state.thr = i.thr;
         } else
             state.isELW = false;
         
-        if (i.Type() == kSecETF)
+        if (i.Type() == SecType::ETF)
         {
             const auto &i = *dynamic_cast<ETF<Item>*>(code_pItem.second.get()); // reference as ETF<Item>
             state.isETF = true;
@@ -64,12 +64,7 @@ void Portfolio::SetStateLogPaths(CSTR &state, CSTR &log)
 }
 
 int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
-{
-    verify((timeBounds.ref  > TimeBounds::null) &&
-           (timeBounds.init > TimeBounds::null) &&
-           (timeBounds.stop > TimeBounds::null) &&
-           (timeBounds.end  > TimeBounds::null) ); // must call SetTimeBoundaries(int, int, int, int) first
-    
+{    
     if (logMsgIn.is_open() == true) // log raw input from server
     {
         int timeMsg;
@@ -146,7 +141,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
         }
         if (pcLine[0] == 'e')
         {
-            if (iM->second->Type() == kSecKOSPI) // on first run: reallocate as ELW
+            if (iM->second->Type() == SecType::KOSPI) // on first run: reallocate as ELW
             {
                 auto &ptr = iM->second;
                 KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get()); // store copy
@@ -157,7 +152,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             }
             auto &i = *dynamic_cast<ELW<Item>*>(iM->second.get()); // reference as ELW<Item>
             
-            OptType optType = kOptNull;
+            OptType optType(OptType::null);
             int expiry = -1;
             int iCP = 0;
             for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
@@ -167,13 +162,13 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
                 if  (cW ==  3)               sscanf(pcWord, "%d", &expiry);
                 if ((cW >=  4) && (cW < 12)) sscanf(pcWord, "%f", &i.thr[(std::size_t)(cW - 4)]);
             }
-            if (iCP == +1) optType = kOptCall;
-            if (iCP == -1) optType = kOptPut;
+            if (iCP == +1) optType = OptType::call;
+            if (iCP == -1) optType = OptType::put;
             i.SetInfo(optType, expiry);
         }
         if (pcLine[0] == 'n')
         {
-            if (iM->second->Type() == kSecKOSPI) // on first run: reallocate as ETF
+            if (iM->second->Type() == SecType::KOSPI) // on first run: reallocate as ETF
             {
                 auto &ptr = iM->second;
                 KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get()); // store copy
@@ -205,9 +200,9 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
                     sscanf(pcWord, "%d", &o.q);
                     verify(o.q != 0);
                     if      (o.q > 0)
-                        o.type = kOrdBuy;
+                        o.type = OrdType::buy;
                     else if (o.q < 0) {
-                        o.type = kOrdSell;
+                        o.type = OrdType::sell;
                         o.q = -o.q;
                     }
                     i.ord.insert(std::make_pair(o.p, o));
@@ -241,7 +236,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
         }
     }
     
-    if (time >= timeBounds.end) return -1;
+    if (time >= TimeBounds::end) return -1;
     return 0;
 }
 
@@ -250,9 +245,9 @@ void Portfolio::WriteState()
     if (pathState.empty() == true) return;
     
     STR filename(pathState);
-    if (time <= timeBounds.init)
+    if (time <= TimeBounds::init)
         filename.append("client_ini.log");
-    else if (time >= timeBounds.end - 60)
+    else if (time >= TimeBounds::end - 60)
         filename.append("client_fin.log");
     else
         filename.append("client_cur.log");
@@ -321,8 +316,8 @@ void Portfolio::WriteState()
                     if (o.type == type)
                     {
                         int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                        if (tck == szTck) tck = 98;     // display as 99 if not found
-                        fprintf(pf, "[%s%2d] {%s} %8d (%6d)", (type == kOrdBuy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
+                        if (tck == kTckN) tck = 98;     // display as 99 if not found
+                        fprintf(pf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                         if (nItemPerLine == ++iCnt)
                         {
                             fputs("\n", pf);
@@ -338,8 +333,8 @@ void Portfolio::WriteState()
         };
         
         fprintf(pf, "\nord  [t_c] (%4d)\n", nOrdTot);
-        ListOrder(kOrdBuy) ; fputs("\n", pf);
-        ListOrder(kOrdSell); fputs("\n", pf);
+        ListOrder(OrdType::buy) ; fputs("\n", pf);
+        ListOrder(OrdType::sell); fputs("\n", pf);
         
         fclose (pf);
     }

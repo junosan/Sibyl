@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "RewardModel.h"
+#include "../ReqType.h"
 
 namespace sibyl
 {
@@ -110,7 +111,7 @@ void RewardModel::GetRefData()
         }
         isFirstTick = false;
     }
-    if ((pPortfolio->time >= timeBounds.init) && (pPortfolio->time < timeBounds.stop))
+    if ((pPortfolio->time >= TimeBounds::init) && (pPortfolio->time < TimeBounds::stop))
     {
         const std::ptrdiff_t dimRef = 42;
         float bufRef[dimRef];
@@ -138,7 +139,7 @@ void RewardModel::GetRefData()
                 break;
             
             auto &i = *(pPortfolio->items.find(code_reward.first)->second);
-            if (i.Type() == kSecKOSPI)
+            if (i.Type() == SecType::KOSPI)
             {
                 for (int iB = 0; iB < (int)dimRef; iB++)
                 {
@@ -195,7 +196,7 @@ public:
     INT price;         // actual price
     INT quant;         // actual quantity
     INT modprice;      // actual mod price
-    GReq() : G(0.0f), type(kReqNull), price(0), quant(0), modprice(0) {}
+    GReq() : G(0.0f), type(ReqType::null), price(0), quant(0), modprice(0) {}
 };
 
 CSTR& RewardModel::BuildMsgOut()
@@ -224,14 +225,14 @@ CSTR& RewardModel::BuildMsgOut()
         WritePosGCnt();
     }
     if ((logVecIn.is_open() == true) && // log G values
-        (time >= timeBounds.init) && (time < timeBounds.stop)) {
+        (time >= TimeBounds::init) && (time < TimeBounds::stop)) {
         WriteGLogs();
     }
     
     const int timeCancelAll  = 21000 + 600 + 60;
     
     // Stop buying anything between 14:30 and 14:50
-    if ((time >= timeBounds.stop - 1200) && (time < timeBounds.stop))
+    if ((time >= TimeBounds::stop - 1200) && (time < TimeBounds::stop))
     {
         for (auto &code_reward : rewards)
         {
@@ -246,7 +247,7 @@ CSTR& RewardModel::BuildMsgOut()
     }
     
     // Don't do anything between 14:50 and 15:01
-    if ((time >= timeBounds.stop) && (time < timeCancelAll))
+    if ((time >= TimeBounds::stop) && (time < timeCancelAll))
     {
         for (auto &code_reward : rewards)
         {
@@ -282,7 +283,7 @@ CSTR& RewardModel::BuildMsgOut()
     }
     
     // between 09:00:int and 15:01:00
-    if (time >= timeBounds.init)
+    if (time >= TimeBounds::init)
     {
         // Annihilate self-contradictory inputs
         auto Annihilate = [](FLOAT &a, FLOAT &b) {
@@ -339,11 +340,11 @@ CSTR& RewardModel::BuildMsgOut()
             for (const auto &price_Order : i.ord)
             {
                 const auto &o = price_Order.second;
-                if (o.type == kOrdSell)
+                if (o.type == OrdType::sell)
                 {
-                    int tck = i.P2Tck(o.p, kOrdSell); // 0-based tick
+                    int tck = i.P2Tck(o.p, OrdType::sell); // 0-based tick
                     bool push  = false;
-                    if ((tck >= 0) && (tck < (int)szTck)) // order price found in table
+                    if ((tck >= 0) && (tck < (int)kTckN)) // order price found in table
                     {
                         double Gc = r.G.at((std::size_t)tck).cs + dEGs; 
                         if (Gc > 0.0)
@@ -352,7 +353,7 @@ CSTR& RewardModel::BuildMsgOut()
                             push = true;
                         }
                     }
-                    if ((tck == (int)szTck) && (o.p > i.tbr.at(0).p)) // order price higher than any value in tb
+                    if ((tck == (int)kTckN) && (o.p > i.tbr.at(0).p)) // order price higher than any value in tb
                     {
                         reqGcs.G = 100.0f;
                         push = true;
@@ -360,7 +361,7 @@ CSTR& RewardModel::BuildMsgOut()
                     if ((push == true) && (o.p > 0) && (o.q > 0)) 
                     {
                         cntAvail    += o.q;
-                        reqGcs.type  = kReq_cs;
+                        reqGcs.type  = ReqType::cs;
                         reqGcs.iM    = iM;
                         reqGcs.price = o.p;
                         reqGcs.quant = o.q;
@@ -374,8 +375,8 @@ CSTR& RewardModel::BuildMsgOut()
             INT cntLeft = cntAvail;
             for (const auto &req : vPosGs)
             {
-                reqGs.price = i.Tck2P(req.tick, kOrdSell);
-                if (i.Type() == kSecELW) reqGs.quant = 10 * (INT)std::round((double)cntAvail * req.G / sumPosGs / 10.0);
+                reqGs.price = i.Tck2P(req.tick, OrdType::sell);
+                if (i.Type() == SecType::ELW) reqGs.quant = 10 * (INT)std::round((double)cntAvail * req.G / sumPosGs / 10.0);
                 else                     reqGs.quant =      (INT)std::round((double)cntAvail * req.G / sumPosGs       );
                 reqGs.quant = (reqGs.quant > cntLeft ? cntLeft : reqGs.quant);
                 if ((reqGs.price > 0) && (reqGs.quant > 0))
@@ -389,7 +390,7 @@ CSTR& RewardModel::BuildMsgOut()
                     }
                     else
                         reqGs.G = (FLOAT)(r.G.at((std::size_t)req.tick).s * i.Ps0() * reqGs.quant * (1.0 - i.dSF()));
-                    reqGs.type = kReq_s;
+                    reqGs.type = ReqType::s;
                     reqGs.iM   = iM;
                     oReq.push_back(reqGs);
                     if (cntLeft <= 0) break;
@@ -443,11 +444,11 @@ CSTR& RewardModel::BuildMsgOut()
             for (const auto &price_Order : i.ord)
             {
                 const auto &o = price_Order.second;
-                if (o.type == kOrdBuy)
+                if (o.type == OrdType::buy)
                 {
-                    int tck = i.P2Tck(o.p, kOrdBuy);
+                    int tck = i.P2Tck(o.p, OrdType::buy);
                     bool push  = false;
-                    if ((tck >= 0) && (tck < (int)szTck)) // order price found in table
+                    if ((tck >= 0) && (tck < (int)kTckN)) // order price found in table
                     {
                         double Gb = r.G.at((std::size_t)tck).cb + dEGb; 
                         if (Gb > 0.0)
@@ -456,7 +457,7 @@ CSTR& RewardModel::BuildMsgOut()
                             push = true;
                         }
                     }
-                    if ( (tck == (int) szTck && o.p < i.tbr.at(szTb - 1).p) || // order price lower than any value in tb
+                    if ( (tck == (int) kTckN && o.p < i.tbr.at(szTb - 1).p) || // order price lower than any value in tb
                          (exclusiveBuy == true && i.cnt > 0)                )  // exclusiveBuy (already bought)
                     {
                         reqGcb.G = 100.0f;
@@ -466,7 +467,7 @@ CSTR& RewardModel::BuildMsgOut()
                     {
                         INT64 delta = (INT64)o.p * o.q;
                         balAvail += delta + i.BFee(delta);
-                        reqGcb.type = kReq_cb;
+                        reqGcb.type = ReqType::cb;
                         reqGcb.iM   = iM;
                         reqGcb.price = o.p;
                         reqGcb.quant = o.q;
@@ -486,17 +487,17 @@ CSTR& RewardModel::BuildMsgOut()
             {
                 const auto &r = rewards.find(req.iM->first)->second;
                 
-                reqGb.price = i.Tck2P(req.tick, kOrdBuy);
+                reqGb.price = i.Tck2P(req.tick, OrdType::buy);
                 INT64 balDist = (INT64)std::round((double)balAvail * req.G / sumPosGb);
                 if (reqGb.price > 0) {
-                    if (i.Type() == kSecELW) reqGb.quant = 10 * (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF()) * 10));
+                    if (i.Type() == SecType::ELW) reqGb.quant = 10 * (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF()) * 10));
                     else                     reqGb.quant =      (INT)std::round((double)balDist / (reqGb.price * (1.0 + i.dBF())     ));
                 }   else                     reqGb.quant = 0;
                 INT64 delta = (INT64)reqGb.price * reqGb.quant;
                 delta += i.BFee(delta);
                 if (balLeft - delta < 0)
                 {
-                    if (i.Type() == kSecELW) reqGb.quant -= 10;
+                    if (i.Type() == SecType::ELW) reqGb.quant -= 10;
                     else                     reqGb.quant -=  1;
                     delta  = (INT64)reqGb.price * reqGb.quant;
                     delta += i.BFee(delta);
@@ -506,7 +507,7 @@ CSTR& RewardModel::BuildMsgOut()
                     balLeft -= delta;
                     if (req.tick == -1) reqGb.G = FLOAT(r.G0.b                          * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
                     else                reqGb.G = FLOAT(r.G.at((std::size_t)req.tick).b * reqGb.price * reqGb.quant * (1.0 + i.dBF()));
-                    reqGb.type = kReq_b;
+                    reqGb.type = ReqType::b;
                     reqGb.iM   = req.iM;
                     oReq.push_back(reqGb);
                     if (balLeft <= 0) break;
@@ -522,18 +523,18 @@ CSTR& RewardModel::BuildMsgOut()
         bool bBreak = false;
         for (const auto &req : cReq)
         {
-            if (true == (bBreak = CatReq((req.type == kReq_cb ? "cb" : "cs"), req.iM->first, req.price, req.quant))) 
+            if (true == (bBreak = CatReq((req.type == ReqType::cb ? "cb" : "cs"), req.iM->first, req.price, req.quant))) 
                 break;
         }
         if (bBreak == false)
         {
             for (const auto &req : oReq)
             {
-                if      ( ((req.type == kReq_b ) || (req.type == kReq_s )) &&
-                     (true == (bBreak = CatReq((req.type == kReq_b  ? "b"  : "s" ), req.iM->first, req.price, req.quant              ))) )
+                if      ( ((req.type == ReqType::b ) || (req.type == ReqType::s )) &&
+                     (true == (bBreak = CatReq((req.type == ReqType::b  ? "b"  : "s" ), req.iM->first, req.price, req.quant              ))) )
                     break;
-                else if ( ((req.type == kReq_mb) || (req.type == kReq_ms)) &&
-                     (true == (bBreak = CatReq((req.type == kReq_mb ? "mb" : "ms"), req.iM->first, req.price, req.quant, req.modprice))) )
+                else if ( ((req.type == ReqType::mb) || (req.type == ReqType::ms)) &&
+                     (true == (bBreak = CatReq((req.type == ReqType::mb ? "mb" : "ms"), req.iM->first, req.price, req.quant, req.modprice))) )
                     break;
             }            
         }
@@ -589,7 +590,7 @@ void RewardModel::WritePosGCnt()
 void RewardModel::WriteGLogs()
 {
     if ((logVecIn.is_open() == true) && 
-        (pPortfolio->time >= timeBounds.init) && (pPortfolio->time < timeBounds.stop))
+        (pPortfolio->time >= TimeBounds::init) && (pPortfolio->time < TimeBounds::stop))
     {
         logVecIn << "[t=" << pPortfolio->time << "]\n";
         for (const auto &code_reward : rewards)
@@ -604,7 +605,7 @@ void RewardModel::WriteGLogs()
                 sprintf(bufLine, "[s%2d]\t%+.3e\t%+.3e\n", (int)(1 + idxPs1 - idx), r.G[(std::size_t)(idxPs1 - idx)].s, r.G[(std::size_t)(idxPs1 - idx)].cs);
                 logVecIn << bufLine;
             }
-            for (std::ptrdiff_t idx = 0; idx < szTck; idx++) {
+            for (std::ptrdiff_t idx = 0; idx < kTckN; idx++) {
                 sprintf(bufLine, "[b%2d]\t%+.3e\t%+.3e\n", (int)(1 + idx)         , r.G[(std::size_t)idx].b           , r.G[(std::size_t)idx].cb           );
                 logVecIn << bufLine;
             }

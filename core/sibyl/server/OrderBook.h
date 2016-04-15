@@ -1,19 +1,15 @@
 #ifndef SIBYL_SERVER_ORDERBOOK_H_
 #define SIBYL_SERVER_ORDERBOOK_H_
 
-#include <map>
 #include <vector>
 #include <cctype>
 #include <cinttypes>
 #include <mutex>
 #include <iostream>
 
-#include "../Security.h"
-#include "../Security_KOSPI.h"
-#include "../Security_ELW.h"
-#include "../Security_ETF.h"
 #include "../Catalog.h"
 #include "../util/DispPrefix.h"
+#include "OrderBook_data.h"
 
 #ifdef _WIN32 // temporarily disable minwindef.h definitions
     #undef max
@@ -22,54 +18,6 @@
 
 namespace sibyl
 {
-
-// shorthand for Security.ord's iterator
-template <class TOrder>
-using it_ord_t = typename std::multimap<INT, TOrder>::iterator; 
-
-// shorthand for Catalog.items's iterator
-template <class TItem>
-using it_itm_t = typename std::map<STR, std::unique_ptr<TItem>>::iterator;
-
-class Order : public PQ
-{
-public:
-    OrdType type;
-    int     tck_orig; // to be automatically filled by ApplyInsert function
-    Order()             :           type(kOrdNull), tck_orig(szTck) {}
-    Order(INT p, INT q) : PQ(p, q), type(kOrdNull), tck_orig(szTck) {}
-};
-
-template <class TOrder>
-class Item : public Security<TOrder>
-{
-public:
-    virtual ~Item() {}
-};
-
-template <class TItem>
-class UnnamedReq
-{
-public:
-    ReqType         type;
-    it_itm_t<TItem> iItems;
-    INT             p;
-    INT             q;
-    INT             mp; // only for mb, ms
-    UnnamedReq() : type(kReqNull), p(0), q(0), mp(0) {}
-};
-
-template <class TOrder, class TItem>
-class NamedReq
-{
-public:
-    ReqType          type;
-    it_itm_t<TItem>  iItems;
-    it_ord_t<TOrder> iOrd; // only for cb, cs, mb, ms
-    INT              p;    // only for b, s, mb, ms (p = mp for mb|ms)
-    INT              q;
-    NamedReq() : type(kReqNull), p(0), q(0) {}
-};
 
 template <class TOrder, class TItem>
 class OrderBook : public Catalog<TItem> //  /**/ mutex'd  
@@ -122,7 +70,7 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
     // k kospi200
     bool existELW = false;
     for (const auto &code_pItem : this->items)
-        if (code_pItem.second->Type() == kSecELW) { existELW = true; break; }
+        if (code_pItem.second->Type() == SecType::ELW) { existELW = true; break; }
     if (existELW == true)
     {
         if (ELW<TItem>::kospi200 <= 0.0f)
@@ -146,8 +94,8 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                 for (auto iO = first_last.first; iO != first_last.second; iO++)
                 {
                     const auto &o = iO->second;
-                    if ( ((idx <= idxPs1) && (o.type == kOrdSell)) ||
-                         ((idx >= idxPb1) && (o.type == kOrdBuy )) )
+                    if ( ((idx <= idxPs1) && (o.type == OrdType::sell)) ||
+                         ((idx >= idxPb1) && (o.type == OrdType::buy )) )
                         iT->q += o.q;
                 }
             }
@@ -166,17 +114,17 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                             tbm[15].q, tbm[16].q, tbm[17].q, tbm[18].q, tbm[19].q );
         msg.append(bufLine);
         
-        if (i.Type() == kSecELW)
+        if (i.Type() == SecType::ELW)
         {
             auto &i = *dynamic_cast<ELW<TItem>*>(code_pItem.second.get()); // reference as ELW<TItem>
-            int CP = (i.CallPut() == kOptCall) - (i.CallPut() == kOptPut); 
+            int CP = (i.CallPut() == OptType::call) - (i.CallPut() == OptType::put); 
             sprintf(bufLine, "e %s %+d %d %.5e %.5e %.5e %.5e %.5e %.5e %.5e %.5e\n",
                                 code_pItem.first.c_str(), CP, i.Expiry(),
                                 i.thr[0], i.thr[1], i.thr[2], i.thr[3], i.thr[4], i.thr[5], i.thr[6], i.thr[7]);
             msg.append(bufLine);
         }
         
-        if (i.Type() == kSecETF)
+        if (i.Type() == SecType::ETF)
         {
             auto &i = *dynamic_cast<ETF<TItem>*>(code_pItem.second.get()); // reference as ETF<TItem>
             sprintf(bufLine, "n %s %.5e\n", code_pItem.first.c_str(), i.devNAV);
@@ -197,11 +145,11 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                 for (auto iP = first_last.first; iP != first_last.second; iP++) {
                     if (iP->second.type == type) pq.q += iP->second.q;
                 }
-                if (type == kOrdSell) pq.q = -pq.q;
+                if (type == OrdType::sell) pq.q = -pq.q;
                 if (pq.q != 0) ordm.push_back(pq);
             };
-            MergeAndAdd(kOrdBuy );
-            MergeAndAdd(kOrdSell);
+            MergeAndAdd(OrdType::buy );
+            MergeAndAdd(OrdType::sell);
             iO = first_last.second;
         }
 
@@ -242,22 +190,15 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
     
     if (verbose == true)
     {
-        std::cout << dispPrefix << "Allot:   ";
-        if      (req.type == kReq_b ) std::cout << "b";
-        else if (req.type == kReq_s ) std::cout << "s";
-        else if (req.type == kReq_cb) std::cout << "cb";
-        else if (req.type == kReq_cs) std::cout << "cs";
-        else if (req.type == kReq_mb) std::cout << "mb";
-        else if (req.type == kReq_ms) std::cout << "ms";
-        std::cout << " {" << req.iItems->first << "} " << req.p << " (" << req.q << ")";
-        if (req.type == kReq_mb || req.type == kReq_ms) std::cout << " " << req.mp;
+        std::cout << dispPrefix << "Allot:   " << req.type << " {" << req.iItems->first << "} " << req.p << " (" << req.q << ")";
+        if (req.type == ReqType::mb || req.type == ReqType::ms) std::cout << " " << req.mp;
         std::cout << std::endl;
     }
     
     nreq.clear();
     
     // validation
-    if ((req.type != kReq_ca) && (req.type != kReq_sa))
+    if ((req.type != ReqType::ca) && (req.type != ReqType::sa))
     {
         auto &i = *(req.iItems->second);
         bool skip = false;
@@ -266,7 +207,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
         if ( (i.ValidP(req.p) == false)                     ||
              ((req.mp != 0) && (i.ValidP(req.mp) == false)) ||
              (req.p == req.mp)                              ||
-             ((i.Type() == kSecELW) && (req.q % 10 != 0)) )
+             ((i.Type() == SecType::ELW) && (req.q % 10 != 0)) )
         {
             std::cerr << dispPrefix
                       << "OrderBook::AllotReq: invalid req " << req.type << " {" << req.iItems->first.c_str() << "} "
@@ -275,9 +216,9 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
         }
         
         // this may happen naturally due rapid table shift
-        if ( (((req.type == kReq_b ) || (req.type == kReq_s )) && 
+        if ( (((req.type == ReqType::b ) || (req.type == ReqType::s )) && 
               std::none_of(std::begin(i.tbr), std::end(i.tbr), [&req](const PQ & tb) { return tb.p == req.p;  })) ||
-             (((req.type == kReq_mb) || (req.type == kReq_ms)) && 
+             (((req.type == ReqType::mb) || (req.type == ReqType::ms)) && 
               std::none_of(std::begin(i.tbr), std::end(i.tbr), [&req](const PQ & tb) { return tb.p == req.mp; })) )
         {
             skip = true;
@@ -285,17 +226,17 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
         
         if (skip == false)
         {
-            if (req.type == kReq_b)
+            if (req.type == ReqType::b)
             {
                 req.p = std::min(req.p, i.Pb0());
                 INT64 qmax64 = (INT64)std::floor(this->bal / (req.p * (1.0 + i.dBF())));
                 INT   qmax   =   (INT)std::min(qmax64, (INT64)0x7FFFFFFF);; 
-                if (i.Type() == kSecELW) qmax -= qmax % 10;
+                if (i.Type() == SecType::ELW) qmax -= qmax % 10;
                 req.q = (req.q != 0 ? std::min(req.q, qmax) : qmax);
                 if (req.q > 0)
                 {
                     NamedReq<TOrder, TItem> temp;
-                    temp.type   = kReq_b;
+                    temp.type   = ReqType::b;
                     temp.iItems = req.iItems;
                     temp.p      = req.p;
                     temp.q      = req.q;
@@ -306,14 +247,14 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 }
             } else
             
-            if (req.type == kReq_s)
+            if (req.type == ReqType::s)
             {
                 req.p = std::max(req.p, i.Ps0());
                 req.q = (req.q != 0 ? std::min(req.q, i.cnt) : i.cnt);
                 if (req.q > 0)
                 {
                     NamedReq<TOrder, TItem> temp;
-                    temp.type = kReq_s;
+                    temp.type = ReqType::s;
                     temp.iItems = req.iItems;
                     temp.p    = req.p;
                     temp.q    = req.q;
@@ -324,20 +265,20 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 }
             } else
                 
-            if ((req.type == kReq_cb) || (req.type == kReq_cs) || (req.type == kReq_mb) || (req.type == kReq_ms))
+            if ((req.type == ReqType::cb) || (req.type == ReqType::cs) || (req.type == ReqType::mb) || (req.type == ReqType::ms))
             {
                 INT  qleft   = req.q;
                 
-                if (req.type == kReq_mb) req.mp = std::min(req.mp, i.Pb0());
-                if (req.type == kReq_ms) req.mp = std::max(req.mp, i.Ps0());
+                if (req.type == ReqType::mb) req.mp = std::min(req.mp, i.Pb0());
+                if (req.type == ReqType::ms) req.mp = std::max(req.mp, i.Ps0());
                 if (req.p == req.mp) skip = true;
                 
                 bool limited = true;
-                if ((req.type == kReq_mb) && (req.mp > req.p))
+                if ((req.type == ReqType::mb) && (req.mp > req.p))
                 {
                     INT64 qmax64 = (INT64)std::floor(this->bal / ((req.mp - req.p) * (1.0 + i.dBF())));
                     INT   qmax   =   (INT)std::min(qmax64, (INT64)0x7FFFFFFF);; 
-                    if (i.Type() == kSecELW) qmax -= qmax % 10;
+                    if (i.Type() == SecType::ELW) qmax -= qmax % 10;
                     qleft = (req.q != 0 ? std::min(req.q, qmax) : qmax);
                     if (qleft <= 0) skip = true;
                 }
@@ -363,7 +304,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                             NamedReq<TOrder, TItem> temp;
                             temp.type   = req.type;
                             temp.iItems = req.iItems;
-                            if ((req.type == kReq_mb) || (req.type == kReq_ms)) temp.p = req.mp;
+                            if ((req.type == ReqType::mb) || (req.type == ReqType::ms)) temp.p = req.mp;
                             temp.q      = deltaq;
                             temp.iOrd   = iO;
                             nreq.push_back(temp);
@@ -371,7 +312,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                             {
                                 std::cout << dispPrefix
                                           << "                 -> (" << deltaq << ")";
-                                if ((req.type == kReq_mb) || (req.type == kReq_ms))
+                                if ((req.type == ReqType::mb) || (req.type == ReqType::ms))
                                     std::cout << " " << req.mp;
                                 std::cout << std::endl;
                             }
@@ -384,7 +325,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
         }
     } else
 
-    if (req.type == kReq_ca)
+    if (req.type == ReqType::ca)
     {
         NamedReq<TOrder, TItem> temp;
         for (const auto &code_pItem : this->items)
@@ -395,8 +336,8 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 const auto &o = iO->second;
                 if (o.q > 0)
                 {
-                    if (o.type == kOrdBuy ) temp.type = kReq_cb;
-                    if (o.type == kOrdSell) temp.type = kReq_cs;
+                    if (o.type == OrdType::buy ) temp.type = ReqType::cb;
+                    if (o.type == OrdType::sell) temp.type = ReqType::cs;
                     temp.iItems = req.iItems;
                     temp.q      = o.q;
                     temp.iOrd   = iO;
@@ -405,8 +346,8 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                     {
                         std::cout << dispPrefix
                                   << "                 -> ";
-                        if (o.type == kOrdBuy ) std::cout << "cb";
-                        if (o.type == kOrdSell) std::cout << "cs";
+                        if (o.type == OrdType::buy ) std::cout << "cb";
+                        if (o.type == OrdType::sell) std::cout << "cs";
                         std::cout << " {" << code_pItem.first << "} " << o.p << " (" << o.q << ")" << std::endl;
                     }
                 }
@@ -414,7 +355,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
         }
     } else
     
-    if (req.type == kReq_sa)
+    if (req.type == ReqType::sa)
     {
         NamedReq<TOrder, TItem> temp;
         for (const auto &code_pItem : this->items)
@@ -422,7 +363,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
             const auto &i = *code_pItem.second;
             if (i.cnt > 0)
             {
-                temp.type = kReq_s;
+                temp.type = ReqType::s;
                 temp.iItems = req.iItems;
                 temp.p      = i.Ps0();
                 temp.q      = i.cnt;
@@ -449,9 +390,9 @@ it_ord_t<TOrder> OrderBook<TOrder, TItem>::ApplyInsert(it_itm_t<TItem> iItems, T
     }
        
     auto &i = *iItems->second;
-    if (verbose == true) std::cout << dispPrefix << "<Insert> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ")" << std::endl;
+    if (verbose == true) std::cout << dispPrefix << "<Insert> " << (o.type == OrdType::buy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ")" << std::endl;
     
-    if (o.type == kOrdBuy)
+    if (o.type == OrdType::buy)
     {
         if (verbose == true) std::cout << dispPrefix << "    [bal]: " << this->bal << " [-] " << o.p << " * (" <<  o.q << ") * (1 + f_b) = ";
         INT64 raw = (INT64)o.p * o.q;
@@ -459,7 +400,7 @@ it_ord_t<TOrder> OrderBook<TOrder, TItem>::ApplyInsert(it_itm_t<TItem> iItems, T
         if (verbose == true) std::cout << this->bal << std::endl;
         if (this->bal < 0) std::cerr << dispPrefix << "OrderBook::ApplyInsert: Nagative bal reached" << std::endl;
     } else
-    if (o.type == kOrdSell)
+    if (o.type == OrdType::sell)
     {
         if (verbose == true) std::cout << dispPrefix << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [-] (" << o.q << ") = "; 
         i.cnt -= o.q;
@@ -482,8 +423,8 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
     {
         auto &i = *iItems->second;
         auto &o = iOrd->second;
-        if (verbose == true) std::cout << dispPrefix << "<Trade>  " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] " << pq.p << " (" << pq.q << ") = (" << o.q - pq.q << ")" << std::endl; 
-        if (o.type == kOrdBuy)
+        if (verbose == true) std::cout << dispPrefix << "<Trade>  " << (o.type == OrdType::buy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] " << pq.p << " (" << pq.q << ") = (" << o.q - pq.q << ")" << std::endl; 
+        if (o.type == OrdType::buy)
         {
             if (o.p < pq.p)
             {
@@ -507,14 +448,14 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             this->sum.buy    += raw;
             this->sum.feetax += i.BFee(raw);
             
-            if ((o.tck_orig >= -1) && (o.tck_orig < szTck)) {
-                int idx = (o.tck_orig != -1 ? idxPb1 + o.tck_orig : idxTckOrigB0);
+            if ((o.tck_orig >= -1) && (o.tck_orig < kTckN)) {
+                int idx = (o.tck_orig != -1 ? idxPb1 + o.tck_orig : this->idxTckOrigB0);
                 this->sum.tck_orig[(std::size_t)idx].bal += raw + i.BFee(raw);
                 this->sum.tck_orig[(std::size_t)idx].q   += pq.q;
                 this->sum.tck_orig[(std::size_t)idx].evt += 1;
             }
         } else
-        if (o.type == kOrdSell)
+        if (o.type == OrdType::sell)
         {
             if (o.p > pq.p)
             {
@@ -530,8 +471,8 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             this->sum.sell   += raw;
             this->sum.feetax += i.SFee(raw);
             
-            if ((o.tck_orig >= -1) && (o.tck_orig < szTck)) {
-                int idx = (o.tck_orig != -1 ? idxPs1 - o.tck_orig : idxTckOrigS0);
+            if ((o.tck_orig >= -1) && (o.tck_orig < kTckN)) {
+                int idx = (o.tck_orig != -1 ? idxPs1 - o.tck_orig : this->idxTckOrigS0);
                 this->sum.tck_orig[(std::size_t)idx].bal += raw - i.SFee(raw);
                 this->sum.tck_orig[(std::size_t)idx].q   += pq.q;
                 this->sum.tck_orig[(std::size_t)idx].evt += 1;
@@ -551,16 +492,16 @@ void OrderBook<TOrder, TItem>::ApplyCancel(it_itm_t<TItem> iItems, it_ord_t<TOrd
     {
         auto &i = *iItems->second;
         auto &o = iOrd->second;
-        if (verbose == true) std::cout << dispPrefix << "<Cancel> " << (o.type == kOrdBuy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] (" << q << ") = (" << o.q - q << ")" << std::endl;
+        if (verbose == true) std::cout << dispPrefix << "<Cancel> " << (o.type == OrdType::buy ? "b" : "s") << " {" << iItems->first << "} " << o.p << " (" << o.q << ") [-] (" << q << ") = (" << o.q - q << ")" << std::endl;
         
-        if (o.type == kOrdBuy)
+        if (o.type == OrdType::buy)
         {
             if (verbose == true) std::cout << dispPrefix << "    [bal]: " << this->bal << " [+] " << o.p << " * (" << q << ") * (1 + f_b) = ";
             INT64 raw = (INT64)o.p * q;
             this->bal += raw + i.BFee(raw);
             if (verbose == true) std::cout << this->bal << std::endl;
         } else
-        if (o.type == kOrdSell)
+        if (o.type == OrdType::sell)
         {
             if (verbose == true) std::cout << dispPrefix << "    [cnt]: {" << iItems->first << "} (" << i.cnt << ") [+] (" << q << ") = ";
             i.cnt += q;

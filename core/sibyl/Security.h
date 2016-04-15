@@ -7,10 +7,26 @@
 #include <algorithm>
 #include <cassert>
 
-#include "SibylCommon.h"
+#include "sibyl_common.h"
 
 namespace sibyl
 {
+
+constexpr int kTckN  = 10; // largest tick 
+constexpr int szTb   = kTckN * 2;
+constexpr int idxPs1 = kTckN - 1;
+constexpr int idxPb1 = kTckN;
+
+enum class SecType { null, KOSPI, ELW, ETF };
+enum class OrdType { null, buy, sell       };
+
+class PQ
+{
+public:
+    INT p, q;
+    PQ()               : p(0 ), q(0 ) {}
+    PQ(int p_, int q_) : p(p_), q(q_) {}
+};
 
 template <class TOrder> // default: Order
 class Security          // abstract class; derive first as Item with application specific members, and then derive it as KOSPI/ELW/etc.
@@ -41,7 +57,7 @@ public:
     
     // Utility functions for OrdType-generic operations
     // NOTE: the following must be used on a Requantized tbr
-    // tck: -1 (ps0/pb0), 0 (0-based tick), szTck (not found) 
+    // tck: -1 (ps0/pb0), 0 (0-based tick), kTckN (not found) 
     int P2Tck(INT p  , OrdType type) const;
     INT Tck2P(int tck, OrdType type) const;
     INT Tck2Q(int tck, OrdType type) const;
@@ -71,8 +87,8 @@ void Security<TOrder>::Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1
 template <class TOrder>
 int Security<TOrder>::P2Tck(INT p, OrdType type) const
 {
-    int tck = (int)szTck;
-    if (type == kOrdSell) {
+    int tck = (int)kTckN;
+    if (type == OrdType::sell) {
         if (p == Ps0()) tck = -1;
         else { // find_if [first, last)
             auto first = std::begin(tbr);
@@ -81,7 +97,7 @@ int Security<TOrder>::P2Tck(INT p, OrdType type) const
             if (iT != last) tck = (int)idxPs1 - (int)(iT - first);
         }
     } else
-    if (type == kOrdBuy ) {
+    if (type == OrdType::buy ) {
         if (p == Pb0()) tck = -1;
         else { // find_if [first, last)
             auto first = std::begin(tbr) + idxPb1;
@@ -96,12 +112,12 @@ int Security<TOrder>::P2Tck(INT p, OrdType type) const
 template <class TOrder>
 INT Security<TOrder>::Tck2P(int tck, OrdType type) const
 {
-    verify((tck >= -1) && (tck < (int)szTck));
-    if (type == kOrdSell) {
+    verify((tck >= -1) && (tck < (int)kTckN));
+    if (type == OrdType::sell) {
         if (tck == -1) return Ps0();
         else           return tbr[(std::size_t)(idxPs1 - tck)].p;
     } else
-    if (type == kOrdBuy ) {
+    if (type == OrdType::buy ) {
         if (tck == -1) return Pb0();
         else           return tbr[(std::size_t)(idxPb1 + tck)].p;
     }
@@ -111,10 +127,10 @@ INT Security<TOrder>::Tck2P(int tck, OrdType type) const
 template <class TOrder>
 INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
 {
-    verify((tck >= -1) && (tck < (int)szTck));
+    verify((tck >= -1) && (tck < (int)kTckN));
     if (tck >=  0) {
-        if      (type == kOrdSell) return tbr[(std::size_t)(idxPs1 - tck)].q;
-        else if (type == kOrdBuy ) return tbr[(std::size_t)(idxPb1 + tck)].q;
+        if      (type == OrdType::sell) return tbr[(std::size_t)(idxPs1 - tck)].q;
+        else if (type == OrdType::buy ) return tbr[(std::size_t)(idxPb1 + tck)].q;
     } else
     if (tck == -1) { // not to be used unless for depletion mechanism in Simulation
         INT p = Tck2P(-1, type);
@@ -126,5 +142,9 @@ INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
 }
 
 }
+
+#include "securities/Security_KOSPI.h"
+#include "securities/Security_ELW.h"
+#include "securities/Security_ETF.h"
 
 #endif /* SIBYL_SECURITY_H_ */

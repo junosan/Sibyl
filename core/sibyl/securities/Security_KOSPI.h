@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-#include "Security.h"
+#include "../Security.h"
 
 namespace sibyl
 {
@@ -13,7 +13,7 @@ class KOSPI : public TItem // derive from a specialized Security<TOrder> (i.e., 
 {
 public:
     // virtuals from Security
-    SecType Type  ()        const { return kSecKOSPI;                      }
+    SecType Type  ()        const { return SecType::KOSPI;                 }
     INT     TckHi (INT p)   const { 
         return  p + (                 (p <    1000) *      1 +
                       (p >=   1000) * (p <    5000) *      5 +

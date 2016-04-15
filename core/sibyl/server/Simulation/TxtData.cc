@@ -131,7 +131,7 @@ int TxtDataTb::ReadLine(const char *pcLine)
 {
     int temp;
     bool invalid = false;
-    if ( ((type == kSecKOSPI || type == kSecETF) &&
+    if ( ((type == SecType::KOSPI || type == SecType::ETF) &&
          (41 == sscanf(pcLine, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
                                 &temp,
                                 &cur[ 0].p, &cur[ 0].q,
@@ -154,7 +154,7 @@ int TxtDataTb::ReadLine(const char *pcLine)
                                 &cur[17].p, &cur[17].q,
                                 &cur[18].p, &cur[18].q,
                                 &cur[19].p, &cur[19].q ))) ||
-         ((type == kSecELW) &&
+         ((type == SecType::ELW) &&
           (61 == sscanf(pcLine, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d",
                                 &temp,
                                 &cur[ 0].p, &cur[ 0].q, &temp,

@@ -14,9 +14,8 @@
 /*     Catalog<Item> - Portfolio (client side data management)                    */
 /*                   - OrderBook (server side data management)                    */
 /*     Model^ - RewardModel                                                       */
-/*     Participant^ - Trader  (Portfolio and Model interface)                     */
-/*                  - Broker^ (OrderBook interface) - Simulation                  */
-/*                                                  - Kiwoom                      */
+/*     Trader  (Portfolio and Model interface)                                    */
+/*     Broker^ (OrderBook interface) - Simulation, Kiwoom                         */
 /*     NetAgent - NetClient (TCP client and &Trader interface)                    */
 /*              - NetServer (TCP server and &Broker interface)                    */
 /*     TxtData^ - TxtDataTr, TxtDataTb, TxtDataVec                                */
@@ -29,7 +28,7 @@
 /*    req : request for action from client to server (b/s/cb/cs/mb/ms/etc.)       */
 /*    msg : content of TCP communication                                          */
 /* ============================================================================== */
-    
+
 #include <string>
 
 namespace sibyl
@@ -37,66 +36,21 @@ namespace sibyl
 
 typedef float       FLOAT; // for floats less than 7 decimal significant digits
 typedef int         INT;   // for price/quants that are not expected to exceed 32 bits
-typedef int64_t     INT64; // for price/quants that may exceed 32 bits
-typedef std::string STR;   // for readability
-typedef const STR   CSTR;  // for readability
-
-// TODO: handle OS-dependency here //
-
-static const int kTimeTickSec = 10;
-static const int kReqNPerTick = 50;
-
-static const STR kTCPPassword = "sendorder";
-static const int kTCPBacklog  = 8;
-static const int kTCPBufSize  = (1 << 16);
-
-static const int szTck        = 10;        // largest tick 
-static const int szTb         = szTck * 2;
-static const int idxPs1       = szTck - 1;
-static const int idxPb1       = szTck;
-static const int idxTckOrigS0 = szTb + 0;  // not to be used on tbr
-static const int idxTckOrigB0 = szTb + 1;  // not to be used on tbr
-
-enum OrdType {   kOrdNull,
-                 kOrdBuy,
-                 kOrdSell          };
-enum SecType {   kSecNull,
-                 kSecKOSPI,
-                 kSecELW,
-                 kSecETF           };
-enum OptType {   kOptNull     =  0,
-                 kOptCall     = +1,   // value specified in comm_format.txt
-                 kOptPut      = -1 }; // value specified in comm_format.txt
-enum ReqType {   kReqNull     = 0,
-                 kReq_b       = 1,    // value specified in Kiwoom API
-                 kReq_s       = 2,    // value specified in Kiwoom API
-                 kReq_cb      = 3,    // value specified in Kiwoom API
-                 kReq_cs      = 4,    // value specified in Kiwoom API
-                 kReq_mb      = 5,    // value specified in Kiwoom API
-                 kReq_ms      = 6,    // value specified in Kiwoom API
-                 kReq_ca         ,
-                 kReq_sa           };
-
-class PQ
-{
-public:
-    INT p;
-    INT q;
-    PQ()               : p(0 ), q(0 ) {}
-    PQ(int p_, int q_) : p(p_), q(q_) {}
-};
+typedef int64_t     INT64; // for price/quants that may exceed 32 bits in extreme cases
+typedef std::string STR;   // for brevity
+typedef const STR   CSTR;  // for brevity
 
 #ifdef NDEBUG
-    #ifndef _WIN32
-        #define verify(expression) ((void)(expression))
-    #else // for Visual Studio (enable verify even in Release mode)
+    #define verify(expression) ((void)(expression))
+    #if defined _WIN32 && !defined DISABLE_VERIFY_IN_RELEASE_MODE
+        #undef verify
         #include <iostream>
         #include <errhandlingapi.h>
         #include <stdlib.h>
         #include <string.h>
         #define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
-        #define verify(expression) ((expression) == false && (std::cerr << "ERROR: " << __FILENAME__ << ", line " << __LINE__ << ", function " << __func__ << std::endl, SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX), abort(), false)) 
-    #endif /* !_WIN32 */
+        #define verify(expression) ((expression) == false && (std::cerr << "ERROR: " << __FILENAME__ << ", line " << __LINE__ << ", function " << __func__ << std::endl, SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX), abort(), false))
+    #endif /* _WIN32 && !DISABLE_VERIFY_IN_RELEASE_MODE */
 #else
     #include <cassert>
     #define verify(expression) assert(expression)

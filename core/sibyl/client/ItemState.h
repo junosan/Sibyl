@@ -3,8 +3,8 @@
 
 #include <array>
 
-#include "../SibylCommon.h"
-#include "../Security_ELW.h"
+#include "../sibyl_common.h"
+#include "../Security.h"
 
 namespace sibyl
 {

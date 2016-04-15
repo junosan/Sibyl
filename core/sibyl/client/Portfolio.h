@@ -5,9 +5,6 @@
 #include <fstream>
 
 #include "../Security.h"
-#include "../Security_KOSPI.h"
-#include "../Security_ELW.h"
-#include "../Security_ETF.h"
 #include "../Catalog.h"
 #include "ItemState.h"
 
@@ -18,7 +15,7 @@ class Order : public PQ
 {
 public:
     OrdType type;
-    Order() : type(kOrdNull) {}
+    Order() : type(OrdType::null) {}
 };
 
 class Item : public Security<Order> // abstract class; derive as stock, ELW, ETF, option, etc.

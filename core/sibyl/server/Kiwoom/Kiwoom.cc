@@ -11,7 +11,7 @@ namespace sibyl
 Clock Kiwoom::clock;
 void  (*Kiwoom::SetInputValue)(InputKey, CSTR&)                  = nullptr;
 long  (*Kiwoom::CommRqData)   (CSTR&, CSTR&, long)               = nullptr;
-CSTR& (*Kiwoom::GetCommData)  (CSTR&, CSTR&, CommDataKey)        = nullptr;
+CSTR& (*Kiwoom::GetCommData)  (CSTR&, CSTR&, long, CommDataKey)  = nullptr;
 long  (*Kiwoom::SendOrder)    (CSTR&, ReqType, CSTR&, PQ, CSTR&) = nullptr;
 
 void Kiwoom::SetStateFile(CSTR &filename)
@@ -40,7 +40,7 @@ int Kiwoom::AdvanceTick()
     
     SetOrderBookTime(timeTarget);    
     
-    return (GetOrderBookTime() < timeBounds.end ? 0 : -1);
+    return (GetOrderBookTime() < TimeBounds::end ? 0 : -1);
 }
 
 CSTR& Kiwoom::BuildMsgOut()
@@ -120,8 +120,8 @@ void Kiwoom::WriteState()
                 if (o.type == type && o.q > 0)
                 {
                     int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                    if (tck == szTck) tck = 98;     // display as 99 if not found
-                    sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == kOrdBuy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
+                    if (tck == kTckN) tck = 98;     // display as 99 if not found
+                    sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                     ofs << buf;
                     if (nItemPerLine == ++nItemCur)
                     {
@@ -136,8 +136,8 @@ void Kiwoom::WriteState()
         if (nItemCur != 0)  ofs << "\n";
     };
     
-    ListOrder(kOrdBuy) ;
-    ListOrder(kOrdSell);
+    ListOrder(OrdType::buy) ;
+    ListOrder(OrdType::sell);
     ofs << std::endl;
 }
 
@@ -185,7 +185,7 @@ void Kiwoom::ApplyRealtimeNAV(CSTR &code, INT p, FLOAT nav)
     if (it_itm != std::end(orderbook.items))
     {
         auto &i = *it_itm->second;
-        if (i.Type() == kSecETF) 
+        if (i.Type() == SecType::ETF) 
             dynamic_cast<ETF<ItemKw>&>(i).devNAV = (FLOAT) (((double) nav / p - 1.0) * 100.0);
         else
             std::cerr << dispPrefix << "ApplyRealtimeNAV: {" << code << "} is not ETF" << std::endl;
@@ -208,14 +208,14 @@ void Kiwoom::ApplyReqEvent(CSTR &code, ReqStat reqStat, ReqType reqType,
 
     if (reqStat == ReqStat::received)
     {
-        if (reqType != kReq_cb && reqType != kReq_cs)
+        if (reqType != ReqType::cb && reqType != ReqType::cs)
         {
             if (ordq > 0) // avoid re-receiving emptied order after c | m
             {
                 auto it_ord = FindOrder(it_itm, ordp, ordno);
                 if (OrderExists(it_ord) == false)
                 { 
-                    if (reqType == kReq_mb || reqType == kReq_ms) // trim original order
+                    if (reqType == ReqType::mb || reqType == ReqType::ms) // trim original order
                     {
                         auto it_ord_o = FindOrder(it_itm, 0, ordno_o);
                         if (OrderExists(it_ord_o) == true)
@@ -225,7 +225,7 @@ void Kiwoom::ApplyReqEvent(CSTR &code, ReqStat reqStat, ReqType reqType,
                     }
                     
                     OrderKw o;
-                    o.type  = (reqType == kReq_b || reqType == kReq_mb ? kOrdBuy : kOrdSell);
+                    o.type  = (reqType == ReqType::b || reqType == ReqType::mb ? OrdType::buy : OrdType::sell);
                     o.p     = ordp;
                     o.q     = ordq;
                     o.ordno = ordno;

@@ -1,5 +1,6 @@
 
-#include <sibyl/Security_KOSPI.h>
+#include <sibyl/Security.h>
+#include <sibyl/TimeBounds.h>
 
 #include "Reshaper_0.h"
 
@@ -136,10 +137,10 @@ void Reshaper_0::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
     reward.G0.s = (1.0 + 2.0 * G_scaled) * idleG;
     reward.G0.b = (1.0 - 2.0 * G_scaled) * idleG;
     
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].s  = (FLOAT)   0.0;
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].b  = (FLOAT)   0.0;
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].cs = (FLOAT) 100.0;
-    for (std::size_t j = 0; j < (std::size_t)szTck; j++) reward.G[j].cb = (FLOAT) 100.0;
+    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].s  = (FLOAT)   0.0;
+    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].b  = (FLOAT)   0.0;
+    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].cs = (FLOAT) 100.0;
+    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].cb = (FLOAT) 100.0;
     
     verify(targetDim == idxTarget);
 }

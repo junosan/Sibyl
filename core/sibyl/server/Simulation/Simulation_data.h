@@ -3,9 +3,6 @@
 
 #include "../OrderBook.h"
 #include "../../Security.h"
-#include "../../Security_KOSPI.h"
-#include "../../Security_ELW.h"
-#include "../../Security_ETF.h"
 #include "TxtData.h"
 
 namespace sibyl
@@ -46,7 +43,7 @@ public:
     void AdvanceTime(int timeTarget);
     void SetDelay   (int d);
 
-    KOSPISim() : dataTb(kSecKOSPI) {}
+    KOSPISim() : dataTb(SecType::KOSPI) {}
 private:
     TxtDataTb dataTb;
 };
@@ -63,8 +60,8 @@ public:
     void AdvanceTime(int timeTarget);
     void SetDelay   (int d);
 
-    ELWSim()                 :            dataTb(kSecELW), dataTh(1 + szTh) {}
-    ELWSim(OptType t, INT e) : ELW(t, e), dataTb(kSecELW), dataTh(1 + szTh) {}
+    ELWSim()                 :            dataTb(SecType::ELW), dataTh(1 + szTh) {}
+    ELWSim(OptType t, INT e) : ELW(t, e), dataTb(SecType::ELW), dataTh(1 + szTh) {}
 private:
     TxtDataTb         dataTb;
     TxtDataVec<FLOAT> dataTh;
@@ -84,7 +81,7 @@ public:
     void AdvanceTime(int timeTarget);
     void SetDelay   (int d);
 
-    ETFSim() : dataTb(kSecETF), dataNAV(2) {}
+    ETFSim() : dataTb(SecType::ETF), dataNAV(2) {}
 private:
     TxtDataTb          dataTb;
     TxtDataVec<double> dataNAV;
