@@ -18,7 +18,7 @@ public:
     int   time;
     FLOAT pr;
     INT64 qr;
-    std::array<PQ, szTb> tbr;
+    std::array<PQ, idx::szTb> tbr;
     
     // ELW only
     bool isELW;

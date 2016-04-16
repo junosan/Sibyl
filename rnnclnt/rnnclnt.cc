@@ -96,8 +96,8 @@ int main(int argc, char *argv[])
         }
         
         // Rnn is run only between 09:00:int and 14:50:00
-        if ( (trader.portfolio.time >= TimeBounds::init) &&
-             (trader.portfolio.time <  TimeBounds::stop) ) 
+        if ( (trader.portfolio.time >= kTimeBounds::init) &&
+             (trader.portfolio.time <  kTimeBounds::stop) ) 
         {
             /* Retrieve state vector for current frame */
             const auto &vecState = trader.portfolio.GetStateVec();

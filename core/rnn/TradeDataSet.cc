@@ -341,7 +341,7 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
 #endif
 
     /* Number of frames */
-    const long interval = sibyl::kTimeTickSec; // seconds
+    const long interval = sibyl::kTimeRates::secPerTick; // seconds
     const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
     
     /* .raw file */
@@ -429,14 +429,14 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
         state.qr = (sibyl::INT64) data32.int32;
 
         // tbpr(1:20)
-        for(long i = 0; i < (long) sibyl::szTb; i++)
+        for(long i = 0; i < (long) sibyl::idx::szTb; i++)
         {
             data32.uint32 = le32toh(buf32_raw[idxRaw + 3 + i].uint32);
             state.tbr[i].p = (sibyl::INT) data32.int32;
         }
 
         // tbqr(1:20)
-        for(long i = 0; i < (long) sibyl::szTb; i++)
+        for(long i = 0; i < (long) sibyl::idx::szTb; i++)
         {
             data32.uint32 = le32toh(buf32_raw[idxRaw + 23 + i].uint32);
             state.tbr[i].q = (sibyl::INT) data32.int32;
@@ -517,7 +517,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
        Gs0 Gb0 Gs(1:10) Gb(1:10) Gcs(1:10) Gcb(1:10)
     */
 
-    const long interval = sibyl::kTimeTickSec; // seconds
+    const long interval = sibyl::kTimeRates::secPerTick; // seconds
     const long refDim = 42;
     const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
     const long n = targetDim * T;

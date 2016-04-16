@@ -1,18 +1,16 @@
 
 #include "TR.h"
 #include "Kiwoom_data.h"
+#include "../../util/DispPrefix.h"
 
 namespace sibyl
 {
 
-// static
-DispPrefix TR::dispPrefix;
-
 TR::State TR::Send()
 {
-    static const long err_none = static_cast<long>(ErrorCode::OP_ERR_NONE);
-    static const long err_sise = static_cast<long>(ErrorCode::OP_ERR_SISE_OVERFLOW);
-    static const long err_ord  = static_cast<long>(ErrorCode::OP_ERR_ORD_OVERFLOW);
+    static const long err_none = static_cast<long>(KiwoomError::OP_ERR_NONE);
+    static const long err_sise = static_cast<long>(KiwoomError::OP_ERR_SISE_OVERFLOW);
+    static const long err_ord  = static_cast<long>(KiwoomError::OP_ERR_ORD_OVERFLOW);
     
     State state(State::normal);
     do {

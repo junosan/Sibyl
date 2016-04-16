@@ -228,15 +228,15 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             sprintf(bufLine, "pr\t%.4e\n"           , i.pr);                     logVecOut << bufLine;
             sprintf(bufLine, "qr\t%10" PRId64 "\n"  , i.qr);                     logVecOut << bufLine;
             sprintf(bufLine, "     \ttbpr\t\ttbqr\n");                           logVecOut << bufLine;
-            for (std::ptrdiff_t idx = 0; idx < szTb; idx++)
+            for (std::ptrdiff_t idx = 0; idx < idx::szTb; idx++)
             {
-                sprintf(bufLine, "[%s%2d]\t%10d\t%10d\n", (idx <= idxPs1 ? "s" : "b"), (idx <= idxPs1 ? (int)(idxPs1 - idx + 1) : (int)(idx - idxPb1 + 1)), i.tbr[(std::size_t)idx].p, i.tbr[(std::size_t)idx].q);
+                sprintf(bufLine, "[%s%2d]\t%10d\t%10d\n", (idx <= idx::ps1 ? "s" : "b"), (idx <= idx::ps1 ? (int)(idx::ps1 - idx + 1) : (int)(idx - idx::pb1 + 1)), i.tbr[(std::size_t)idx].p, i.tbr[(std::size_t)idx].q);
                 logVecOut << bufLine;
             }
         }
     }
     
-    if (time >= TimeBounds::end) return -1;
+    if (time >= kTimeBounds::end) return -1;
     return 0;
 }
 
@@ -245,9 +245,9 @@ void Portfolio::WriteState()
     if (pathState.empty() == true) return;
     
     STR filename(pathState);
-    if (time <= TimeBounds::init)
+    if (time <= kTimeBounds::init)
         filename.append("client_ini.log");
-    else if (time >= TimeBounds::end - 60)
+    else if (time >= kTimeBounds::end - 60)
         filename.append("client_fin.log");
     else
         filename.append("client_cur.log");
@@ -271,11 +271,11 @@ void Portfolio::WriteState()
         fprintf(pf, "   sum f+t %12" PRId64 "\n" , sum.feetax);
 
         fputs("\nsum  [t_o]          bal    quant      evt\n", pf);
-        for (std::size_t idx = 0; idx < szTb; idx++)
+        for (std::size_t idx = 0; idx < idx::szTb; idx++)
         {
-            fprintf(pf, "     [%s%2d] ", ((int)idx <= idxPs1 ? "s" : "b"), (idx <= idxPs1 ? (int)idxPs1 - (int)idx + 1 : (int)idx - (int)idxPb1 + 1));
+            fprintf(pf, "     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"), (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1));
             fprintf(pf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n", sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt);
-            if (idx == idxPs1)
+            if (idx == idx::ps1)
             {
                 fprintf(pf, "     [%s%2d] ", "s", 0);
                 fprintf(pf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n", sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt);                        
@@ -316,7 +316,7 @@ void Portfolio::WriteState()
                     if (o.type == type)
                     {
                         int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                        if (tck == kTckN) tck = 98;     // display as 99 if not found
+                        if (tck == idx::tckN) tck = 98;     // display as 99 if not found
                         fprintf(pf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                         if (nItemPerLine == ++iCnt)
                         {

@@ -127,10 +127,10 @@ void Reshaper<TItemMem>::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &c
     reward.G0.s = ReshapeG_V2R(vec[idxTarget++]);
     reward.G0.b = ReshapeG_V2R(vec[idxTarget++]);
     
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].s  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT)   0.0);
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].b  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT)   0.0);
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].cs = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT) 100.0);
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].cb = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT) 100.0);
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].s  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT)   0.0);
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].b  = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT)   0.0);
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cs = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT) 100.0);
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cb = (j < maxGTck ? ReshapeG_V2R(vec[idxTarget++]) : (FLOAT) 100.0);
     
     verify(targetDim == idxTarget);
 }

@@ -75,7 +75,7 @@ void ELWSim::AdvanceTime(int timeTarget)
     if (timeTarget > 0) Requantize(temp, dataKOSPI200Tr.TrPs1(), dataKOSPI200Tr.TrPb1());
     else                Requantize(temp);
     
-    kospi200 = TckLo(temp[idxPs1].p) / 5000.0f;
+    kospi200 = TckLo(temp[idx::ps1].p) / 5000.0f;
 }
 
 void ELWSim::SetDelay(int d)

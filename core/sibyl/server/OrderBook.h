@@ -24,7 +24,6 @@ class OrderBook : public Catalog<TItem> //  /**/ mutex'd
 {
 public:
     void SetVerbose(bool verbose_) { verbose = verbose_; }
-    DispPrefix dispPrefix;
 
     std::recursive_mutex items_mutex; // use when modifying items from an external class
 
@@ -59,7 +58,7 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
     sprintf(bufLine, "/*\nb %d %" PRId64 " %" PRId64 " %" PRId64 " %" PRId64 "\n", this->time, this->bal, this->sum.buy, this->sum.sell, this->sum.feetax);
     msg.append(bufLine);
     
-    // s sum.tck_orig.{bal q ord}[0..<(szTb + 2)] (interleaved ordering)
+    // s sum.tck_orig.{bal q ord}[0..<(idx::szTb + 2)] (interleaved ordering)
     msg.append("s");
     for (const auto &s : this->sum.tck_orig) {
         sprintf(bufLine, " %" PRId64 " %" PRId64 " %" PRId64, s.bal, s.q, s.evt);
@@ -84,7 +83,7 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
     {
         const auto &i = *code_pItem.second;
         
-        std::array<PQ, szTb> tbm = i.tbr; // tb_merged
+        std::array<PQ, idx::szTb> tbm = i.tbr; // tb_merged
         if (true == addMyOrd)
         {
             for (auto iT = std::begin(tbm); iT != std::end(tbm); iT++)
@@ -94,14 +93,14 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                 for (auto iO = first_last.first; iO != first_last.second; iO++)
                 {
                     const auto &o = iO->second;
-                    if ( ((idx <= idxPs1) && (o.type == OrdType::sell)) ||
-                         ((idx >= idxPb1) && (o.type == OrdType::buy )) )
+                    if ( (idx <= idx::ps1 && o.type == OrdType::sell) ||
+                         (idx >= idx::pb1 && o.type == OrdType::buy ) )
                         iT->q += o.q;
                 }
             }
         }
         
-        // d code pr qr tbr.p[0..<szTb] tbr.q[0..<szTb]
+        // d code pr qr tbr.p[0..<idx::szTb] tbr.q[0..<idx::szTb]
         sprintf(bufLine, "d %s %.5e %" PRId64 " %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n",
                             code_pItem.first.c_str(), i.pr, i.qr,
                             tbm[ 0].p, tbm[ 1].p, tbm[ 2].p, tbm[ 3].p, tbm[ 4].p,
@@ -448,8 +447,8 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             this->sum.buy    += raw;
             this->sum.feetax += i.BFee(raw);
             
-            if ((o.tck_orig >= -1) && (o.tck_orig < kTckN)) {
-                int idx = (o.tck_orig != -1 ? idxPb1 + o.tck_orig : this->idxTckOrigB0);
+            if ((o.tck_orig >= -1) && (o.tck_orig < idx::tckN)) {
+                int idx = (o.tck_orig != -1 ? idx::pb1 + o.tck_orig : this->idxTckOrigB0);
                 this->sum.tck_orig[(std::size_t)idx].bal += raw + i.BFee(raw);
                 this->sum.tck_orig[(std::size_t)idx].q   += pq.q;
                 this->sum.tck_orig[(std::size_t)idx].evt += 1;
@@ -471,8 +470,8 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             this->sum.sell   += raw;
             this->sum.feetax += i.SFee(raw);
             
-            if ((o.tck_orig >= -1) && (o.tck_orig < kTckN)) {
-                int idx = (o.tck_orig != -1 ? idxPs1 - o.tck_orig : this->idxTckOrigS0);
+            if ((o.tck_orig >= -1) && (o.tck_orig < idx::tckN)) {
+                int idx = (o.tck_orig != -1 ? idx::ps1 - o.tck_orig : this->idxTckOrigS0);
                 this->sum.tck_orig[(std::size_t)idx].bal += raw - i.SFee(raw);
                 this->sum.tck_orig[(std::size_t)idx].q   += pq.q;
                 this->sum.tck_orig[(std::size_t)idx].evt += 1;

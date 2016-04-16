@@ -21,12 +21,12 @@ public:
         FLOAT cs;
         FLOAT cb;
     };
-    std::array<Gn, kTckN> G;
+    std::array<Gn, idx::tckN> G;
     
     Reward& operator+=(const Reward &r) {
         G0.s += r.G0.s;
         G0.b += r.G0.b;
-        for (std::size_t i = 0; i < (std::size_t) kTckN; i++) {
+        for (std::size_t i = 0; i < (std::size_t) idx::tckN; i++) {
             G[i].s  += r.G[i].s;
             G[i].b  += r.G[i].b;
             G[i].cs += r.G[i].cs;
@@ -37,7 +37,7 @@ public:
     Reward& operator*=(FLOAT r) {
         G0.s *= r;
         G0.b *= r;
-        for (std::size_t i = 0; i < (std::size_t) kTckN; i++) {
+        for (std::size_t i = 0; i < (std::size_t) idx::tckN; i++) {
             G[i].s  *= r;
             G[i].b  *= r;
             G[i].cs *= r;

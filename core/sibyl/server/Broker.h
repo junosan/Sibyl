@@ -19,7 +19,6 @@ public:
     OrderBook<TOrder, TItem> orderbook;
     
     void SetVerbose(bool verbose_) { verbose = verbose_; orderbook.SetVerbose(verbose); }
-    DispPrefix dispPrefix;
     
     // skip & interrupt mechanism 
     bool IsSkipping   () { return skipTick;     }

@@ -213,7 +213,7 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
 
 int Simulation::AdvanceTick()
 {
-    int timeTarget = orderbook.time + kTimeTickSec;
+    int timeTarget = orderbook.time + kTimeRates::secPerTick;
     do
     {
         ReadData(++orderbook.time);
@@ -225,7 +225,7 @@ int Simulation::AdvanceTick()
     
     if (verbose == true) PrintState();
     
-    return (orderbook.time < TimeBounds::end ? 0 : -1);
+    return (orderbook.time < kTimeBounds::end ? 0 : -1);
 }
 
 CSTR& Simulation::BuildMsgOut()
@@ -297,7 +297,7 @@ void Simulation::PrintState()
                 if (o.type == type && o.q > 0)
                 {
                     int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                    if (tck == kTckN) tck = 98;     // display as 99 if not found
+                    if (tck == idx::tckN) tck = 98;     // display as 99 if not found
                     sprintf(buf, "[%6" PRId64 ",%6" PRId64 "|%s%2d] {%s} %8d (%6d)", o.B, o.M, (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                     std::cout << buf;
                     if (nItemPerLine == ++nItemCur)
@@ -348,7 +348,7 @@ void Simulation::SimulateTrades()
             Order o(t.p, t.q);
             auto AddIfInTbr = [&](const OrdType &type) {
                 INT tck = i.P2Tck(t.p, type);
-                if ((tck >= 0) && (tck < kTckN)) {
+                if ((tck >= 0) && (tck < idx::tckN)) {
                     o.type = type;
                     vtro.push_back(o);
                 }
@@ -363,7 +363,7 @@ void Simulation::SimulateTrades()
         {
             auto &o = price_OrderSim.second;
             INT tck = i.P2Tck(o.p, o.type);
-            if ((tck >= 0) && (tck < kTckN)) o.B = std::min(o.B, (INT64)i.Tck2Q(tck, o.type));
+            if ((tck >= 0) && (tck < idx::tckN)) o.B = std::min(o.B, (INT64)i.Tck2Q(tck, o.type));
         }
         
         // Make orders with trade events
@@ -448,7 +448,7 @@ void Simulation::SimulateTrades()
 
 int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
 {
-    if (nReqThisTick < kReqNPerTick)
+    if (nReqThisTick < kTimeRates::reqPerTick)
     {
         verify(req.type != ReqType::ca && req.type != ReqType::sa);
         
@@ -497,7 +497,7 @@ int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
             }   
         }
     }
-    return (++nReqThisTick < kReqNPerTick ? 0 : -1);
+    return (++nReqThisTick < kTimeRates::reqPerTick ? 0 : -1);
 }
 
 int Simulation::DisplayLoadError(CSTR &str)

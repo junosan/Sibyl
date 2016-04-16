@@ -13,11 +13,14 @@ public:
     Portfolio   portfolio;
     RewardModel model;
 
-    void SetStateLogPaths(CSTR &state, CSTR &log); 
+    void SetStateLogPaths(CSTR &state, CSTR &log) {
+        portfolio.SetStateLogPaths(state, log);
+        model    .SetStateLogPaths(state, log);
+    }
     
     // called by NetClient
-    int   ApplyMsgIn (char *msg); // this destroys msg during parsing; returns non-0 to signal termination
-    CSTR& BuildMsgOut();
+    int   ApplyMsgIn (char *msg) { return portfolio.ApplyMsgIn(msg); }
+    CSTR& BuildMsgOut()          { return model.BuildMsgOut();       };
 
     Trader() { model.SetPortfolio(&portfolio); }
 };

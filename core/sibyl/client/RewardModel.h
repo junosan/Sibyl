@@ -71,7 +71,7 @@ private:
         if (modprice > 0) sprintf(bufLine, "%s %s %d %d %d\n", pcMsgType, code.c_str(), price, quant, modprice);
         else              sprintf(bufLine, "%s %s %d %d\n"   , pcMsgType, code.c_str(), price, quant);
         msg.append(bufLine);
-        if (kReqNPerTick == ++nMsgCurTick)
+        if (kTimeRates::reqPerTick == ++nMsgCurTick)
             return true;
         return false;        
     }

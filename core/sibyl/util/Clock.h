@@ -25,6 +25,8 @@ protected:
     std::chrono::steady_clock::time_point stdclk_init;
 };
 
+extern Clock clock;
+
 }
 
 #endif /* SIBYL_UTIL_CLOCK_H_ */

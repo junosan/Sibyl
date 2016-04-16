@@ -6,8 +6,6 @@
 namespace sibyl
 {
 
-char TxtData::bufLine[TxtData::szBuf];
-
 bool TxtData::open(CSTR &filename_)
 {
     pf = fopen(filename_.c_str(), "r");
@@ -37,6 +35,9 @@ void TxtData::AdvanceTime(int timeTarget)
 
 void TxtData::AdvanceLine()
 {
+    constexpr static std::size_t szBuf = (1 << 12);
+    static char bufLine[szBuf];
+    
     char *pcLine = fgets(bufLine, szBuf, pf);
     bool success = true;
     bool invalid = false;

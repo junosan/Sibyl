@@ -5,7 +5,7 @@
 #include <map>
 
 #include "Security.h"
-#include "TimeBounds.h"
+#include "time_common.h"
 
 namespace sibyl
 {
@@ -21,7 +21,7 @@ public:
         struct tck_orig_sum {
             INT64 bal, q, evt;
         };
-        std::array<tck_orig_sum, szTb + 2> tck_orig;
+        std::array<tck_orig_sum, idx::szTb + 2> tck_orig;
     } sum;
     std::map<STR, std::unique_ptr<TItem>> items;
 
@@ -31,14 +31,14 @@ public:
     struct SEval { INT64 balU, balBO, evalCnt, evalSO, evalTot; };
     SEval Evaluate() const;
     
-    Catalog() : time(TimeBounds::null), bal(0), sum{0, 0, 0, {}},
+    Catalog() : time(kTimeBounds::null), bal(0), sum{0, 0, 0, {}},
                 balRef(0), balInit(0), isFirstTick(true) {}
 protected:
     INT64 balRef;  // evaluation with 'reference price' (= ending price from the previous day)
     INT64 balInit; // evaluation with 'starting price'  (= price right after marken opens)
     
-    constexpr static const int idxTckOrigS0 = szTb + 0;  // not to be used on tbr
-    constexpr static const int idxTckOrigB0 = szTb + 1;  // not to be used on tbr
+    constexpr static const int idxTckOrigS0 = idx::szTb + 0;  // not to be used on tbr
+    constexpr static const int idxTckOrigB0 = idx::szTb + 1;  // not to be used on tbr
 private:
     bool isFirstTick;
 };
@@ -46,16 +46,16 @@ private:
 template <class TItem>
 void Catalog<TItem>::UpdateRefInitBal()
 {
-    if ((isFirstTick == true) || (time <=  TimeBounds::ref) || (time <=  TimeBounds::init))
+    if ((isFirstTick == true) || (time <=  kTimeBounds::ref) || (time <=  kTimeBounds::init))
     {
         SEval se = Evaluate();
         
-        if ((isFirstTick == true) || (time <=  TimeBounds::ref))
+        if ((isFirstTick == true) || (time <=  kTimeBounds::ref))
         {
             balRef = se.evalTot;
             isFirstTick = false;
         }
-        if (time <=  TimeBounds::init)
+        if (time <=  kTimeBounds::init)
             balInit = se.evalTot;
     }
 }

@@ -6,6 +6,9 @@
 namespace sibyl
 {
 
+// The one and only Clock instance
+Clock clock;
+
 Clock::Clock()
 {
     stdclk_init = std::chrono::steady_clock::now();

@@ -12,7 +12,7 @@ namespace sibyl
 class ItemMem_0 : public ItemMem
 {
 public:
-    std::array<PQ, szTb> lastTb;
+    std::array<PQ, idx::szTb> lastTb;
     std::vector<double> idleG;
     std::size_t cursor; // points at idx for current time in idleG
     ItemMem_0() : ItemMem(), lastTb{}, cursor(0) {}

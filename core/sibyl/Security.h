@@ -12,10 +12,13 @@
 namespace sibyl
 {
 
-constexpr int kTckN  = 10; // largest tick 
-constexpr int szTb   = kTckN * 2;
-constexpr int idxPs1 = kTckN - 1;
-constexpr int idxPb1 = kTckN;
+namespace idx
+{
+    constexpr int tckN = 10; // largest tick 
+    constexpr int szTb = tckN * 2;
+    constexpr int ps1  = tckN - 1;
+    constexpr int pb1  = tckN;
+}
 
 enum class SecType { null, KOSPI, ELW, ETF };
 enum class OrdType { null, buy, sell       };
@@ -34,7 +37,7 @@ class Security          // abstract class; derive first as Item with application
 public:
     FLOAT                      pr;
     INT64                      qr;
-    std::array<PQ, szTb>       tbr;
+    std::array<PQ, idx::szTb>  tbr;
     INT                        cnt;
     std::multimap<INT, TOrder> ord;
     
@@ -47,17 +50,17 @@ public:
     virtual double  dBF   ()        const = 0;
     virtual double  dSF   ()        const = 0;
     
-    INT Ps0() const { return TckLo(tbr[idxPs1].p); }
-    INT Pb0() const { return TckHi(tbr[idxPb1].p); }
+    INT Ps0() const { return TckLo(tbr[idx::ps1].p); }
+    INT Pb0() const { return TckHi(tbr[idx::pb1].p); }
     
-    void Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1);
-    void Requantize(INT trPs1, INT trPb1)     { Requantize(tbr, trPs1        , trPb1        ); }
-    void Requantize(std::array<PQ, szTb> &in) { Requantize(in , in [idxPs1].p, in [idxPb1].p); }
-    void Requantize()                         { Requantize(tbr, tbr[idxPs1].p, tbr[idxPb1].p); }                                               
+    void Requantize(std::array<PQ, idx::szTb> &in, INT trPs1, INT trPb1);
+    void Requantize(INT trPs1, INT trPb1)          { Requantize(tbr, trPs1          , trPb1          ); }
+    void Requantize(std::array<PQ, idx::szTb> &in) { Requantize(in , in [idx::ps1].p, in [idx::pb1].p); }
+    void Requantize()                              { Requantize(tbr, tbr[idx::ps1].p, tbr[idx::pb1].p); }                                               
     
     // Utility functions for OrdType-generic operations
     // NOTE: the following must be used on a Requantized tbr
-    // tck: -1 (ps0/pb0), 0 (0-based tick), kTckN (not found) 
+    // tck: -1 (ps0/pb0), 0 (0-based tick), idx::tckN (not found) 
     int P2Tck(INT p  , OrdType type) const;
     INT Tck2P(int tck, OrdType type) const;
     INT Tck2Q(int tck, OrdType type) const;
@@ -67,16 +70,16 @@ public:
 };
 
 template <class TOrder>
-void Security<TOrder>::Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1)
+void Security<TOrder>::Requantize(std::array<PQ, idx::szTb> &in, INT trPs1, INT trPb1)
 {
-    if ((trPs1 <= 0) && (trPb1 <= 0)) { trPs1 = in[idxPs1].p; trPb1 = in[idxPb1].p; }
+    if ((trPs1 <= 0) && (trPb1 <= 0)) { trPs1 = in[idx::ps1].p; trPb1 = in[idx::pb1].p; }
     if ((trPs1 <= 0) && (trPb1 <= 0))                     return;
     if ((trPs1 >  0) && (trPb1 >  0) && (trPs1 <= trPb1)) return; // triggered by unknown invalid situation in table values; only happens when trPs1 & trPb1 are pulled from tbp (t < 0) and is safe to ignore
-    std::array<PQ, szTb> out;   
-    out[idxPs1].p = (trPb1 > 0 ? TckHi(trPb1) : trPs1);
-    out[idxPb1].p = (trPs1 > 0 ? TckLo(trPs1) : trPb1);
-    for (auto iO = std::begin(out) + idxPs1; iO > std::begin(out)  ; iO--) (iO - 1)->p = TckHi(iO->p);
-    for (auto iO = std::begin(out) + idxPb1; iO < std::end(out) - 1; iO++) (iO + 1)->p = TckLo(iO->p);
+    std::array<PQ, idx::szTb> out;   
+    out[idx::ps1].p = (trPb1 > 0 ? TckHi(trPb1) : trPs1);
+    out[idx::pb1].p = (trPs1 > 0 ? TckLo(trPs1) : trPb1);
+    for (auto iO = std::begin(out) + idx::ps1; iO > std::begin(out)  ; iO--) (iO - 1)->p = TckHi(iO->p);
+    for (auto iO = std::begin(out) + idx::pb1; iO < std::end(out) - 1; iO++) (iO + 1)->p = TckLo(iO->p);
     for (auto &o : out) {
         auto iI = std::find_if(std::begin(in), std::end(in), [&o](const PQ &i) { return i.p == o.p; });
         o.q = (iI != std::end(in) ? iI->q : 0);        
@@ -87,20 +90,20 @@ void Security<TOrder>::Requantize(std::array<PQ, szTb> &in, INT trPs1, INT trPb1
 template <class TOrder>
 int Security<TOrder>::P2Tck(INT p, OrdType type) const
 {
-    int tck = (int)kTckN;
+    int tck = (int)idx::tckN;
     if (type == OrdType::sell) {
         if (p == Ps0()) tck = -1;
         else { // find_if [first, last)
             auto first = std::begin(tbr);
-            auto last  = std::begin(tbr) + idxPs1 + 1;
+            auto last  = std::begin(tbr) + idx::ps1 + 1;
             auto iT    = std::find_if(first, last, [&p](const PQ &tb) { return tb.p == p; });
-            if (iT != last) tck = (int)idxPs1 - (int)(iT - first);
+            if (iT != last) tck = (int)idx::ps1 - (int)(iT - first);
         }
     } else
     if (type == OrdType::buy ) {
         if (p == Pb0()) tck = -1;
         else { // find_if [first, last)
-            auto first = std::begin(tbr) + idxPb1;
+            auto first = std::begin(tbr) + idx::pb1;
             auto last  = std::end(tbr);
             auto iT    = std::find_if(first, last, [&p](const PQ &tb) { return tb.p == p; });
             if (iT != last) tck = (int)(iT - first);
@@ -112,14 +115,14 @@ int Security<TOrder>::P2Tck(INT p, OrdType type) const
 template <class TOrder>
 INT Security<TOrder>::Tck2P(int tck, OrdType type) const
 {
-    verify((tck >= -1) && (tck < (int)kTckN));
+    verify((tck >= -1) && (tck < (int)idx::tckN));
     if (type == OrdType::sell) {
         if (tck == -1) return Ps0();
-        else           return tbr[(std::size_t)(idxPs1 - tck)].p;
+        else           return tbr[(std::size_t)(idx::ps1 - tck)].p;
     } else
     if (type == OrdType::buy ) {
         if (tck == -1) return Pb0();
-        else           return tbr[(std::size_t)(idxPb1 + tck)].p;
+        else           return tbr[(std::size_t)(idx::pb1 + tck)].p;
     }
     verify(false);
 }
@@ -127,10 +130,10 @@ INT Security<TOrder>::Tck2P(int tck, OrdType type) const
 template <class TOrder>
 INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
 {
-    verify((tck >= -1) && (tck < (int)kTckN));
+    verify((tck >= -1) && (tck < (int)idx::tckN));
     if (tck >=  0) {
-        if      (type == OrdType::sell) return tbr[(std::size_t)(idxPs1 - tck)].q;
-        else if (type == OrdType::buy ) return tbr[(std::size_t)(idxPb1 + tck)].q;
+        if      (type == OrdType::sell) return tbr[(std::size_t)(idx::ps1 - tck)].q;
+        else if (type == OrdType::buy ) return tbr[(std::size_t)(idx::pb1 + tck)].q;
     } else
     if (tck == -1) { // not to be used unless for depletion mechanism in Simulation
         INT p = Tck2P(-1, type);

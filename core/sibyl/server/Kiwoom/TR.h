@@ -6,7 +6,6 @@
 #include <mutex>
 
 #include "Kiwoom.h"
-#include "../../util/DispPrefix.h"
 
 namespace sibyl
 {
@@ -14,7 +13,6 @@ namespace sibyl
 class TR
 {
 public:
-    static DispPrefix dispPrefix;
     enum class State { normal, carry, timeout };
 
     // called by Windows msg loop (initialization) or NetServer thread (reqs)
@@ -22,16 +20,15 @@ public:
     // called by OpenAPI event thread (OnReceiveTrData)
     void Receive(long cnt, State state); // cnt: # of idx to loop, state: normal | carry
 
-    // for lookup from an external class
-    CSTR& Name() { return name; }
-    CSTR& Code() { return code; }
+    // use to initialize name to TR map
+    virtual CSTR& Name() = 0;
+    virtual CSTR& Code() = 0;
 
     TR() : ab_end(false) {}
 protected:
-    STR name, code; // set in derived class's constructor
-    virtual bool IsContinuable()        = 0; // set in derived class's constructor
+    virtual bool IsContinuable()        = 0;
     virtual long SendOnce(State state)  = 0; // SetInputValue (if any) & CommRqData/SendOrder
-    virtual int  GetTimeout()           = 0; // set in derived class's constructor
+    virtual int  GetTimeout()           = 0;
     virtual void RetrieveData(long cnt) = 0;    
 private:
     // called by Windows msg loop (initialization) or NetServer thread (reqs)

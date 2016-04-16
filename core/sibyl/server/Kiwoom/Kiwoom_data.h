@@ -17,7 +17,7 @@ class ItemKw : public Item<OrderKw>
 public:
     INT64 sumQ, sumPQ;
     INT trPs1, trPb1;
-    std::array<PQ, szTb> tb; // raw realtime table
+    std::array<PQ, idx::szTb> tb; // raw realtime table
     STR srcno;
     ItemKw() : sumQ(0), sumPQ(0), trPs1(0), trPb1(0) {}
 };
@@ -29,7 +29,7 @@ enum class ReqStat
     traded
 };
 
-enum class FID : int
+enum class FID : long
 {
     code    = 9001, // *###### (*: A(spot), J(ELW), Q(ETN)), some_other_format (future/option)
     cnt     = 933,
@@ -67,7 +67,7 @@ enum class CommDataKey
     ordq         // 미체결수량
 };
 
-enum class ErrorCode : long
+enum class KiwoomError : long
 {
     OP_ERR_NONE            =    0, // "정상처리"
     OP_ERR_LOGIN           = -100, // "사용자정보교환에 실패하였습니다. 잠시후 다시 시작하여 주십시오."

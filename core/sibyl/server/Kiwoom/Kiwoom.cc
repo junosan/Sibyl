@@ -8,7 +8,6 @@ namespace sibyl
 {
 
 // static
-Clock Kiwoom::clock;
 void  (*Kiwoom::SetInputValue)(InputKey, CSTR&)                  = nullptr;
 long  (*Kiwoom::CommRqData)   (CSTR&, CSTR&, long)               = nullptr;
 CSTR& (*Kiwoom::GetCommData)  (CSTR&, CSTR&, long, CommDataKey)  = nullptr;
@@ -25,11 +24,11 @@ void Kiwoom::SetStateFile(CSTR &filename)
 
 int Kiwoom::AdvanceTick()
 {
-    int timeTarget = GetOrderBookTime() + kTimeTickSec; // s from 09:00:00
+    int timeTarget = GetOrderBookTime() + kTimeRates::secPerTick; // s from 09:00:00
     int t_target = (timeTarget - timeOffset) * 1000; // ms from 00:00:00
     int t_wait   = t_target - (clock.Now() + t_data_minus_local); // synchronize to data time
     
-    if (t_wait <= -kTimeTickSec * 1000)
+    if (t_wait <= -kTimeRates::secPerTick * 1000)
         skipTick = true; // skip time tick if more than one tick behind
     else
     {
@@ -40,7 +39,7 @@ int Kiwoom::AdvanceTick()
     
     SetOrderBookTime(timeTarget);    
     
-    return (GetOrderBookTime() < TimeBounds::end ? 0 : -1);
+    return (GetOrderBookTime() < kTimeBounds::end ? 0 : -1);
 }
 
 CSTR& Kiwoom::BuildMsgOut()
@@ -120,7 +119,7 @@ void Kiwoom::WriteState()
                 if (o.type == type && o.q > 0)
                 {
                     int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                    if (tck == kTckN) tck = 98;     // display as 99 if not found
+                    if (tck == idx::tckN) tck = 98;     // display as 99 if not found
                     sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                     ofs << buf;
                     if (nItemPerLine == ++nItemCur)
@@ -159,7 +158,7 @@ void Kiwoom::ApplyRealtimeTr(CSTR &code, INT p, INT q, INT trPs1, INT trPb1)
     }
 }
 
-void Kiwoom::ApplyRealtimeTb(CSTR &code, CSTR &time, const std::array<PQ, szTb> &tb)
+void Kiwoom::ApplyRealtimeTb(CSTR &code, CSTR &time, const std::array<PQ, idx::szTb> &tb)
 {
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     
@@ -168,7 +167,7 @@ void Kiwoom::ApplyRealtimeTb(CSTR &code, CSTR &time, const std::array<PQ, szTb> 
     {
         int t_data = Clock::HHMMSS_to_ms(time);
         t_data_minus_local = t_data - clock.Now();
-        if (t_data / 1000 + timeOffset >= GetOrderBookTime() + kTimeTickSec)
+        if (t_data / 1000 + timeOffset >= GetOrderBookTime() + kTimeRates::secPerTick)
             InterruptExec();
         lastTime = time;
     }

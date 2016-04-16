@@ -12,7 +12,6 @@ template <class TOrder, class TItem>
 class NetServer : public NetAgent
 {
 public:
-    DispPrefix dispPrefix;
     void Run(CSTR &port, bool reconnectable = false);
     
     NetServer(Broker<TOrder, TItem> *pBroker_) : pBroker(pBroker_),

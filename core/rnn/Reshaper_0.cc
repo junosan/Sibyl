@@ -1,6 +1,6 @@
 
 #include <sibyl/Security.h>
-#include <sibyl/TimeBounds.h>
+#include <sibyl/time_common.h>
 
 #include "Reshaper_0.h"
 
@@ -20,7 +20,7 @@ Reshaper_0::Reshaper_0(unsigned long maxGTck_,
 
 void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
 {
-    const long interval = kTimeTickSec; // seconds
+    const long interval = kTimeRates::secPerTick; // seconds
     const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
     
     auto iItems = items.find(state.code);
@@ -29,20 +29,20 @@ void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
         auto it_bool = items.insert(std::make_pair(state.code, ItemMem_0()));
         verify(it_bool.second == true);
         iItems = it_bool.first;
-        iItems->second.initPr = state.tbr[idxPs1].p;
+        iItems->second.initPr = state.tbr[idx::ps1].p;
     }
     auto &i = iItems->second; // reference to current ItemMem
     
     // store idleG
     KOSPI<Security<PQ>> sec;
-    double s0f  = sec.TckLo(state.tbr[idxPs1].p) * (1.0 - sec.dSF());
-    double b0f  =           state.tbr[idxPs1].p  * (1.0 + sec.dBF());
+    double s0f  = sec.TckLo(state.tbr[idx::ps1].p) * (1.0 - sec.dSF());
+    double b0f  =           state.tbr[idx::ps1].p  * (1.0 + sec.dBF());
     double idleG = (s0f - b0f) / (s0f + b0f); // note: negative value
     verify(idleG < 0.0);
-    if (1 == state.time / kTimeTickSec) i.idleG.clear();
+    if (1 == state.time / kTimeRates::secPerTick) i.idleG.clear();
     i.idleG.push_back(idleG);
     i.cursor = i.idleG.size() - 1; // advance time tick for VecOut2Reward
-    verify((int) i.idleG.size() == state.time / kTimeTickSec);
+    verify((int) i.idleG.size() == state.time / kTimeRates::secPerTick);
     
     unsigned long idxInput = 0;
     
@@ -56,29 +56,29 @@ void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
     vec[idxInput++] = ReshapeQuant((INT) state.qr);
     
     // ps1
-    vec[idxInput++] = ReshapePrice(state.tbr[idxPs1].p) - ReshapePrice(i.initPr);
+    vec[idxInput++] = ReshapePrice(state.tbr[idx::ps1].p) - ReshapePrice(i.initPr);
     
     // ps1 - pb1
-    vec[idxInput++] = ReshapePrice(state.tbr[idxPs1].p) - ReshapePrice(state.tbr[idxPb1].p);
+    vec[idxInput++] = ReshapePrice(state.tbr[idx::ps1].p) - ReshapePrice(state.tbr[idx::pb1].p);
     
     // // tbpr(1:20)
-    // for (std::size_t idx = 0; idx < (std::size_t)szTb; idx++)
+    // for (std::size_t idx = 0; idx < (std::size_t)idx::szTb; idx++)
     //     vec[idxInput++] = ReshapePrice(state.tbr[idx].p) - ReshapePrice(i.initPr);
     
     // tbqr(1:20)
-    for (std::size_t idx = 0; idx < (std::size_t)szTb; idx++)
+    for (std::size_t idx = 0; idx < (std::size_t)idx::szTb; idx++)
         vec[idxInput++] = ReshapeQuant(state.tbr[idx].q);
     
     // delta_tbqr(1:20)
-    for (std::size_t idx = 0; idx < (std::size_t)szTb; idx++)
+    for (std::size_t idx = 0; idx < (std::size_t)idx::szTb; idx++)
     {
         INT delta = state.tbr[idx].q;
-        for (std::size_t idxL = 0; idxL < (std::size_t)szTb; idxL++)
+        for (std::size_t idxL = 0; idxL < (std::size_t)idx::szTb; idxL++)
         {
             if (state.tbr[idx].p == i.lastTb[idxL].p)
             {
-                if ( (idx <= idxPs1 && idxL <= idxPs1) || 
-                     (idx >= idxPb1 && idxL >= idxPb1) )
+                if ( (idx <= idx::ps1 && idxL <= idx::ps1) || 
+                     (idx >= idx::pb1 && idxL >= idx::pb1) )
                     delta = state.tbr[idx].q - i.lastTb[idxL].q;
                 else
                     delta = state.tbr[idx].q + i.lastTb[idxL].q;
@@ -137,10 +137,10 @@ void Reshaper_0::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
     reward.G0.s = (1.0 + 2.0 * G_scaled) * idleG;
     reward.G0.b = (1.0 - 2.0 * G_scaled) * idleG;
     
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].s  = (FLOAT)   0.0;
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].b  = (FLOAT)   0.0;
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].cs = (FLOAT) 100.0;
-    for (std::size_t j = 0; j < (std::size_t)kTckN; j++) reward.G[j].cb = (FLOAT) 100.0;
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].s  = (FLOAT)   0.0;
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].b  = (FLOAT)   0.0;
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cs = (FLOAT) 100.0;
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cb = (FLOAT) 100.0;
     
     verify(targetDim == idxTarget);
 }

@@ -111,7 +111,7 @@ void RewardModel::GetRefData()
         }
         isFirstTick = false;
     }
-    if ((pPortfolio->time >= TimeBounds::init) && (pPortfolio->time < TimeBounds::stop))
+    if ((pPortfolio->time >= kTimeBounds::init) && (pPortfolio->time < kTimeBounds::stop))
     {
         const std::ptrdiff_t dimRef = 42;
         float bufRef[dimRef];
@@ -225,14 +225,14 @@ CSTR& RewardModel::BuildMsgOut()
         WritePosGCnt();
     }
     if ((logVecIn.is_open() == true) && // log G values
-        (time >= TimeBounds::init) && (time < TimeBounds::stop)) {
+        (time >= kTimeBounds::init) && (time < kTimeBounds::stop)) {
         WriteGLogs();
     }
     
     const int timeCancelAll  = 21000 + 600 + 60;
     
     // Stop buying anything between 14:30 and 14:50
-    if ((time >= TimeBounds::stop - 1200) && (time < TimeBounds::stop))
+    if ((time >= kTimeBounds::stop - 1200) && (time < kTimeBounds::stop))
     {
         for (auto &code_reward : rewards)
         {
@@ -247,7 +247,7 @@ CSTR& RewardModel::BuildMsgOut()
     }
     
     // Don't do anything between 14:50 and 15:01
-    if ((time >= TimeBounds::stop) && (time < timeCancelAll))
+    if ((time >= kTimeBounds::stop) && (time < timeCancelAll))
     {
         for (auto &code_reward : rewards)
         {
@@ -283,7 +283,7 @@ CSTR& RewardModel::BuildMsgOut()
     }
     
     // between 09:00:int and 15:01:00
-    if (time >= TimeBounds::init)
+    if (time >= kTimeBounds::init)
     {
         // Annihilate self-contradictory inputs
         auto Annihilate = [](FLOAT &a, FLOAT &b) {
@@ -344,7 +344,7 @@ CSTR& RewardModel::BuildMsgOut()
                 {
                     int tck = i.P2Tck(o.p, OrdType::sell); // 0-based tick
                     bool push  = false;
-                    if ((tck >= 0) && (tck < (int)kTckN)) // order price found in table
+                    if ((tck >= 0) && (tck < (int)idx::tckN)) // order price found in table
                     {
                         double Gc = r.G.at((std::size_t)tck).cs + dEGs; 
                         if (Gc > 0.0)
@@ -353,7 +353,7 @@ CSTR& RewardModel::BuildMsgOut()
                             push = true;
                         }
                     }
-                    if ((tck == (int)kTckN) && (o.p > i.tbr.at(0).p)) // order price higher than any value in tb
+                    if ((tck == (int)idx::tckN) && (o.p > i.tbr.at(0).p)) // order price higher than any value in tb
                     {
                         reqGcs.G = 100.0f;
                         push = true;
@@ -448,7 +448,7 @@ CSTR& RewardModel::BuildMsgOut()
                 {
                     int tck = i.P2Tck(o.p, OrdType::buy);
                     bool push  = false;
-                    if ((tck >= 0) && (tck < (int)kTckN)) // order price found in table
+                    if ((tck >= 0) && (tck < (int)idx::tckN)) // order price found in table
                     {
                         double Gb = r.G.at((std::size_t)tck).cb + dEGb; 
                         if (Gb > 0.0)
@@ -457,7 +457,7 @@ CSTR& RewardModel::BuildMsgOut()
                             push = true;
                         }
                     }
-                    if ( (tck == (int) kTckN && o.p < i.tbr.at(szTb - 1).p) || // order price lower than any value in tb
+                    if ( (tck == (int) idx::tckN && o.p < i.tbr.at(idx::szTb - 1).p) || // order price lower than any value in tb
                          (exclusiveBuy == true && i.cnt > 0)                )  // exclusiveBuy (already bought)
                     {
                         reqGcb.G = 100.0f;
@@ -555,30 +555,30 @@ void RewardModel::WritePosGCnt()
     STR filename(pathState);
     filename.append("posGCnt.log");
     
-    static std::array<int, szTb + 2> posGCnt = {}; // 0-fill
+    static std::array<int, idx::szTb + 2> posGCnt = {}; // 0-fill
     for (const auto &code_reward : rewards)
     {
         const auto &r = code_reward.second;
-        if (r.G0.s > 0.0f) posGCnt[szTb + 0]++;
-        if (r.G0.b > 0.0f) posGCnt[szTb + 1]++;
+        if (r.G0.s > 0.0f) posGCnt[idx::szTb + 0]++;
+        if (r.G0.b > 0.0f) posGCnt[idx::szTb + 1]++;
         std::ptrdiff_t tck = 0;
         for (const auto &gn : r.G)
         {
-            if (gn.s > 0.0f) posGCnt[(std::size_t)(idxPs1 - tck  )]++;
-            if (gn.b > 0.0f) posGCnt[(std::size_t)(idxPb1 + tck++)]++;
+            if (gn.s > 0.0f) posGCnt[(std::size_t)(idx::ps1 - tck  )]++;
+            if (gn.b > 0.0f) posGCnt[(std::size_t)(idx::pb1 + tck++)]++;
         }
     }
     
     FILE *pf = fopen(filename.c_str(), "w");
     if (pf != nullptr)
     {
-        for (std::ptrdiff_t idx = 0; idx < szTb; idx++)
+        for (std::ptrdiff_t idx = 0; idx < idx::szTb; idx++)
         {
-            fprintf(pf, "     [%s%2d] %d\n", (idx <= idxPs1 ? "s" : "b"), (idx <= idxPs1 ? (int)idxPb1 - (int)idx : (int)idx - (int)idxPs1), posGCnt[(std::size_t)idx]);
-            if (idx == idxPs1)
+            fprintf(pf, "     [%s%2d] %d\n", (idx <= idx::ps1 ? "s" : "b"), (idx <= idx::ps1 ? (int)idx::pb1 - (int)idx : (int)idx - (int)idx::ps1), posGCnt[(std::size_t)idx]);
+            if (idx == idx::ps1)
             {
-                fprintf(pf, "     [%s%2d] %d\n", "s", 0, posGCnt[szTb + 0]);
-                fprintf(pf, "     [%s%2d] %d\n", "b", 0, posGCnt[szTb + 1]);
+                fprintf(pf, "     [%s%2d] %d\n", "s", 0, posGCnt[idx::szTb + 0]);
+                fprintf(pf, "     [%s%2d] %d\n", "b", 0, posGCnt[idx::szTb + 1]);
             }        
         }
         fclose(pf);
@@ -590,7 +590,7 @@ void RewardModel::WritePosGCnt()
 void RewardModel::WriteGLogs()
 {
     if ((logVecIn.is_open() == true) && 
-        (pPortfolio->time >= TimeBounds::init) && (pPortfolio->time < TimeBounds::stop))
+        (pPortfolio->time >= kTimeBounds::init) && (pPortfolio->time < kTimeBounds::stop))
     {
         logVecIn << "[t=" << pPortfolio->time << "]\n";
         for (const auto &code_reward : rewards)
@@ -601,11 +601,11 @@ void RewardModel::WriteGLogs()
             sprintf(bufLine, "Gs0\t%+.3e\n"           , r.G0.s);                    logVecIn << bufLine;
             sprintf(bufLine, "Gb0\t%+.3e\n"           , r.G0.b);                    logVecIn << bufLine;
             sprintf(bufLine, "     \tGs/b\t\tGcs/cb\n");                            logVecIn << bufLine;
-            for (std::ptrdiff_t idx = 0; idx <= idxPs1; idx++) {
-                sprintf(bufLine, "[s%2d]\t%+.3e\t%+.3e\n", (int)(1 + idxPs1 - idx), r.G[(std::size_t)(idxPs1 - idx)].s, r.G[(std::size_t)(idxPs1 - idx)].cs);
+            for (std::ptrdiff_t idx = 0; idx <= idx::ps1; idx++) {
+                sprintf(bufLine, "[s%2d]\t%+.3e\t%+.3e\n", (int)(1 + idx::ps1 - idx), r.G[(std::size_t)(idx::ps1 - idx)].s, r.G[(std::size_t)(idx::ps1 - idx)].cs);
                 logVecIn << bufLine;
             }
-            for (std::ptrdiff_t idx = 0; idx < kTckN; idx++) {
+            for (std::ptrdiff_t idx = 0; idx < idx::tckN; idx++) {
                 sprintf(bufLine, "[b%2d]\t%+.3e\t%+.3e\n", (int)(1 + idx)         , r.G[(std::size_t)idx].b           , r.G[(std::size_t)idx].cb           );
                 logVecIn << bufLine;
             }

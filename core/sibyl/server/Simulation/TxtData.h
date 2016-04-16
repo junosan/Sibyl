@@ -5,7 +5,7 @@
 #include <sstream>
 #include <cstring>
 
-#include "../../TimeBounds.h"
+#include "../../time_common.h"
 #include "../../Security.h"
 
 namespace sibyl
@@ -19,7 +19,7 @@ public:
     void AdvanceTime(int timeTarget); // TxtDataTr requires InitSum | InitVecTr prior to this
     void SetDelay(int d);
     
-    TxtData() : time(TimeBounds::null), delay(0), pf(nullptr), open_bool(false) {}
+    TxtData() : time(kTimeBounds::null), delay(0), pf(nullptr), open_bool(false) {}
     ~TxtData() { if (pf != nullptr) fclose(pf); }
 protected:
     virtual int  ReadLine(const char *pcLine) = 0; // returns non-0 to signal invalid format
@@ -31,8 +31,6 @@ private:
     FILE *pf;
     STR filename;
     bool open_bool;
-    constexpr static const std::size_t szBuf = (1 << 12);
-    static char bufLine[szBuf];
 };
 
 
@@ -43,8 +41,8 @@ private:
 class TxtDataTr : public TxtData
 {
 public:
-    void InitSum  () { sumQ = sumPQ = 0; } // every kTimeTickSec sec
-    void InitVecTr() { vecTr.clear();    } // every      1       sec
+    void InitSum  () { sumQ = sumPQ = 0; } // every kTimeRates::secPerTick sec
+    void InitVecTr() { vecTr.clear();    } // every           1            sec
     const std::vector<PQ>& VecTr() const { return vecTr; }
     const INT64&           SumQ () const { return sumQ; }
     const INT64&           SumPQ() const { return sumPQ; }
@@ -72,7 +70,7 @@ private:
 class TxtDataTb : public TxtData
 {
 public:
-    const std::array<PQ, szTb>& Tb() { return last; }
+    const std::array<PQ, idx::szTb>& Tb() { return last; }
     TxtDataTb(SecType type_) : type(type_) {}
 private:
     // virtuals from TxtData
@@ -81,7 +79,7 @@ private:
 
     SecType type;
 
-    std::array<PQ, szTb> cur, last;
+    std::array<PQ, idx::szTb> cur, last;
 };
 
 

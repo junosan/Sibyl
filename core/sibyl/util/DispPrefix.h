@@ -23,6 +23,8 @@ protected:
     CSTR& (*func)();
 };
 
+extern DispPrefix dispPrefix;
+
 }
 
 #endif /* SIBYL_UTIL_DISPPREFIX_H_ */

@@ -14,8 +14,8 @@ class Order : public PQ
 public:
     OrdType type;
     int     tck_orig; // to be automatically filled by ApplyInsert function
-    Order()             :           type(OrdType::null), tck_orig(kTckN) {}
-    Order(INT p, INT q) : PQ(p, q), type(OrdType::null), tck_orig(kTckN) {}
+    Order()             :           type(OrdType::null), tck_orig(idx::tckN) {}
+    Order(INT p, INT q) : PQ(p, q), type(OrdType::null), tck_orig(idx::tckN) {}
 };
 
 template <class TOrder>
