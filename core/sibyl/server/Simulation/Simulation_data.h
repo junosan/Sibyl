@@ -4,6 +4,7 @@
 #include "../OrderBook.h"
 #include "../../Security.h"
 #include "TxtData.h"
+#include "../NetServer.h"
 
 namespace sibyl
 {
@@ -30,6 +31,8 @@ public:
 protected:
     TxtDataTr dataTr;
 };
+
+typedef NetServer<OrderSim, ItemSim> SimulationServer;
 
 
     /* ========================================== */

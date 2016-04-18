@@ -6,6 +6,7 @@
 #include <map>
 #include <algorithm>
 #include <cassert>
+#include <iostream>
 
 #include "sibyl_common.h"
 
@@ -21,7 +22,23 @@ namespace idx
 }
 
 enum class SecType { null, KOSPI, ELW, ETF };
-enum class OrdType { null, buy, sell       };
+enum class OrdType
+{
+    null =  0,
+    buy  = +1,
+    sell = -1
+};
+
+inline std::ostream& operator<<(std::ostream &os, OrdType type)
+{
+    switch (type)
+    {
+        case OrdType::null : return os << "null";
+        case OrdType::buy  : return os << "b";
+        case OrdType::sell : return os << "s";   
+    }
+    return os;
+}
 
 class PQ
 {

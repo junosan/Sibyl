@@ -1,17 +1,13 @@
 
 #include <thread>
 #include <fstream>
+#include <iomanip>
 
 #include "Kiwoom.h"
+#include "../../util/Clock.h"
 
 namespace sibyl
 {
-
-// static
-void  (*Kiwoom::SetInputValue)(InputKey, CSTR&)                  = nullptr;
-long  (*Kiwoom::CommRqData)   (CSTR&, CSTR&, long)               = nullptr;
-CSTR& (*Kiwoom::GetCommData)  (CSTR&, CSTR&, long, CommDataKey)  = nullptr;
-long  (*Kiwoom::SendOrder)    (CSTR&, ReqType, CSTR&, PQ, CSTR&) = nullptr;
 
 void Kiwoom::SetStateFile(CSTR &filename)
 {
@@ -119,7 +115,7 @@ void Kiwoom::WriteState()
                 if (o.type == type && o.q > 0)
                 {
                     int tck = i.P2Tck(o.p, o.type); // 0-based tick
-                    if (tck == idx::tckN) tck = 98;     // display as 99 if not found
+                    if (tck == idx::tckN) tck = 98; // display as 99 if not found
                     sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
                     ofs << buf;
                     if (nItemPerLine == ++nItemCur)

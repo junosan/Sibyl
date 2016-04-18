@@ -5,36 +5,24 @@
 
 #include "Kiwoom_data.h"
 #include "../Broker.h"
-#include "../../util/Clock.h"
 #include "../../ReqType.h"
 #include "../../time_common.h"
+#include "TR.h"
+#include "RT.h"
 
 namespace sibyl
 {
 
 class Kiwoom : public Broker<OrderKw, ItemKw> // /**/ locks orderbook.items_mutex
 {
-public:    
-    // Wrapper function pointers for OpenAPI's TR-related functions
-    // called by Windows msg loop (initialization) or NetServer thread (during exit)
-    static void  (*SetInputValue)(InputKey key, CSTR &val);
-    static long  (*CommRqData)   (CSTR &TR_name, CSTR &TR_code, long cont);
-    static CSTR& (*GetCommData)  (CSTR &TR_name, CSTR &TR_code, long idx, CommDataKey key);
-    // called by NetServer thread
-    static long  (*SendOrder)    (CSTR &TR_name, ReqType type, CSTR &code, PQ pq, CSTR &ordno_o);
-
+public:
     // called in Dlg's constructor
     void SetStateFile(CSTR &filename);
     void SetDelay(int d) { timeOffset = kTimeBounds::null - d; }
-    void SetWrapperFuncs( void  (*SetInputValue_)(InputKey, CSTR&),
-                          long  (*CommRqData_)   (CSTR&, CSTR&, long),
-                          CSTR& (*GetCommData_)  (CSTR&, CSTR&, long, CommDataKey),
-                          long  (*SendOrder_)    (CSTR&, ReqType, CSTR&, PQ, CSTR&) ) {
-                                  SetInputValue = SetInputValue_;
-                                  CommRqData    = CommRqData_;
-                                  GetCommData   = GetCommData_;
-                                  SendOrder     = SendOrder_;
-                          }
+
+    // called by Windows msg loop
+    // bool TR_LoadOrderBook(); // for initialization
+    // void TR_ViewOrderBook(); // for comparing results after finishing
 
     // called by NetServer thread
     int   AdvanceTick() override;
@@ -44,6 +32,12 @@ public:
     // called by any thread
     // Note: although orderbook.time is public, use GetOrderBookTime() instead (atomic)
     int GetOrderBookTime() { return timeOrderBook; }
+    
+    // enum class RealTimeEventType  { trade, table, NAV, req, cnt }; // OnReceiveRealData | OnReceiveChejanData
+    // static CSTR& (*GetCommRealData)(CSTR &code, long FID); // handle korean shits
+    // static CSTR& (*GetChejanData  )(long FID);             // handle korean shits
+    // void ReceiveRealTimeEvent (RealtimeType type, CSTR &code);
+    // SetupRealtimeFunciton
     
     // called by OpenAPI event thread
 /**/void ApplyRealtimeTr (CSTR &code, INT p, INT q, INT trPs1, INT trPb1);

@@ -2,9 +2,7 @@
 #define SIBYL_UTIL_CLOCK_H_
 
 #include <chrono>
-#include <sstream>
 #include <string>
-#include <iomanip>
 
 #include "../sibyl_common.h"
 
