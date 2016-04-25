@@ -1,6 +1,10 @@
 #ifndef SIBYL_SERVER_NETSERVER_H_
 #define SIBYL_SERVER_NETSERVER_H_
 
+#include <atomic>
+#include <condition_variable>
+#include <mutex>
+
 #include "../NetAgent.h"
 #include "Broker.h"
 #include "../util/DispPrefix.h"
@@ -12,10 +16,11 @@ template <class TOrder, class TItem>
 class NetServer : public NetAgent
 {
 public:
-    void Run(CSTR &port, bool reconnectable = false);
+    void Launch(CSTR &port, bool autoStart, bool reconnectable);
+    void StartMainLoop() { start_ab = true; start_cv.notify_one(); }
     
-    NetServer(Broker<TOrder, TItem> *pBroker_) : pBroker(pBroker_),
-                                                 sock_serv(sock_fail), sock_conn(sock_fail) {} 
+    NetServer(Broker<TOrder, TItem> *pBroker_)
+        : pBroker(pBroker_), start_ab(false), sock_serv(sock_fail), sock_conn(sock_fail) {} 
 private:
     int  Initialize   (CSTR &port); // returns non-0 to signal error
     int  AcceptConn   ();           // returns non-0 to signal error
@@ -23,20 +28,32 @@ private:
     int  RecvMsgIn    ();           // returns non-0 to signal client disconnection
     int  DisplayString(CSTR &disp, bool isError = false, int errno_ = 0);
     
-    Broker<TOrder, TItem> *pBroker;
+    Broker<TOrder, TItem>  *pBroker;
+    std::condition_variable start_cv;
+    std::mutex              start_mutex;
+    std::atomic_bool        start_ab;
     
     int sock_serv;
     int sock_conn;
 };
 
 template <class TOrder, class TItem>
-void NetServer<TOrder, TItem>::Run(CSTR &port, bool reconnectable)
+void NetServer<TOrder, TItem>::Launch(CSTR &port, bool autoStart, bool reconnectable)
 {
+    start_ab = autoStart;
+    
+    if (verbose == true) DisplayString("Using port " + port);
+    
     if (0 != Initialize(port)) return;
     
     do {
         if (0 == AcceptConn())
         {
+            {
+                std::unique_lock<std::mutex> lock(start_mutex);
+                start_cv.wait(lock, [&]{ return start_ab == true; });
+            } // mutex unlocked here
+            
             while (true)
             {
                 if (0 != pBroker->AdvanceTick()) {
@@ -44,7 +61,10 @@ void NetServer<TOrder, TItem>::Run(CSTR &port, bool reconnectable)
                     break;
                 }
                 if (false == pBroker->IsSkipping())
+                {
+                    // debug_msg("[NetServer] New tick");
                     SendMsgOut();
+                }
                 if (false == pBroker->IsSkipping() && 0 != RecvMsgIn())
                     break; 
             }
@@ -52,6 +72,8 @@ void NetServer<TOrder, TItem>::Run(CSTR &port, bool reconnectable)
     } while (reconnectable == true);
     
     if (verbose) DisplayString("Exiting main loop");
+    
+    pBroker->OnExit();
     
 #ifdef _WIN32
     WSACleanup();

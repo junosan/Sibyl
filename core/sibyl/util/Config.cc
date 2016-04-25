@@ -1,11 +1,16 @@
+#include "Config.h"
 
 #include <iostream>
 #include <fstream>
-
-#include "Config.h"
+#include <algorithm>
 
 namespace sibyl
 {
+
+#ifdef _WIN32 // temporarily disable minwindef.h definitions
+    #undef max
+    #undef min
+#endif /* _WIN32 */
 
 bool Config::SetFile(CSTR &filename_, Config::Mode mode_)
 {
@@ -57,6 +62,11 @@ bool Config::SetFile(CSTR &filename_, Config::Mode mode_)
     if (success == false) filename.clear();
     return success;
 }
+
+#ifdef _WIN32 // restore minwindef.h definitions
+    #define max(a,b)            (((a) > (b)) ? (a) : (b))
+    #define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif /* _WIN32 */
 
 Config::SS& Config::Get(CSTR &key)
 {

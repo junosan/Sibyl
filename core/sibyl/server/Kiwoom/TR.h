@@ -6,26 +6,31 @@
 #include <condition_variable>
 #include <mutex>
 
-#include "KiwoomFunction.h"
+#include "KiwoomAPI.h"
+#include "../../ostream_format.h"
 
 namespace sibyl
 {
 
-// Designed set of KiwoomFunction operations to implement TR
-// (i.e., synchronous queries & order requests)
-class TR : public KiwoomFunction
+// Synchronous operations : queries & order requests
+class TR
 {
 public:
-    enum class State { normal, carry, timeout };
+    // called by Kiwoom's constructor
+    static void SetOrderBook(OrderBook<OrderKw, ItemKw> *pob_) { pob = pob_; }
+    // called by Windows msg loop (initialization)
+    static void SetAccNo    (CSTR &accno_) { accno = accno_; }
+
+    enum class State { normal, carry, timeout, error };
 
     // called by Windows msg loop or NetServer thread (reqs)
     State Send(bool write = false);
         // this is blocking until a response is received or a timeout occurs
         // write  : true (initialization), false (compare)
-        // return : normal | timeout
+        // return : normal | timeout | error
 
     // called by OpenAPI event thread (OnReceiveTrData)
-    static void Receive(CSTR &name, long cnt, State state);
+    static void Receive(CSTR &name_, CSTR &code_, State state);
         // name   : OnReceiveTrData's sRQName
         // cnt    : # of idx to loop (GetRepeatCnt)
         // state  : normal | carry (sPrevNext == 2 for carry)
@@ -34,22 +39,30 @@ public:
            end_bool(false),
            end_state(State::normal) {}
 protected:
+    static OrderBook<OrderKw, ItemKw> *pob;
+    static CSTR& AccNo() { return accno; }
+    
     std::atomic_bool writeOrderBook;
 
     // derived TR identification
-    STR  TR_name;                    // set in derived TRs' constructor
-    STR  TR_code;                    // set in derived TRs' constructor (if needed)
-    CSTR& Name() { return TR_name; } // use these outside of constructor
-    CSTR& Code() { return TR_code; } // use these outside of constructor
-    void Register  ();               // all derived TRs' constructor must call this
-    void Deregister();               // all derived TRs' destructor  must call this
+    STR  TR_name;                     // set in derived TRs' constructor
+    STR  TR_code;                     // set in derived TRs' constructor (if needed)
+    STR  scrno;                       // set in derived TRs' constructor
+    CSTR& Name () { return TR_name; } // use these outside of constructor
+    CSTR& Code () { return TR_code; } // use these outside of constructor
+    CSTR& ScrNo() { return scrno;   } // use these outside of constructor
+    void Register  ();                // all derived TRs' constructor must call this
+    void Deregister();                // all derived TRs' destructor  must call this
     
-    virtual bool  AllowCarry()           = 0;
-    virtual bool  AllowTimeout()         = 0;
-    virtual long  SendOnce(State state)  = 0; // SetInputValue (if any) & CommRqData/SendOrder
-    virtual void  RetrieveData(long cnt) = 0;
+    virtual bool  AllowCarry()              = 0;
+    virtual bool  AllowTimeout()            = 0;
+    virtual long  SendOnce(State state)     = 0; // SetInputValue (if any) & CommRqData/SendOrder
+    virtual void  RetrieveData(CSTR &code_) = 0;
+    
+    typedef KiwoomAPI K; // for brevity
 private:
     static std::map<STR, TR*> map_name_TR;
+    static STR accno;
 
     constexpr static int kNoTimeout     = -1;
     constexpr static int t_timeout      = 5000;
@@ -73,17 +86,18 @@ public:
     void SetCode(CSTR &code_) { code = code_; }
      TRRefPrice() { TR_name = "TRRefPrice";
                     TR_code = "OPT10001";
+                    scrno   = "9999";
                     Register  (); }
     ~TRRefPrice() { Deregister(); }
 private:
     STR code;
-    bool  AllowCarry()           override { return false;                             }
-    bool  AllowTimeout()         override { return false;                             }
-    long  SendOnce(State state)  override { SetInputValue(InputKey::code, code); // 종목코드 
-                                            return CommRqData(Name(), Code(), false); }
-    void  RetrieveData(long cnt) override {
-        STR data_code =           GetCommData(Name(), Code(), 0, CommDataKey::code);
-        INT data_refp = std::stoi(GetCommData(Name(), Code(), 0, CommDataKey::refprice));
+    bool  AllowCarry()              override { return false;                                         }
+    bool  AllowTimeout()            override { return false;                                         }
+    long  SendOnce(State state)     override { K::SetInputValue(InputKey::code, code); //  
+                                               return K::CommRqData(Name(), Code(), false, ScrNo()); }
+    void  RetrieveData(CSTR &code_) override {
+        STR data_code =           K::GetCommData(Name(), code_, 0, CommDataKey::code);
+        INT data_refp = std::stoi(K::GetCommData(Name(), code_, 0, CommDataKey::refprice));
         
         std::lock_guard<std::recursive_mutex> lock(pob->items_mutex);
         auto it_itm = pob->items.find(data_code);
@@ -94,10 +108,10 @@ private:
                 it_itm->second->tb = std::array<PQ, idx::szTb>{};
                 it_itm->second->tb[idx::ps1].p = data_refp;
             }
-            std::cout << dispPrefix << "refp {" << data_code << "} " << data_refp << std::endl;
+            std::cout << dispPrefix << "ref p " << fmt_code(data_code) << " " << fmt_price(data_refp) << std::endl;
         }
         else
-            std::cerr << dispPrefix << Name() << "::RetrieveData: {" << data_code << "} not found" << std::endl;
+            std::cerr << dispPrefix << Name() << "::RetrieveData: " << fmt_code(data_code) << " not found" << std::endl;
         code.clear(); // force SetCode for next call
     }
 };
@@ -107,26 +121,27 @@ class TRAccBalance : public TR
 public:
      TRAccBalance() { TR_name = "TRAccBalance";
                       TR_code = "OPW00001";
+                      scrno   = "9998";
                       Register  (); }
     ~TRAccBalance() { Deregister(); }
 private:
-    bool  AllowCarry()           override { return false;                               }
-    bool  AllowTimeout()         override { return true;                                }
-    long  SendOnce(State state)  override { SetInputValue(InputKey::accno      , ""  ); // 계좌번호
-                                            SetInputValue(InputKey::pin        , ""  ); // 비밀번호
-                                            SetInputValue(InputKey::pin_input_s, "00"); // 비밀번호입력매체구분
-                                            SetInputValue(InputKey::query_s    , "1" ); // 조회구분
-                                            return CommRqData(Name(), Code(), false);   }
-    void  RetrieveData(long cnt) override { 
-        INT64 data_bal = static_cast<INT64>(std::stoll(GetCommData(Name(), Code(), 0, CommDataKey::delayedbal)));
+    bool  AllowCarry()              override { return false;                                         }
+    bool  AllowTimeout()            override { return true;                                          }
+    long  SendOnce(State state)     override { K::SetInputValue(InputKey::accno      , AccNo()); // 
+                                               K::SetInputValue(InputKey::pin        , ""     ); // 
+                                               K::SetInputValue(InputKey::pin_input_s, "00"   ); // 
+                                               K::SetInputValue(InputKey::query_s    , "1"    ); // 
+                                               return K::CommRqData(Name(), Code(), false, ScrNo()); }
+    void  RetrieveData(CSTR &code_) override { 
+        INT64 data_bal = static_cast<INT64>(std::stoll(K::GetCommData(Name(), code_, 0, CommDataKey::delayedbal)));
         
         std::lock_guard<std::recursive_mutex> lock(pob->items_mutex);
         if (writeOrderBook == true)
             pob->bal = data_bal;
         // align
-            std::cout << dispPrefix << "bal i " << pob->bal << std::endl;
+            std::cout << dispPrefix << "bal i " << fmt_bal(pob->bal) << std::endl;
         if (pob->bal != data_bal)
-            std::cout << dispPrefix << " != d " << data_bal << std::endl;
+            std::cout << dispPrefix << " != d " << fmt_bal(data_bal) << std::endl;
     }
 };
 
@@ -135,17 +150,20 @@ class TRCntOList : public TR // cntO = cnt + sell_order_q
 public:
      TRCntOList() { TR_name = "TRCntOList";
                     TR_code = "OPW00018";
+                    scrno   = "9997";
                     Register  (); }
     ~TRCntOList() { Deregister(); }
 private:
-    bool  AllowCarry()           override { return true;                                              }
-    bool  AllowTimeout()         override { return false;                                             }
-    long  SendOnce(State state)  override { SetInputValue(InputKey::accno      , ""  ); // 계좌번호
-                                            SetInputValue(InputKey::pin        , ""  ); // 비밀번호
-                                            SetInputValue(InputKey::pin_input_s, "00"); // 비밀번호입력매체구분
-                                            SetInputValue(InputKey::query_s    , "2" ); // 조회구분
-                                            return CommRqData(Name(), Code(), state == State::carry); }
-    void  RetrieveData(long cnt) override { 
+    bool  AllowCarry()              override { return true;                                                          }
+    bool  AllowTimeout()            override { return false;                                                         }
+    long  SendOnce(State state)     override { K::SetInputValue(InputKey::accno      , AccNo()); // 
+                                               K::SetInputValue(InputKey::pin        , ""     ); // 
+                                               K::SetInputValue(InputKey::pin_input_s, "00"   ); // 
+                                               K::SetInputValue(InputKey::query_s    , "2"    ); // 
+                                               return K::CommRqData(Name(), Code(), state == State::carry, ScrNo()); }
+    void  RetrieveData(CSTR &code_) override {
+        long cnt = K::GetRepeatCnt(Name(), code_);
+ 
         std::lock_guard<std::recursive_mutex> lock(pob->items_mutex);
         if (writeOrderBook == true)
         {
@@ -157,8 +175,8 @@ private:
         }
         for (long idx = 0; idx < cnt; idx++)
         {
-            STR data_code =           GetCommData(Name(), Code(), idx, CommDataKey::code_g);
-            INT data_cnto = std::stoi(GetCommData(Name(), Code(), idx, CommDataKey::cnt_plus_so));
+            STR data_code =           K::GetCommData(Name(), code_, idx, CommDataKey::code_g);
+            INT data_cnto = std::stoi(K::GetCommData(Name(), code_, idx, CommDataKey::cnt_plus_so));
             
             auto it_itm = pob->items.find(data_code);
             if (it_itm != std::end(pob->items))
@@ -174,12 +192,12 @@ private:
                         internal_cnto += price_order.second.q;
                 }
                 // align
-                    std::cout << dispPrefix << "cnto i {" << data_code << "} (" << internal_cnto << ")" << std::endl;
+                    std::cout << dispPrefix << "inv i " << fmt_code(data_code) << " " << fmt_quant(internal_cnto) << std::endl;
                 if (internal_cnto != data_cnto)
-                    std::cout << dispPrefix << "  != d {" << data_code << "} (" << data_cnto     << ")" << std::endl;
+                    std::cout << dispPrefix << " != d " << fmt_code(data_code) << " " << fmt_quant(data_cnto)     << std::endl;
             }
             else
-                std::cerr << dispPrefix << Name() << "::RetrieveData: {" << data_code << "} not found" << std::endl;
+                std::cerr << dispPrefix << Name() << "::RetrieveData: " << fmt_code(data_code) << " not found" << std::endl;
         }
     }
 };
@@ -189,43 +207,46 @@ class TROrdList : public TR
 public:
      TROrdList() { TR_name = "TROrdList";
                    TR_code = "OPT10075";
+                   scrno   = "9996";
                    Register  (); }
     ~TROrdList() { Deregister(); }
 private:
-    bool  AllowCarry()           override { return true;                                              }
-    bool  AllowTimeout()         override { return false;                                             }
-    long  SendOnce(State state)  override { SetInputValue(InputKey::accno    , "" ); // 계좌번호
-                                            SetInputValue(InputKey::reqstat_s, "1"); // 체결구분
-                                            SetInputValue(InputKey::ordtype_s, "0"); // 매매구분
-                                            return CommRqData(Name(), Code(), state == State::carry); }
-    void  RetrieveData(long cnt) override { 
+    bool  AllowCarry()              override { return true;                                                          }
+    bool  AllowTimeout()            override { return false;                                                         }
+    long  SendOnce(State state)     override { K::SetInputValue(InputKey::accno    , AccNo()); // 
+                                               K::SetInputValue(InputKey::reqstat_s, "1"    ); // 
+                                               K::SetInputValue(InputKey::ordtype_s, "0"    ); // 
+                                               return K::CommRqData(Name(), Code(), state == State::carry, ScrNo()); }
+    void  RetrieveData(CSTR &code_) override { 
+        long cnt = K::GetRepeatCnt(Name(), code_);
+        
         std::lock_guard<std::recursive_mutex> lock(pob->items_mutex);
         if (writeOrderBook == true)
         {
             for (auto &code_pitm : pob->items)
                 code_pitm.second->ord.clear();
         }
-        for (long idx = 0; idx < cnt; idx++) // newest->oldest; need to reverse ordering after receiving all carried data
+        for (long idx = 0; idx < cnt; idx++) // newest -> oldest; need to reverse ordering after receiving all carried data
         {
             OrderKw data_o;
             data_o.tck_orig = idx::tckN; // cannot track tck_orig from data
-            data_o.q = std::stoi(GetCommData(Name(), Code(), idx, CommDataKey::ordq));
+            data_o.q = std::stoi(K::GetCommData(Name(), code_, idx, CommDataKey::ordq));
             if (data_o.q > 0)
             {
-                int type = std::stoi(GetCommData(Name(), Code(), idx, CommDataKey::ordtype));
+                int type = std::stoi(K::GetCommData(Name(), code_, idx, CommDataKey::ordtype));
                 data_o.type = (type == static_cast<int>(OrdType::buy ) ? OrdType::buy  :
                               (type == static_cast<int>(OrdType::sell) ? OrdType::sell : OrdType::null));
                 if (data_o.type != OrdType::null)
                 {
-                    STR data_code = GetCommData(Name(), Code(), idx, CommDataKey::code);
+                    STR data_code = K::GetCommData(Name(), code_, idx, CommDataKey::code);
                     
                     auto it_itm = pob->items.find(data_code);
                     if (it_itm != std::end(pob->items))
                     {
-                        data_o.ordno  =           GetCommData(Name(), Code(), idx, CommDataKey::ordno);
-                        data_o.p      = std::stoi(GetCommData(Name(), Code(), idx, CommDataKey::ordp));
+                        data_o.ordno  =           K::GetCommData(Name(), code_, idx, CommDataKey::ordno);
+                        data_o.p      = std::stoi(K::GetCommData(Name(), code_, idx, CommDataKey::ordp));
                         
-                        auto &i = *it_itm->second;
+                        auto &i = *it_itm->second; // reference as ItemKw
                         if (writeOrderBook == true)
                         {
                             if (data_o.type == OrdType::sell)
@@ -233,8 +254,8 @@ private:
                                 i.cnt -= data_o.q;
                                 if (i.cnt < 0)
                                 {
-                                    std::cerr << dispPrefix << Name() << "::RetrieveData: {" << data_code << "} cnt < 0 reached while subtracting sell orders" << std::endl;
-                                    std::cerr << dispPrefix << Name() << "::RetrieveData: {" << data_code << "} Setting cnt = 0" << std::endl;
+                                    std::cerr << dispPrefix << Name() << "::RetrieveData: " << fmt_code(data_code) << " cnt < 0 reached while subtracting sell orders" << std::endl;
+                                    std::cerr << dispPrefix << Name() << "::RetrieveData: " << fmt_code(data_code) << " Setting cnt = 0" << std::endl;
                                     i.cnt = 0;
                                 }
                             }
@@ -243,18 +264,24 @@ private:
                         
                         // find order matching data_o in i.ord
                         auto it = std::end(i.ord);
-                        // INT internal_cnto = i.cnt;
-                        // for (const auto &price_order : i.ord) {
-                        //     if (price_order.second.type == OrdType::sell)
-                        //         internal_cnto += price_order.second.q;
-                        // }
-                        // align
-                        //     std::cout << dispPrefix << "cnto i {" << data_code << "} (" << internal_cnto << ")" << std::endl;
-                        // if (internal_cnto != data_cnto)
-                        //     std::cout << dispPrefix << "  != d {" << data_code << "} (" << data_cnto     << ")" << std::endl;
+                        for (auto iO = std::begin(i.ord); iO != std::end(i.ord); iO++)
+                            if (iO->second.ordno == data_o.ordno)
+                            {
+                                it = iO;
+                                break;
+                            }
+                        
+                        if (it != std::end(i.ord))
+                            std::cout << dispPrefix << "ord i " << fmt_code(data_code) << " " << it->second << std::endl;
+                        else
+                            std::cout << dispPrefix << "ord i " << fmt_code(data_code) << " missing" << std::endl;
+                        if (it == std::end(i.ord) || it->second.type != data_o.type ||
+                                                     it->second.p    != data_o.p    ||
+                                                     it->second.q    != data_o.q     )
+                            std::cout << dispPrefix << " != d " << fmt_code(data_code) << " " << data_o << std::endl;
                     }
                     else
-                        std::cerr << dispPrefix << Name() << "::RetrieveData: {" << data_code << "} not found" << std::endl;
+                        std::cerr << dispPrefix << Name() << "::RetrieveData: " << fmt_code(data_code) << " not found" << std::endl;
                 }
             }
         }
@@ -266,6 +293,18 @@ class TRReqOrder : public TR
 public:
     void SetReq(ReqType type_, CSTR &code_, PQ pq_, CSTR &ordno_o_) {
         type = type_; code = code_; pq = pq_; ordno_o = ordno_o_;
+        std::lock_guard<std::recursive_mutex> lock(pob->items_mutex);
+        auto it_itm = pob->items.find(code);
+        if (it_itm != std::end(pob->items))
+        {
+            // use scrno 100 lower than item's (to avoid potential conflict with SetRealReg)
+            scrno = std::to_string(std::stoi(it_itm->second->srcno) - 100);
+        }
+        else
+        {
+            std::cerr << dispPrefix << Name() << "::SetReq: " << fmt_code(code) << " not found" << std::endl;
+            scrno = "9995";
+        }
     }
      TRReqOrder() : type(ReqType::null)
                   { TR_name = "TRReqOrder";
@@ -273,10 +312,13 @@ public:
     ~TRReqOrder() { Deregister(); }
 private:
     ReqType type;    STR code;    PQ pq;    STR ordno_o;
-    bool  AllowCarry()           override { return false;                                      }
-    bool  AllowTimeout()         override { return true;                                       }
-    long  SendOnce(State state)  override { return SendOrder(Name(), type, code, pq, ordno_o); }
-    void  RetrieveData(long cnt) override { type = ReqType::null; /* force SetReq */           }
+    bool  AllowCarry()              override { return false;                                 }
+    bool  AllowTimeout()            override { return true;                                  }
+    long  SendOnce(State state)     override { // debug_msg("[ReqOrder] " << type << " " << fmt_code(code) << " "
+                                               //        << fmt_price(pq.p) << " " << fmt_quant(pq.q) << " " << fmt_ordno(ordno_o));
+                                               return K::SendOrder(Name(), ScrNo(), AccNo(),
+                                                                   type, code, pq, ordno_o); }
+    void  RetrieveData(CSTR &code_) override { type = ReqType::null; /* force SetReq */      }
 };
 
 }

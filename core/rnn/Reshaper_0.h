@@ -26,6 +26,8 @@ public:
                std::vector<std::string> *pFileList_,
                const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*));
 
+    void ReadConfig(CSTR &filename) override;
+
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
     void State2VecIn(FLOAT *vec, const ItemState &state) override;
@@ -35,6 +37,9 @@ public:
     
     /* fractal ->  sibyl  */
     void VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code) override;
+    
+private:
+    double b_th, s_th;
 };
 
 }

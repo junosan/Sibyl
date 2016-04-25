@@ -1,9 +1,9 @@
+#include "Simulation.h"
 
 #include <sys/stat.h>
 #include <dirent.h>
 #include <fstream>
 
-#include "Simulation.h"
 #include "../../ReqType.h"
 
 namespace sibyl
@@ -70,8 +70,12 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
         {
             auto it_bool = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemSim>(p)));
             success = it_bool.second;
+            if (success == false) // new pointer is deleted automatically in destructor
+            {
+                STR str = "Nonunique code {" + code + "} found";
+                DisplayLoadError(str);
+            }
         }
-        if (success == false) delete p;
         return success;
     };
     

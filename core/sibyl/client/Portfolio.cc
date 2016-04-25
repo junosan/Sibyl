@@ -1,9 +1,8 @@
+#include "Portfolio.h"
 
 #include <iostream>
 #include <cinttypes>
 #include <cstring>
-
-#include "Portfolio.h"
 
 namespace sibyl
 {
@@ -86,7 +85,11 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if (cW == 1) sscanf(pcWord, "%d"      , &time);
+                if (cW == 1) {
+                    int t;
+                    sscanf(pcWord, "%d", &t);
+                    time = t; // std::atomic_int time
+                }
                 if (cW == 2) sscanf(pcWord, "%" SCNd64, &bal);
                 if (cW == 3) sscanf(pcWord, "%" SCNd64, &sum.buy);
                 if (cW == 4) sscanf(pcWord, "%" SCNd64, &sum.sell);
@@ -224,7 +227,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
         {
             Item &i = *code_pItem.second;
             sprintf(bufLine, "{%s}\n"               , code_pItem.first.c_str()); logVecOut << bufLine;
-            sprintf(bufLine, "t\t%10d\n"            , time);                     logVecOut << bufLine;
+            sprintf(bufLine, "t\t%10d\n"            , time.load());              logVecOut << bufLine;
             sprintf(bufLine, "pr\t%.4e\n"           , i.pr);                     logVecOut << bufLine;
             sprintf(bufLine, "qr\t%10" PRId64 "\n"  , i.qr);                     logVecOut << bufLine;
             sprintf(bufLine, "     \ttbpr\t\ttbqr\n");                           logVecOut << bufLine;
@@ -260,7 +263,7 @@ void Portfolio::WriteState()
     {
         SEval se = Evaluate();
         
-        fprintf(pf, "t = %5d sec\n", time);
+        fprintf(pf, "t = %5d sec\n", time.load());
         fprintf(pf, "   bal  u  %12" PRId64 "\n" , se.balU      );
         fprintf(pf, "   bal b o %12" PRId64 "\n" , se.balBO     );
         fprintf(pf, "   evl cnt %12" PRId64 "\n" , se.evalCnt   );

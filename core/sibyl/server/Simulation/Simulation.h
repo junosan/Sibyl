@@ -13,8 +13,8 @@ public:
     int LoadData(CSTR &config, CSTR &datapath); // non-0 for any error
 
     // virtuals from Broker
-    int   AdvanceTick();
-    CSTR& BuildMsgOut();
+    int   AdvanceTick() override;
+    CSTR& BuildMsgOut() override;
     
     void PrintState();
     
@@ -25,8 +25,9 @@ private:
     void ReadData(int timeTarget); // fill TxtData classes with event info until right before timeTarget
     void SimulateTrades();
 
-    // virtual from Broker
-    int  ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req); // non-0 if req count overflow
+    // virtuals from Broker
+    int  ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req) override; // non-0 if req count overflow
+    void OnExit() override {}
     
     // helper functions for LoadData; path should have trailing '/'
     int     DisplayLoadError(CSTR &str); 

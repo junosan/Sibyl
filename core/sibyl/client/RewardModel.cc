@@ -1,8 +1,8 @@
+#include "RewardModel.h"
 
 #include <iostream>
 #include <fstream>
 
-#include "RewardModel.h"
 #include "../ReqType.h"
 
 namespace sibyl
@@ -144,7 +144,7 @@ void RewardModel::GetRefData()
                 for (int iB = 0; iB < (int)dimRef; iB++)
                 {
                     if ((std::abs(bufRef[iB]) > 1.0f) && (std::abs(bufRef[iB]) < 100.0f)) {
-                        sprintf(bufLine, "Warning: [%5d] {%s} G = %f too large (iB %d)", pPortfolio->time, code_reward.first.c_str(), bufRef[iB], iB);
+                        sprintf(bufLine, "Warning: [%5d] {%s} G = %f too large (iB %d)", pPortfolio->time.load(), code_reward.first.c_str(), bufRef[iB], iB);
                         std::cerr << bufLine << std::endl;
                     }
                 }
@@ -217,7 +217,7 @@ CSTR& RewardModel::BuildMsgOut()
     verify(timeConst > 0.0);
     msg.clear();
     
-    const auto &time  = pPortfolio->time;
+    const int   time  = pPortfolio->time; // std::atomic_int time
           auto  bal   = pPortfolio->bal;
           auto &items = pPortfolio->items;
     

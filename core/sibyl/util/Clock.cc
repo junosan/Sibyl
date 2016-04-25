@@ -1,9 +1,9 @@
+#include "Clock.h"
 
 #include <sstream>
 #include <iomanip>
 #include <algorithm>
-
-#include "Clock.h"
+#include <cctype>
 
 namespace sibyl
 {
@@ -75,7 +75,7 @@ int Clock::HHMMSS_to_ms(CSTR &str)
 }
 
 // static
-CSTR& Clock::ms_to_HHMMSS(int ms)
+CSTR& Clock::ms_to_HHMMSS(int ms, bool colons)
 {
     static STR str;
     verify(ms >= 0 && ms < 24 * 3600 * 1000);
@@ -84,10 +84,20 @@ CSTR& Clock::ms_to_HHMMSS(int ms)
     int m = (tot - h * 3600) / 60;
     int s = (tot - h * 3600 - m * 60);    
     std::stringstream ss;
-    ss << std::setfill('0')
-       << std::setw(2) << h
-       << std::setw(2) << m
-       << std::setw(2) << s;
+    if (colons == false)
+    {
+        ss << std::setfill('0')
+           << std::setw(2) << h
+           << std::setw(2) << m
+           << std::setw(2) << s;
+    }
+    else
+    {
+        ss << std::setfill('0')
+           << std::setw(2) << h << ':'
+           << std::setw(2) << m << ':'
+           << std::setw(2) << s;
+    }
     ss >> str;
     return str; 
 }

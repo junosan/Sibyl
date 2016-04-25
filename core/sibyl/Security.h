@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cassert>
 #include <iostream>
+#include <cmath>
 
 #include "sibyl_common.h"
 
@@ -81,6 +82,9 @@ public:
     int P2Tck(INT p  , OrdType type) const;
     INT Tck2P(int tck, OrdType type) const;
     INT Tck2Q(int tck, OrdType type) const;
+    
+    // floor(bal / (p + BFee)), handling potential overflow & special cases (e.g., ELW)
+    INT MaxBuyQ(INT64 bal, INT p) const;
     
     Security() : pr(0.0f), qr(0), cnt(0) {}
     virtual ~Security() {}
@@ -160,6 +164,25 @@ INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
     }
     verify(false);
 }
+
+#ifdef _WIN32 // temporarily disable minwindef.h definitions
+    #undef max
+    #undef min
+#endif /* _WIN32 */
+
+template <class TOrder>
+INT Security<TOrder>::MaxBuyQ(INT64 bal, INT p) const
+{
+    INT64 qmax64 = (INT64)std::floor(bal / (p * (1.0 + dBF())));
+    INT   qmax   =   (INT)std::min(qmax64, (INT64) std::numeric_limits<INT>::max());
+    if (Type() == SecType::ELW) qmax -= qmax % 10;
+    return qmax;
+}
+
+#ifdef _WIN32 // restore minwindef.h definitions
+    #define max(a,b)            (((a) > (b)) ? (a) : (b))
+    #define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif /* _WIN32 */
 
 }
 

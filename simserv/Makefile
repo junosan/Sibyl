@@ -61,7 +61,7 @@ OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/*.cc))
 TARGET_BIN=$(BUILDDIR_BIN)/$(OUTNAME_BIN)
 
 
-all:$(TARGET_BIN)
+all: realclean $(TARGET_BIN)
 
 $(TARGET_BIN):$(OBJS) 
 	@mkdir -p $(@D)

@@ -40,14 +40,17 @@ typedef int64_t     INT64; // for price/quants that may exceed 32 bits in extrem
 typedef std::string STR;   // for brevity
 typedef const STR   CSTR;  // for brevity
 
+}
+
 #ifdef NDEBUG
     #define verify(expression) ((void)(expression))
     #if defined _WIN32 && !defined DISABLE_VERIFY_IN_RELEASE_MODE
         #undef verify
         #include <iostream>
+        #define NO_WARN_MBCS_MFC_DEPRECATION
+        #include <SDKDDKVer.h>
+        #include <afxwin.h>
         #include <errhandlingapi.h>
-        #include <stdlib.h>
-        #include <string.h>
         #define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
         #define verify(expression) ((expression) == false && (std::cerr << "ERROR: " << __FILENAME__ << ", line " << __LINE__ << ", function " << __func__ << std::endl, SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX), abort(), false))
     #endif /* _WIN32 && !DISABLE_VERIFY_IN_RELEASE_MODE */
@@ -56,6 +59,14 @@ typedef const STR   CSTR;  // for brevity
     #define verify(expression) assert(expression)
 #endif /* NDEBUG */
 
-}
+// #define SIBYL_NO_DEBUG_MSG
+
+#ifdef SIBYL_NO_DEBUG_MSG
+    #define debug_msg(string) ((void)(string))
+#else
+    #include <iostream>
+    #include "util/DispPrefix.h"
+    #define debug_msg(string) std::cerr << dispPrefix << string << std::endl
+#endif
 
 #endif /* SIBYL_COMMON_H_ */

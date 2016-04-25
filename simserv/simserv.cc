@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
     
     SimulationServer server(&simulation);
     server.SetVerbose(argc == 5 && std::string(argv[4]) == "-v");
-    server.Run(argv[3]);
+    server.Launch(argv[3], true, false);
     
     std::cout << std::setprecision(6) << std::fixed
               << simulation.orderbook.GetProfitRate() << std::endl;

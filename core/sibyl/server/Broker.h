@@ -25,11 +25,15 @@ public:
     bool IsInterrupted() { return ab_interrupt; }
     void InterruptExec() { ab_interrupt = true; }
     
+    // called by NetServer main loop
     virtual // Simulation: process data until next tick; Kiwoom: wait until event thread wakes it up
     int   AdvanceTick() = 0; // returns non-0 to signal exit
     virtual const // implement depending on addMyOrd
     CSTR& BuildMsgOut() = 0;
     void  ApplyMsgIn (char *msg);
+    
+    // called after NetServer finishes
+    virtual void OnExit() = 0;
     
     Broker() : verbose(false),
                skipTick(false),
@@ -130,7 +134,17 @@ const std::vector<UnnamedReq<TItem>>& Broker<TOrder, TItem>::ParseMsgIn(char *ms
         if (fail == false)
         {
             ureq.push_back(req);
-            if (verbose == true) std::cout << dispPrefix << "ReqIn: " << pcLine << std::endl;
+            if (verbose == true)
+            {
+                if (req.type == ReqType::ca || req.type == ReqType::sa)
+                    std::cout << dispPrefix << "ReqIn:  " << req.type << std::endl;
+                else
+                {
+                    std::cout << dispPrefix << "ReqIn:  " << req.type << " " << fmt_code(req.iItems->first) << " " << fmt_price(req.p) << " " << fmt_quant(req.q);
+                    if (req.type == ReqType::mb || req.type == ReqType::ms) std::cout << " " << fmt_price(req.mp);
+                    std::cout << std::endl;
+                }
+            }
         }
         else
         {

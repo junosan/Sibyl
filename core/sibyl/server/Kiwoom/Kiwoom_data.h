@@ -1,8 +1,12 @@
 #ifndef SIBYL_SERVER_KIWOOM_KIWOOM_DATA_H_
 #define SIBYL_SERVER_KIWOOM_KIWOOM_DATA_H_
 
+#include <iostream>
+#include <iomanip>
+
 #include "../OrderBook.h"
 #include "../NetServer.h"
+#include "../../ostream_format.h"
 
 namespace sibyl
 {
@@ -12,6 +16,10 @@ class OrderKw : public Order
 public:
     STR ordno;
 };
+
+inline std::ostream& operator<<(std::ostream &os, OrderKw o) {
+    return os << fmt_ordno(o.ordno) << " " << o.type << " " << fmt_price(o.p) << " " << fmt_quant(o.q);
+}
 
 class ItemKw : public Item<OrderKw>
 {
@@ -34,26 +42,40 @@ enum class ReqStat
 
 enum class InputKey
 {
-    code,        // 종목코드
-    accno,       // 계좌번호 (need separate handling; use pre-obtained accno in Dlg)
-    pin,         // 비밀번호
-    pin_input_s, // 비밀번호입력매체구분
-    query_s,     // 조회구분
-    reqstat_s,   // 체결구분
-    ordtype_s    // 매매구분    
+    code,        // 
+    accno,       // 
+    pin,         // 
+    pin_input_s, // 
+    query_s,     // 
+    reqstat_s,   // 
+    ordtype_s    //     
 };
 
 enum class CommDataKey
 {
-    code,        // 종목코드
-    code_g,      // 종목번호 (need separate handling; strip first character)
-    refprice,    // 기준가
-    delayedbal,  // d+2출금가능금액
-    cnt_plus_so, // 보유수량
-    ordtype,     // 주문구분 (need separate handling; convert to "+1"/"-1" for buy/sell)
-    ordno,       // 주문번호
-    ordp,        // 주문가격
-    ordq         // 미체결수량
+    code,        // 
+    code_g,      // (need separate handling; strip first character)
+    refprice,    // 
+    delayedbal,  // 
+    cnt_plus_so, // 
+    ordtype,     // (need separate handling; convert to "1"/"-1" for buy/sell)
+    ordno,       // 
+    ordp,        // 
+    ordq         // 
+};
+
+enum class MarketEventType
+{
+    null,
+    trade,
+    table,
+    NAV
+};
+
+enum class BookEventType : long
+{
+    ord = 0, // value specified in Kiwoom API
+    cnt = 1  // value specified in Kiwoom API
 };
 
 namespace kFID
@@ -61,8 +83,8 @@ namespace kFID
     // OnReceiveChejanData
     constexpr long code    = 9001; // *###### (*: A(spot), J(ELW), Q(ETN)), some_other_format (future/option)
     constexpr long cnt     = 933;
-    constexpr long reqstat = 913;  // "접수"/"확인"/"체결" (in EUC-KR)
-    constexpr long reqtype = 905;  // "+매수"/"-매도"/"매수취소"/"매도취소"/"+매수정정"/"-매도정정" (in EUC-KR)
+    constexpr long reqstat = 913;  // "receipt"/"confirm"/"trade" (in EUC-KR)
+    constexpr long reqtype = 905;  // "+b"/"-s"/"cb"/"cs"/"+mb"/"-ms" (in EUC-KR)
     constexpr long ordno   = 9203;
     constexpr long ordp    = 901;
     constexpr long ordq    = 902;
@@ -86,26 +108,26 @@ namespace kFID
 
 namespace kKiwoomError
 {
-    constexpr long OP_ERR_NONE            =    0; // "정상처리"
-    constexpr long OP_ERR_LOGIN           = -100; // "사용자정보교환에 실패하였습니다. 잠시후 다시 시작하여 주십시오."
-    constexpr long OP_ERR_CONNECT         = -101; // "서버 접속 실패"
-    constexpr long OP_ERR_VERSION         = -102; // "버전처리가 실패하였습니다."
+    constexpr long OP_ERR_NONE            =    0; // 
+    constexpr long OP_ERR_LOGIN           = -100; // 
+    constexpr long OP_ERR_CONNECT         = -101; // 
+    constexpr long OP_ERR_VERSION         = -102; // 
 
-    constexpr long OP_ERR_SISE_OVERFLOW   = -200; // "시세조회 과부하"
-    constexpr long OP_ERR_RQ_STRUCT_FAIL  = -201; // "REQUEST_INPUT_st Failed"
-    constexpr long OP_ERR_RQ_STRING_FAIL  = -202; // "요청 전문 작성 실패"
-    constexpr long OP_ERR_NO_DATA         = -203; // "데이터가 존재하지 않습니다."
-    constexpr long OP_ERR_OVER_MAX_DATA   = -204; // "한번에 조회 가능한 종목개수는 최대 100종목 입니다."
+    constexpr long OP_ERR_SISE_OVERFLOW   = -200; // 
+    constexpr long OP_ERR_RQ_STRUCT_FAIL  = -201; // 
+    constexpr long OP_ERR_RQ_STRING_FAIL  = -202; // 
+    constexpr long OP_ERR_NO_DATA         = -203; // 
+    constexpr long OP_ERR_OVER_MAX_DATA   = -204; // 
 
-    constexpr long OP_ERR_ORD_WRONG_INPUT = -300; // "입력값 오류"
-    constexpr long OP_ERR_ORD_WRONG_ACCNO = -301; // "계좌비밀번호를 입력하십시오."
-    constexpr long OP_ERR_OTHER_ACC_USE   = -302; // "타인계좌는 사용할 수 없습니다."
-    constexpr long OP_ERR_MIS_2BILL_EXC   = -303; // "주문가격이 20억원을 초과합니다."
-    constexpr long OP_ERR_MIS_5BILL_EXC   = -304; // "주문가격이 50억원을 초과합니다."
-    constexpr long OP_ERR_MIS_1PER_EXC    = -305; // "주문수량이 총발행주수의 1%를 초과합니다."
-    constexpr long OP_ERR_MIS_3PER_EXC    = -306; // "주문수량은 총발행주수의 3%를 초과할 수 없습니다."
-    constexpr long OP_ERR_SEND_FAIL       = -307; // "주문전송실패"
-    constexpr long OP_ERR_ORD_OVERFLOW    = -308; // "주문전송 과부하"
+    constexpr long OP_ERR_ORD_WRONG_INPUT = -300; // 
+    constexpr long OP_ERR_ORD_WRONG_ACCNO = -301; // 
+    constexpr long OP_ERR_OTHER_ACC_USE   = -302; // 
+    constexpr long OP_ERR_MIS_2BILL_EXC   = -303; // 
+    constexpr long OP_ERR_MIS_5BILL_EXC   = -304; // 
+    constexpr long OP_ERR_MIS_1PER_EXC    = -305; // 
+    constexpr long OP_ERR_MIS_3PER_EXC    = -306; // 
+    constexpr long OP_ERR_SEND_FAIL       = -307; // 
+    constexpr long OP_ERR_ORD_OVERFLOW    = -308; // 
 };
 
 }

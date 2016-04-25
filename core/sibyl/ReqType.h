@@ -24,8 +24,8 @@ inline std::ostream& operator<<(std::ostream &os, ReqType type)
     switch (type)
     {
         case ReqType::null : return os << "null";
-        case ReqType::b    : return os << "b";
-        case ReqType::s    : return os << "s";
+        case ReqType::b    : return os << " b";
+        case ReqType::s    : return os << " s";
         case ReqType::cb   : return os << "cb";
         case ReqType::cs   : return os << "cs";
         case ReqType::mb   : return os << "mb";

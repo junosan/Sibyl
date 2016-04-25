@@ -43,6 +43,8 @@ public:
     void CalcWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening);
     void DispWhiteningMatrix();
 
+    virtual void ReadConfig(CSTR &filename) = 0;
+
     /*   raw   -> fractal */
     /*  sibyl  -> fractal */
     virtual void State2VecIn(FLOAT *vec, const ItemState &state) = 0;

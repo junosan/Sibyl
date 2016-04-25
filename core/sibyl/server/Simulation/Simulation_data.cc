@@ -1,7 +1,6 @@
+#include "Simulation_data.h"
 
 #include <fstream>
-
-#include "Simulation_data.h"
 
 namespace sibyl
 {

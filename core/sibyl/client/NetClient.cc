@@ -1,8 +1,7 @@
+#include "NetClient.h"
 
 #include <cstring>
 #include <iostream>
-
-#include "NetClient.h"
 
 namespace sibyl
 {

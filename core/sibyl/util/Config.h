@@ -25,7 +25,8 @@ public:
                                                // keys may have trailing ' ' before '='
 
     SS&  Get(CSTR &key); // sets fail() == true if non-readable or key nonexistent
-                         // empty val renders fail() == false, extraction will set fail() == true 
+                         // empty val renders fail() == false, extraction will set fail() == true
+                         // subsequent call to Get invalidates previously obtained SS& 
 
     bool Set(CSTR &key, CSTR &val); // returns true if success
                                     // key exists : replaces content after first '='

@@ -1,8 +1,8 @@
+#include "Reshaper_0.h"
 
 #include <sibyl/Security.h>
 #include <sibyl/time_common.h>
-
-#include "Reshaper_0.h"
+#include <sibyl/util/Config.h>
 
 namespace sibyl
 {
@@ -11,11 +11,25 @@ Reshaper_0::Reshaper_0(unsigned long maxGTck_,
                        TradeDataSet *pTradeDataSet_,
                        std::vector<std::string> *pFileList_,
                        const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
-                       : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_)
+                       : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_),
+                         b_th(1.0), s_th(1.0)
 {
     maxGTck   = 0;  // overwrite Reshaper's constructor value 
     inputDim  = 45;
     targetDim = 1;  // overwrite Reshaper's constructor value
+}
+
+void Reshaper_0::ReadConfig(CSTR &filename)
+{
+    Config cfg(filename);
+    
+    auto &ss_b_th = cfg.Get("B_TH");
+    ss_b_th >> b_th;
+    verify(ss_b_th.fail() == false);
+    
+    auto &ss_s_th = cfg.Get("S_TH");
+    ss_s_th >> s_th;
+    verify(ss_s_th.fail() == false);
 }
 
 void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
@@ -42,7 +56,7 @@ void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
     if (1 == state.time / kTimeRates::secPerTick) i.idleG.clear();
     i.idleG.push_back(idleG);
     i.cursor = i.idleG.size() - 1; // advance time tick for VecOut2Reward
-    verify((int) i.idleG.size() == state.time / kTimeRates::secPerTick);
+    // verify((int) i.idleG.size() == state.time / kTimeRates::secPerTick); // for debugging training
     
     unsigned long idxInput = 0;
     
@@ -134,8 +148,8 @@ void Reshaper_0::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
     double G_scaled = (double) vec[idxTarget++];
     
     // G = (G' - 0.5) * (2 * -idle) = (1 - 2 * G') * idle
-    reward.G0.s = (1.0 + 2.0 * G_scaled) * idleG;
-    reward.G0.b = (1.0 - 2.0 * G_scaled) * idleG;
+    reward.G0.s = (s_th + 2.0 * G_scaled) * idleG;
+    reward.G0.b = (b_th - 2.0 * G_scaled) * idleG;
     
     for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].s  = (FLOAT)   0.0;
     for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].b  = (FLOAT)   0.0;

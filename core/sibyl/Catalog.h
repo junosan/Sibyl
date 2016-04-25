@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <map>
+#include <atomic>
 
 #include "Security.h"
 #include "time_common.h"
@@ -14,7 +15,7 @@ template <class TItem> // default: Item
 class Catalog          // container for dynamically allocated TItem with other relevant info
 {
 public:
-    int   time;
+    std::atomic_int time;
     INT64 bal;
     struct {
         INT64 buy, sell, feetax;
@@ -46,17 +47,21 @@ private:
 template <class TItem>
 void Catalog<TItem>::UpdateRefInitBal()
 {
-    if ((isFirstTick == true) || (time <=  kTimeBounds::ref) || (time <=  kTimeBounds::init))
+    if (isFirstTick == true || time <=  kTimeBounds::ref || time <=  kTimeBounds::init)
     {
         SEval se = Evaluate();
         
-        if ((isFirstTick == true) || (time <=  kTimeBounds::ref))
+        if (isFirstTick == true)
         {
-            balRef = se.evalTot;
+            balRef  = se.evalTot;
+            balInit = se.evalTot;
             isFirstTick = false;
         }
-        if (time <=  kTimeBounds::init)
-            balInit = se.evalTot;
+        else
+        {
+            if (time <=  kTimeBounds::ref ) balRef  = se.evalTot;
+            if (time <=  kTimeBounds::init) balInit = se.evalTot;
+        }
     }
 }
 

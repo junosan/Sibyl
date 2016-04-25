@@ -1,7 +1,6 @@
+#include "TxtData.h"
 
 #include <iostream>
-
-#include "TxtData.h"
 
 namespace sibyl
 {

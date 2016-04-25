@@ -1,9 +1,9 @@
+#include "TR.h"
 
 #include <thread>
 #include <chrono>
 #include <vector>
 
-#include "TR.h"
 #include "Kiwoom_data.h"
 #include "../../util/Clock.h"
 #include "../../util/DispPrefix.h"
@@ -12,6 +12,8 @@ namespace sibyl
 {
 
 // static
+OrderBook<OrderKw, ItemKw> *TR::pob = nullptr;
+STR TR::accno;
 std::map<STR, TR*> TR::map_name_TR;
 
 TR::State TR::Send(bool write)
@@ -24,6 +26,7 @@ TR::State TR::Send(bool write)
         while (true)
         {
             Init();
+            // debug_msg("[TR] Calling SendOnce");
             ret = SendOnce(state);
             if (ret == kKiwoomError::OP_ERR_SISE_OVERFLOW ||
                 ret == kKiwoomError::OP_ERR_ORD_OVERFLOW   )
@@ -34,27 +37,35 @@ TR::State TR::Send(bool write)
             else
                 break;
         }
+        // debug_msg("[TR] Exited overflow loop");
         
         if (ret == kKiwoomError::OP_ERR_NONE)
+        {
             state = Wait(AllowTimeout() == true ? t_timeout : kNoTimeout);
+            // debug_msg("[TR] Exited Wait");
+        }
         else
+        {
+            state = State::error;
             std::cerr << dispPrefix << Name() << "::Send: Error " << static_cast<long>(ret) << std::endl;
+        }
     } while (AllowCarry() == true && state == State::carry);
+    // debug_msg("[TR] Exited carry loop");
  
     return state;
 }
 
 // static
-void TR::Receive(CSTR &name, long cnt, State state)
+void TR::Receive(CSTR &name_, CSTR &code_, State state)
 {
-    auto it = map_name_TR.find(name);
+    auto it = map_name_TR.find(name_);
     if (it != std::end(map_name_TR))
     {
-        it->second->RetrieveData(cnt);
+        it->second->RetrieveData(code_);
         it->second->End(state);
     }
     else
-        std::cerr << dispPrefix << "TR::Receive: Unknown name " << name << std::endl;    
+        std::cerr << dispPrefix << "TR::Receive: Unknown name " << name_ << std::endl;    
 }
 
 void TR::Register()
@@ -108,7 +119,10 @@ TR::State TR::Wait(int t_timeout)
         if (cv.wait_for(lock, std::chrono::milliseconds(t_timeout), [&]{ return end_bool == true; })) 
             state = end_state;
         else
+        {
             state = State::timeout;
+            std::cerr << dispPrefix << Name() << "::Wait: Timeout" << std::endl;
+        }
     }
     else if (t_timeout == kNoTimeout)
     {

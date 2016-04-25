@@ -14,10 +14,10 @@
 
 int main(int argc, char *argv[])
 {
-    if ( (argc != 5 && argc != 6)                   ||
-         (argc == 6 && std::string(argv[5]) != "-v") )
+    if ( (argc != 6 && argc != 7)                   ||
+         (argc == 7 && std::string(argv[6]) != "-v") )
     {
-        std::cerr << "USAGE: rnnclnt <config file> <workspace list> <ip address> <port> [ -v ]" << std::endl;
+        std::cerr << "USAGE: rnnclnt <model cfg> <reshaper cfg> <workspace list> <ip address> <port> [ -v ]" << std::endl;
         exit(1);
     }
 
@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
     trader.SetStateLogPaths(path + "/state", "");//path + "/log");
 
     NetClient netClient(&trader);
-    netClient.SetVerbose((argc == 6) && (std::string(argv[5]) == "-v"));
+    netClient.SetVerbose((argc == 7) && (std::string(argv[6]) == "-v"));
     
     
     /* =============================================== */
@@ -48,10 +48,10 @@ int main(int argc, char *argv[])
     Engine engine;
     
     std::vector<std::unique_ptr<TradeRnn>> vecRnn;
-    std::ifstream pathList(argv[2]);
+    std::ifstream pathList(argv[3]);
     if (pathList.is_open() == false)
     {
-        std::cerr << "<workspace list> inaccessible at " << argv[2] << std::endl;
+        std::cerr << "<workspace list> inaccessible at " << argv[3] << std::endl;
         exit(1);
     }
     for (std::string workspace; std::getline(pathList, workspace);)
@@ -59,6 +59,7 @@ int main(int argc, char *argv[])
         if (workspace.empty() == true) continue;
         if (workspace[0] != '/') workspace = path + "/" + workspace;
         vecRnn.push_back(std::unique_ptr<TradeRnn>(new TradeRnn()));
+        vecRnn.back()->Reshaper().ReadConfig(argv[2]);
         vecRnn.back()->Configure(engine, TradeRnn::RunType::kNetwork, "", workspace);
     }
     std::size_t nRnn = vecRnn.size();
@@ -78,7 +79,7 @@ int main(int argc, char *argv[])
     /* ===================================== */
 
     /* Connect to server */
-    if (0 != netClient.Connect(argv[3], argv[4])) exit(1);
+    if (0 != netClient.Connect(argv[4], argv[5])) exit(1);
 
     /* Network main loop */
     while (true)

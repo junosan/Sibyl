@@ -1,10 +1,12 @@
+#include "Kiwoom.h"
 
 #include <thread>
 #include <fstream>
 #include <iomanip>
 
-#include "Kiwoom.h"
 #include "../../util/Clock.h"
+#include "../../ostream_format.h"
+#include "../../util/Config.h"
 
 namespace sibyl
 {
@@ -16,6 +18,180 @@ void Kiwoom::SetStateFile(CSTR &filename)
         verify(ofs.is_open() == true);
     }
     stateFileName = filename;
+}
+
+void Kiwoom::ReadConfigFiles(CSTR &config, CSTR &codelist)
+{
+    orderbook.items.clear();
+    
+    Config cfg(config), list(codelist);
+    
+    // this part can be revised using polymorphic lambdas (C++14)
+    int val;
+    
+    auto &ssUSE_KOSPI = cfg.Get("USE_KOSPI");
+    ssUSE_KOSPI >> val;
+    if (ssUSE_KOSPI.fail() == false && val != 0) // USE_KOSPI == true
+    {
+        auto &ss = list.Get("KRX_CODE");
+        // int n = 0; // for debugging
+        for (STR code; std::getline(ss, code, ';');)
+        {
+            auto it_success = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemKw>(new KOSPI<ItemKw>)));
+            if (it_success.second == false) // new pointer is deleted automatically in destructor
+                std::cerr << dispPrefix << "ReadConfig: Nonunique KOSPI code " << fmt_code(code) << std::endl;
+            // if (++n == 5) break; // for debugging
+        }
+    }
+    
+    auto &ssUSE_ETF = cfg.Get("USE_ETF");
+    ssUSE_ETF >> val;
+    if (ssUSE_ETF.fail() == false && val != 0) // USE_ETF == true
+    {
+        auto &ss = list.Get("ETF_CODE");
+        for (STR code; std::getline(ss, code, ';');)
+        {
+            auto it_success = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemKw>(new ETF<ItemKw>)));
+            if (it_success.second == false) // new pointer is deleted automatically in destructor
+                std::cerr << dispPrefix << "ReadConfig: Nonunique ETF code " << fmt_code(code) << std::endl;
+        }
+    }
+    
+    std::cerr << dispPrefix << "ReadConfig: " << orderbook.items.size() << " securities read from config files" << std::endl;
+}
+
+bool Kiwoom::Launch()
+{
+    // Retrieve reference price and set it at tb[idx::ps1]
+    std::cerr << dispPrefix << "Launch: Querying daily reference price" << std::endl;
+    
+    for (auto it_itm = std::begin(orderbook.items); it_itm != std::end(orderbook.items);)
+    {
+        trRefPrice.SetCode(it_itm->first);
+        
+        if (TR::State::error == trRefPrice.Send(true))
+            return false;
+            
+        if (it_itm->second->tb[idx::ps1].p > 0)
+            it_itm++;
+        else // remove invalid code
+            it_itm = orderbook.items.erase(it_itm);
+    }
+    
+    std::cerr << dispPrefix << "Launch: " << orderbook.items.size() << " valid securities" << std::endl;
+    
+    // Retrieve balance 
+    std::cerr << dispPrefix << "Launch: Querying d+2 balance" << std::endl;
+    
+    TR::State state = trAccBalance.Send(true);
+    if (state == TR::State::error || state == TR::State::timeout)
+        return false;
+    if (orderbook.bal <= 0) {
+        std::cerr << dispPrefix << "Launch: [Fail] Nonpositive balance" << std::endl;
+        return false;
+    }
+    
+    // Retrieve cnt + sell_order_q
+    std::cerr << dispPrefix << "Launch: Querying inventory (idle + sell order)" << std::endl;
+    
+    if (TR::State::error == trCntOList.Send(true))
+        return false;
+    
+    // Retrieve ord (newest -> oldest)
+    std::cerr << dispPrefix << "Launch: Querying previously placed orders" << std::endl;
+    
+    if (TR::State::error == trOrdList.Send(true))
+        return false;
+    
+    // Reverse ord ordering
+    for (auto &code_pItem : orderbook.items)
+    {
+        std::multimap<INT, OrderKw> reverse;
+        for (auto rit_ord = code_pItem.second->ord.rbegin(); rit_ord != code_pItem.second->ord.rend(); rit_ord++)
+            reverse.insert(std::make_pair(rit_ord->first, rit_ord->second));
+        code_pItem.second->ord.swap(reverse);
+    }
+    
+    // Build FID list
+    std::vector<long> vFID = { kFID::tr_t,
+                               kFID::tr_p,
+                               kFID::tr_q,
+                               kFID::tr_ps1,
+                               kFID::tr_pb1,
+                               kFID::tb_t };
+                               
+    auto AddAllTck = [&](long base) {
+        for (long i = 0; i < (long) idx::tckN; i++) vFID.push_back(base + i);
+    };
+    
+    AddAllTck(kFID::tb_ps1);
+    AddAllTck(kFID::tb_pb1);
+    AddAllTck(kFID::tb_qs1);
+    AddAllTck(kFID::tb_qb1);
+    
+    STR FID_KOSPI;
+    for (auto FID : vFID) FID_KOSPI += std::to_string(FID) + ';';
+    STR FID_ETF = FID_KOSPI + std::to_string(kFID::nav_NAV);
+    if (FID_KOSPI.back() == ';') FID_KOSPI.pop_back();
+    
+    // Attach scrno; use a different scrno for every 100 items
+    // Currently using 9999~9995 for TR's
+    auto AllotScrNo = [&](SecType type, int scrno, std::vector<std::pair<int, STR>> &scrno_codes) {
+        STR codes;
+        int n = 0;
+        for (auto &code_pItem : orderbook.items) {
+            if (code_pItem.second->Type() == type) {
+                codes += code_pItem.first + ';';
+                code_pItem.second->srcno = std::to_string(scrno); // used later for placing orders (at scrno - 100)
+                if (++n == 100) {
+                    if (codes.back() == ';') codes.pop_back();
+                    scrno_codes.push_back(std::make_pair(scrno--, codes));
+                    codes.clear();
+                    n = 0;
+                }
+            }
+        }
+        if (n > 0) {
+            if (codes.back() == ';') codes.pop_back();
+            scrno_codes.push_back(std::make_pair(scrno, codes));
+        }
+    };
+    
+    std::vector<std::pair<int, STR>> scrno_codes_KOSPI;
+    std::vector<std::pair<int, STR>> scrno_codes_ETF;
+    
+    AllotScrNo(SecType::KOSPI, 9990, scrno_codes_KOSPI); // 9990, 9989, ...
+    AllotScrNo(SecType::ETF  , 9980, scrno_codes_ETF  ); // 9980, 9979, ...
+
+    // SetRealReg
+    long retsum = 0;
+    for (const auto &scrno_codes : scrno_codes_KOSPI)
+    {
+        retsum += K::SetRealReg(std::to_string(scrno_codes.first), scrno_codes.second, FID_KOSPI);
+        // debug_msg("SetRealReg " << scrno_codes.second << " " << FID_KOSPI);
+    }
+    for (const auto &scrno_codes : scrno_codes_ETF  )
+        retsum += K::SetRealReg(std::to_string(scrno_codes.first), scrno_codes.second, FID_ETF  );
+    
+    if (retsum != 0)
+    {
+        std::cerr << dispPrefix << "Launch: SetRealReg failed" << std::endl;
+        return false;
+    }
+    
+    return true;
+}
+
+void Kiwoom::OnExit()
+{
+    std::cerr << dispPrefix << "OnExit: Comparing d+2 balance" << std::endl;
+    trAccBalance.Send(false);
+    
+    std::cerr << dispPrefix << "OnExit: Comparing inventory (idle + sell order)" << std::endl;
+    trCntOList.Send(false);
+    
+    std::cerr << dispPrefix << "OnExit: Comparing previously placed orders" << std::endl;
+    trOrdList.Send(false);
 }
 
 int Kiwoom::AdvanceTick()
@@ -71,15 +247,16 @@ void Kiwoom::WriteState()
     
     std::ofstream ofs(stateFileName, std::ios::trunc);
     
-    const int  nItemPerLine = 4;
+    const int  nItemPerLine = 2;
     const char itemSpacer[] = " ";
     static char buf[1 << 8];
     
     ofs << "[t=" << std::setw(5) << GetOrderBookTime() << "]\n";
-    ofs << "bal " << std::setw(12) << orderbook.bal << "\n";
+    ofs << "bal " << fmt_bal(orderbook.bal) << '\n';
     auto evl = orderbook.Evaluate();
-    ofs << "evl " << std::setw(12) << evl.evalTot;
-    sprintf(buf, " (r%+.2f%%) (s%+.2f%%)\n", orderbook.GetProfitRate(true), orderbook.GetProfitRate(false));
+    ofs << "evl " << fmt_bal(evl.evalTot);
+    sprintf(buf, " (r%+.2f%%) (s%+.2f%%)\n", (orderbook.GetProfitRate(true) - 1.0) * 100.0, (orderbook.GetProfitRate(false) - 1.0) * 100.0);
+    ofs << buf;
     
     ofs << "cnt\n";
     
@@ -136,8 +313,13 @@ void Kiwoom::WriteState()
     ofs << std::endl;
 }
 
-void Kiwoom::ApplyRealtimeTr(CSTR &code, INT p, INT q, INT trPs1, INT trPb1)
+void Kiwoom::ReceiveMarketTr(CSTR &code)
 {
+    INT p     = std::abs(std::stoi(K::GetCommRealData(code, kFID::tr_p  )));
+    INT q     = std::abs(std::stoi(K::GetCommRealData(code, kFID::tr_q  )));
+    INT trPs1 = std::abs(std::stoi(K::GetCommRealData(code, kFID::tr_ps1)));
+    INT trPb1 = std::abs(std::stoi(K::GetCommRealData(code, kFID::tr_pb1)));
+    
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     auto it_itm = FindItem(code);
     if (it_itm != std::end(orderbook.items))
@@ -149,15 +331,24 @@ void Kiwoom::ApplyRealtimeTr(CSTR &code, INT p, INT q, INT trPs1, INT trPb1)
         auto &i = *it_itm->second;
         i.sumQ  += (INT64) q;
         i.sumPQ += (INT64) p * q;
-        i.trPs1 = trPs1;
-        i.trPb1 = trPb1;
+        i.trPs1  = trPs1;
+        i.trPb1  = trPb1;
     }
 }
 
-void Kiwoom::ApplyRealtimeTb(CSTR &code, CSTR &time, const std::array<PQ, idx::szTb> &tb)
+void Kiwoom::ReceiveMarketTb(CSTR &code)
 {
-    std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
+    STR time = K::GetCommRealData(code, kFID::tb_t);
+    std::array<PQ, idx::szTb> tb;
+    for (int i = 0; i < idx::tckN; i++)
+    {
+        tb[(std::size_t) (idx::ps1 - i)].p = std::abs(std::stoi(K::GetCommRealData(code, kFID::tb_ps1 + (long) i)));
+        tb[(std::size_t) (idx::ps1 - i)].q = std::abs(std::stoi(K::GetCommRealData(code, kFID::tb_qs1 + (long) i)));
+        tb[(std::size_t) (idx::pb1 + i)].p = std::abs(std::stoi(K::GetCommRealData(code, kFID::tb_pb1 + (long) i)));
+        tb[(std::size_t) (idx::pb1 + i)].q = std::abs(std::stoi(K::GetCommRealData(code, kFID::tb_qb1 + (long) i)));
+    }
     
+    std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     static STR lastTime;
     if (lastTime != time) // update at new second (i.e., closest to HHMMSS.000)
     {
@@ -173,8 +364,11 @@ void Kiwoom::ApplyRealtimeTb(CSTR &code, CSTR &time, const std::array<PQ, idx::s
         it_itm->second->tb = tb;
 }
 
-void Kiwoom::ApplyRealtimeNAV(CSTR &code, INT p, FLOAT nav)
+void Kiwoom::ReceiveMarketNAV(CSTR &code)
 {
+    INT p     = std::abs(std::stoi(K::GetCommRealData(code, kFID::tr_p   )));
+    FLOAT nav = std::abs(std::stof(K::GetCommRealData(code, kFID::nav_NAV)));
+    
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     auto it_itm = FindItem(code);
     if (it_itm != std::end(orderbook.items))
@@ -183,19 +377,59 @@ void Kiwoom::ApplyRealtimeNAV(CSTR &code, INT p, FLOAT nav)
         if (i.Type() == SecType::ETF) 
             dynamic_cast<ETF<ItemKw>&>(i).devNAV = (FLOAT) (((double) nav / p - 1.0) * 100.0);
         else
-            std::cerr << dispPrefix << "ApplyRealtimeNAV: {" << code << "} is not ETF" << std::endl;
+            std::cerr << dispPrefix << "ApplyRealtimeNAV: " << fmt_code(code) << " is not ETF" << std::endl;
     }
 }
 
-void Kiwoom::ApplyReqEvent(CSTR &code, ReqStat reqStat, ReqType reqType,
-                           CSTR &ordno, INT ordp, INT ordq,
-                           CSTR &ordno_o, INT delta_p, INT delta_q)
+void Kiwoom::ReceiveOrdEvent()
 {
-    std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
+    ReqStat reqStat = static_cast<ReqStat>(std::stoi(K::GetChejanData(kFID::reqstat)));
+    
+    if (reqStat == ReqStat::confirmed)
+    {
+        // debug_msg("[OrdEvent] ReqStat::confirmed received");
+        return;
+    }
 
+    INT delta_p(0), delta_q(0);
+    if (reqStat == ReqStat::traded) // kFID::delta_* returns empty string otherwise
+    {
+        auto &s_p = K::GetChejanData(kFID::delta_p);
+        if (s_p.empty() == true) return; // part of cancel receive-confirm-trade (confirm-trade holds no new information)
+        delta_p = std::stoi(s_p);
+        
+        auto &s_q = K::GetChejanData(kFID::delta_q);
+        if (s_q.empty() == true) return; // part of cancel receive-confirm-trade (confirm-trade holds no new information)
+        delta_q = std::stoi(s_q);
+    }
+    
+    ReqType reqType = static_cast<ReqType>(std::stol(K::GetChejanData(kFID::reqtype)));
+    
+    STR code  =           K::GetChejanData(kFID::code );
+    STR ordno =           K::GetChejanData(kFID::ordno);
+    INT ordp  = std::stoi(K::GetChejanData(kFID::ordp ));
+    INT ordq  = std::stoi(K::GetChejanData(kFID::ordq ));
+    
+    STR ordno_o;
+    if (reqStat == ReqStat::received &&
+        (reqType == ReqType::cb || reqType == ReqType::cs || reqType == ReqType::mb || reqType == ReqType::ms))
+    {
+        ordno_o = K::GetChejanData(kFID::ordno_o);
+    }
+    
+    // debug_msg("[     OrdEvent] " << fmt_code(code) << " " << static_cast<int>(reqStat) << " " << reqType << " "
+    //           << fmt_ordno(ordno) << " " << fmt_price(ordp) << " " << fmt_quant(ordq) << " " << fmt_ordno(ordno_o) << "(o) "
+    //           << "delta " << fmt_price(delta_p) << " " << fmt_quant(delta_q));
+    
+    std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
+    
     // pre-filter non-existent item
     auto it_itm = FindItem(code);
-    if (it_itm == std::end(orderbook.items)) return;
+    if (it_itm == std::end(orderbook.items))
+    {
+        std::cerr << dispPrefix << "ApplyOrdEvent: " << fmt_code(code) << " not found" << std::endl;
+        return;
+    }
 
     auto OrderExists = [&](const it_ord_t<OrderKw> &it_ord) {
         return it_ord != std::end(it_itm->second->ord);
@@ -207,16 +441,19 @@ void Kiwoom::ApplyReqEvent(CSTR &code, ReqStat reqStat, ReqType reqType,
         {
             if (ordq > 0) // avoid re-receiving emptied order after c | m
             {
-                auto it_ord = FindOrder(it_itm, ordp, ordno);
+                // debug_msg("[OrdEvent] " << fmt_ordno(ordno) << " b | s | mb | ms received");
+                auto it_ord = FindOrder(it_itm, ordp, ordno, true);
                 if (OrderExists(it_ord) == false)
                 { 
+                    // debug_msg("[OrdEvent] " << fmt_ordno(ordno) << " going to be inserted");
+                    
                     if (reqType == ReqType::mb || reqType == ReqType::ms) // trim original order
                     {
                         auto it_ord_o = FindOrder(it_itm, 0, ordno_o);
                         if (OrderExists(it_ord_o) == true)
                             orderbook.ApplyCancel(it_itm, it_ord_o, ordq);
                         else
-                            std::cerr << dispPrefix << "ApplyReqEvent: mb | ms event received on a non-existent order" << std::endl;
+                            std::cerr << dispPrefix << "ApplyOrdEvent: mb | ms event received on a non-existent order" << std::endl;
                     }
                     
                     OrderKw o;
@@ -234,25 +471,28 @@ void Kiwoom::ApplyReqEvent(CSTR &code, ReqStat reqStat, ReqType reqType,
             if (OrderExists(it_ord_o) == true)
                 orderbook.ApplyCancel(it_itm, it_ord_o, ordq);
             else
-                std::cerr << dispPrefix << "ApplyReqEvent: cb | cs event received on a non-existent order" << std::endl;
+                std::cerr << dispPrefix << "ApplyOrdEvent: cb | cs event received on a non-existent order" << std::endl;
         }
-    }
-    else if (reqStat == ReqStat::confirmed)
-    {
-        return;
     }
     else if (reqStat == ReqStat::traded)
     {
         auto it_ord = FindOrder(it_itm, ordp, ordno);
         if (OrderExists(it_ord) == true)
+        {
             orderbook.ApplyTrade(it_itm, it_ord, PQ(delta_p, delta_q));
+            if (it_ord->second.q != ordq)
+                std::cerr << dispPrefix << "ApplyOrdEvent: order.q " << fmt_quant(it_ord->second.q) << " != event.q " << fmt_quant(ordq) << " after trade" << std::endl;
+        }
         else
-            std::cerr << dispPrefix << "ApplyReqEvent: Trade event received on a non-existent order" << std::endl;
+            std::cerr << dispPrefix << "ApplyOrdEvent: Trade event received on a non-existent order" << std::endl;
     }
 }
 
-void Kiwoom::ApplyCntEvent(CSTR &code, INT cnt)
+void Kiwoom::ReceiveCntEvent()
 {
+    STR code =           K::GetChejanData(kFID::code);
+    INT cnt  = std::stoi(K::GetChejanData(kFID::cnt));
+    
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     auto it_itm = FindItem(code);
     if (it_itm != std::end(orderbook.items))
@@ -261,34 +501,77 @@ void Kiwoom::ApplyCntEvent(CSTR &code, INT cnt)
         if (i.cnt != cnt)
         {
             // Note: this may trigger naturally if a req is sent by me & received by server
-            //       in between a pair of ReqEvent & CntEvent
-            std::cerr << dispPrefix << "ApplyCntEvent: {" << code << "} item.cnt (" << i.cnt << ") != event.cnt (" << cnt << ")" << std::endl;
-            // i.cnt = cnt;
+            //       in between a pair of OrdEvent & CntEvent (safe to ignore)
+            std::cerr << dispPrefix << "ApplyCntEvent: " << fmt_code(code) << " item.cnt " << fmt_quant(i.cnt) << " != event.cnt " << fmt_quant(cnt) << std::endl;
         }
     }
 }
 
+#ifdef _WIN32 // temporarily disable minwindef.h definitions
+    #undef max
+    #undef min
+#endif /* _WIN32 */
+
 int Kiwoom::ExecuteNamedReq(NamedReq<OrderKw, ItemKw> req)
 {
-    // do nothing (for now)
+    // debug_msg("[Kiwoom] Entered ExecuteNamedReq");
     
-    // correct q
+    STR code, ordno_o;
     
-    // send req
+    {
+        std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
+        
+        code = req.iItems->first;
+        const auto &i = *req.iItems->second;
+        
+        // correct req based on most up-to-date orderbook state
+        // also see OrderBook::AllotReq
+        if (req.type == ReqType::b || req.type == ReqType::mb)
+            req.p = std::min(req.p, i.Pb0());
+        if (req.type == ReqType::s || req.type == ReqType::ms)
+            req.p = std::max(req.p, i.Ps0());
+        
+        if      (req.type == ReqType::b)
+            req.q = std::min(req.q, i.MaxBuyQ(orderbook.bal, req.p));
+        else if (req.type == ReqType::s)
+            req.q = std::min(req.q, i.cnt);
+        else if (req.type == ReqType::cb || req.type == ReqType::cs || req.type == ReqType::mb || req.type == ReqType::ms)
+        {
+            ordno_o = req.iOrd->second.ordno;
+            if (req.type == ReqType::mb && req.p > req.iOrd->second.p)
+                req.q = std::min(req.q, i.MaxBuyQ(orderbook.bal, req.p - req.iOrd->second.p));
+            req.q = std::min(req.q, req.iOrd->second.q);
+        }
+    } // mutex unlocked here
+    
+    if (req.q > 0)
+    {
+        trReqOrder.SetReq(req.type, code, PQ(req.p, req.q), ordno_o);
+        trReqOrder.Send();
+        // debug_msg("[Kiwoom] Exited trReqOrder.Send");
+    }
     
     return 0;
 }
 
+#ifdef _WIN32 // restore minwindef.h definitions
+    #define max(a,b)            (((a) > (b)) ? (a) : (b))
+    #define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif /* _WIN32 */
+
 it_itm_t<ItemKw> Kiwoom::FindItem(CSTR &code)
 {
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
-    auto it_itm = orderbook.items.find(code); 
-    if (it_itm == std::end(orderbook.items))
-        std::cerr << dispPrefix << "FindItem: {" << code << "} not found" << std::endl;
+    auto it_itm = orderbook.items.find(code);
+    
+    // for some reason, non-existent items are received quite frequently; suppress this warning 
+    // if (it_itm == std::end(orderbook.items))
+    //     std::cerr << dispPrefix << "FindItem: " << fmt_code(code) << " not found" << std::endl;
+    
     return it_itm;
 }
 
-it_ord_t<OrderKw> Kiwoom::FindOrder(it_itm_t<ItemKw> it_itm, INT p, CSTR &ordno)
+it_ord_t<OrderKw> Kiwoom::FindOrder(it_itm_t<ItemKw> it_itm, INT p, CSTR &ordno, bool nowarn)
 {
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     it_ord_t<OrderKw> it_ord;
@@ -306,8 +589,8 @@ it_ord_t<OrderKw> Kiwoom::FindOrder(it_itm_t<ItemKw> it_itm, INT p, CSTR &ordno)
                 break;
             }
         }
-        if (it_ord == std::end(ord))
-            std::cerr << dispPrefix << "FindOrder: {" << it_itm->first << "} #" << ordno << " not found at " << p << std::endl;
+        if (it_ord == std::end(ord) && nowarn == false)
+            std::cerr << dispPrefix << "FindOrder: " << fmt_code(it_itm->first) << " " << fmt_ordno(ordno) << " not found" << std::endl;
     }
     else
     {

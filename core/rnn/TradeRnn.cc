@@ -1,4 +1,3 @@
-
 #include "TradeRnn.h"
 
 namespace fractal
