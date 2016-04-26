@@ -34,7 +34,7 @@ protected:
     constexpr static const char *kTCPPassword = "sendorder";
     constexpr static       int   kTCPBacklog  = 8;
     constexpr static       int   kTCPBufSize  = (1 << 16);
-    constexpr static       int   sock_fail    = -1; 
+    constexpr static       int   sock_fail    = -1;
     
     char *bufTCP;
     char *bufMsg;

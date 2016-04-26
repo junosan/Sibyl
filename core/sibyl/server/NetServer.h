@@ -4,6 +4,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
+#include <cerrno>
 
 #include "../NetAgent.h"
 #include "Broker.h"
@@ -123,7 +124,7 @@ int NetServer<TOrder, TItem>::Initialize(CSTR &port)
 
 template <class TOrder, class TItem>
 int NetServer<TOrder, TItem>::AcceptConn()
-{
+{    
     if (verbose) DisplayString("Waiting for client connection");
     
     // Establish a connection and query password
@@ -140,7 +141,20 @@ int NetServer<TOrder, TItem>::AcceptConn()
         {
             char *pc = strpbrk(bufTCP, "\r\n");
             if (pc != NULL) *pc = '\0';
-            if (kTCPPassword != STR(bufTCP))
+            if (kTCPPassword == STR(bufTCP))
+            {
+                // Set timeout for recv calls
+                #ifndef _WIN32
+                constexpr struct timeval sock_timeout = { .tv_sec  = kTimeRates::secPerTick,
+                                                          .tv_usec = 0 };
+                #else
+                constexpr DWORD sock_timeout = kTimeRates::secPerTick * 1000;
+                #endif /* !_WIN32 */
+                
+                if (sock_fail == setsockopt(sock_conn, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&sock_timeout), sizeof(sock_timeout)))
+                    return   DisplayString("[Fail] Change socket recv timeout", true, errno);
+            }
+            else
             {
                 close_socket(sock_conn);
                 sock_conn = sock_fail;
@@ -189,8 +203,20 @@ int NetServer<TOrder, TItem>::RecvMsgIn()
         }
         else
         {
-            if (verbose) DisplayString("Client disconnected");
-            return -1;
+            #ifndef _WIN32
+            if (errno == EAGAIN || errno == EWOULDBLOCK) // timeout
+            #else
+            if (WSAGetLastError() == WSAEWOULDBLOCK)
+            #endif
+            {
+                if (verbose) DisplayString("Timeout during recv");
+                break;
+            }
+            else
+            {
+                if (verbose) DisplayString("Client disconnected");
+                return -1;
+            }
         }
     }
     pBroker->ApplyMsgIn(bufMsg);

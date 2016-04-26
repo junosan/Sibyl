@@ -4,6 +4,8 @@
 #include <cinttypes>
 #include <cstring>
 
+#include "../util/BasicPlot.h"
+
 namespace sibyl
 {
 
@@ -255,39 +257,65 @@ void Portfolio::WriteState()
     else
         filename.append("client_cur.log");
     
-    const int  nItemPerLine = 5;
-    const char itemSpacer[] = "    ";
+    static char buf[1 << 10];
+    const int  nItemPerLine = 4;
+    const char itemSpacer[] = "        ";
     
-    FILE* pf = fopen(filename.c_str(), "w");
-    if (pf != nullptr)
+    std::ofstream ofs(filename);
+    if (ofs.is_open() == true)
     {
         SEval se = Evaluate();
         
-        fprintf(pf, "t = %5d sec\n", time.load());
-        fprintf(pf, "   bal  u  %12" PRId64 "\n" , se.balU      );
-        fprintf(pf, "   bal b o %12" PRId64 "\n" , se.balBO     );
-        fprintf(pf, "   evl cnt %12" PRId64 "\n" , se.evalCnt   );
-        fprintf(pf, "   evl s o %12" PRId64 "\n" , se.evalSO    );
-        fprintf(pf, "   evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot, ((double)se.evalTot / balRef - 1.0) * 100.0, ((double)se.evalTot / balInit - 1.0) * 100.0);
-        fprintf(pf, "   sum  b  %12" PRId64 "\n" , sum.buy   );
-        fprintf(pf, "   sum  s  %12" PRId64 "\n" , sum.sell  );
-        fprintf(pf, "   sum f+t %12" PRId64 "\n" , sum.feetax);
-
-        fputs("\nsum  [t_o]          bal    quant      evt\n", pf);
-        for (std::size_t idx = 0; idx < idx::szTb; idx++)
+        int timeCur = time;
+        sprintf(buf, "t = %5d sec\n", timeCur                 ); ofs << buf;
+        sprintf(buf, "   bal  u  %12" PRId64 "\n" , se.balU   ); ofs << buf;
+        sprintf(buf, "   bal b o %12" PRId64 "\n" , se.balBO  ); ofs << buf;
+        sprintf(buf, "   evl cnt %12" PRId64 "\n" , se.evalCnt); ofs << buf;
+        sprintf(buf, "   evl s o %12" PRId64 "\n" , se.evalSO ); ofs << buf;
+        sprintf(buf, "   evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot,
+            ((double) se.evalTot / balRef - 1.0) * 100.0, ((double) se.evalTot / balInit - 1.0) * 100.0); ofs << buf;
+        sprintf(buf, "   sum  b  %12" PRId64 "\n" , sum.buy   ); ofs << buf;
+        sprintf(buf, "   sum  s  %12" PRId64 "\n" , sum.sell  ); ofs << buf;
+        sprintf(buf, "   sum f+t %12" PRId64 "\n" , sum.feetax); ofs << buf;
+        ofs << '\n';
+        
+        ofs << "sum  [t_o]          bal    quant      evt\n";
+        for (std::size_t idx = idx::ps1; idx <= idx::pb1; idx++)
         {
-            fprintf(pf, "     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"), (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1));
-            fprintf(pf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n", sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt);
+            sprintf(buf, "     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
+                (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1)); ofs << buf;
+            sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+                sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt); ofs << buf;
             if (idx == idx::ps1)
             {
-                fprintf(pf, "     [%s%2d] ", "s", 0);
-                fprintf(pf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n", sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt);                        
-                fprintf(pf, "     [%s%2d] ", "b", 0);
-                fprintf(pf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n", sum.tck_orig[idxTckOrigB0].bal, sum.tck_orig[idxTckOrigB0].q, sum.tck_orig[idxTckOrigB0].evt);
+                ofs << "     [s 0] ";
+                sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+                    sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt); ofs << buf;                        
+                ofs << "     [b 0] ";
+                sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+                    sum.tck_orig[idxTckOrigB0].bal, sum.tck_orig[idxTckOrigB0].q, sum.tck_orig[idxTckOrigB0].evt); ofs << buf;
             }
         }
+        ofs << '\n';
 
-        fputs("\ncnt\n", pf);
+        static std::vector<float> tot_s, u_tot;
+        if (timeCur == 0) {
+            tot_s.clear();
+            u_tot.clear();
+        }
+        if (timeCur >= 0 && timeCur <= kTimeBounds::stop && timeCur % 300 == 0) { // every 5 min
+            tot_s.push_back((float) ((double) se.evalTot / balInit - 1.0) * 100.0);
+            u_tot.push_back((float) ((double) se.balU / se.evalTot));
+        }
+        
+        ofs << "rate_s (-2%, +2%) ------------------------------------------------------\n"
+            << BasicPlot(tot_s, 21, -2.0f, +2.0f) << '\n';
+        ofs << "u / tot (0, 1) ---------------------------------------------------------\n"
+            << BasicPlot(u_tot, 11, 0.0f, 1.0f) << '\n';
+        ofs << "------------------------------------------------------------------------\n";
+        ofs << '\n';
+        
+        ofs << "cnt\n";
         int iCnt = 0;    // number of items in current line
         int nOrdTot = 0; // total number of orders
         for (const auto &code_pItem : items)
@@ -295,18 +323,19 @@ void Portfolio::WriteState()
             const auto &i = *code_pItem.second;
             if (i.cnt > 0)
             {
-                fprintf(pf, "      {%s} %8d (%6d)", code_pItem.first.c_str(), i.Ps0(), i.cnt);
+                sprintf(buf, "      {%s} %8d (%6d)", code_pItem.first.c_str(), i.Ps0(), i.cnt); ofs << buf;
                 if (nItemPerLine == ++iCnt)
                 {
-                    fputs("\n", pf);
+                    ofs << '\n';
                     iCnt = 0;
                 }
                 else
-                    fputs(itemSpacer, pf);
+                    ofs << itemSpacer;
             }
             nOrdTot += i.ord.size();
         }
-        if (iCnt != 0) fputs("\n", pf);		                            
+        if (iCnt != 0) ofs << '\n';
+        ofs << '\n';
         
         auto ListOrder = [&](const OrdType &type) {
             int iCnt = 0;
@@ -320,26 +349,25 @@ void Portfolio::WriteState()
                     {
                         int tck = i.P2Tck(o.p, o.type); // 0-based tick
                         if (tck == idx::tckN) tck = 98;     // display as 99 if not found
-                        fprintf(pf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1, code_pItem.first.c_str(), o.p, o.q);
+                        sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1,
+                            code_pItem.first.c_str(), o.p, o.q); ofs << buf;
                         if (nItemPerLine == ++iCnt)
                         {
-                            fputs("\n", pf);
+                            ofs << '\n';
                             iCnt = 0;
                         }
                         else
-                            fputs(itemSpacer, pf);
+                            ofs << itemSpacer;
                     }
                 }
             }
-            if (iCnt != 0)
-                fputs("\n", pf);
+            if (iCnt != 0) ofs << '\n';
         };
         
-        fprintf(pf, "\nord  [t_c] (%4d)\n", nOrdTot);
-        ListOrder(OrdType::buy) ; fputs("\n", pf);
-        ListOrder(OrdType::sell); fputs("\n", pf);
-        
-        fclose (pf);
+        sprintf(buf, "ord  [t_c] (%4d)\n", nOrdTot); ofs << buf;
+        ListOrder(OrdType::buy) ;
+        ListOrder(OrdType::sell);
+        ofs << std::endl;
     }
     else
         std::cerr << "Portfolio: state path not accessible" << std::endl;
