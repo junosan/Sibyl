@@ -1,6 +1,6 @@
 #include <iomanip>
 
-#include <sibyl/server/Simulation/Simulation.h>
+#include <sibyl/server/Simulation/Simulation_dep.h>
 #include <sibyl/server/NetServer.h>
 
 int main(int argc, char *argv[])

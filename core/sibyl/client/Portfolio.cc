@@ -69,7 +69,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
     if (logMsgIn.is_open() == true) // log raw input from server
     {
         int timeMsg;
-        sscanf(msg + 6, "%d", &timeMsg); // msg starts with "/*\nb [time]"
+        sscanf(msg + 5, "%d", &timeMsg); // msg starts with "/*\nb [time]"
         logMsgIn << "[t=" << timeMsg << "]\n"; 
         logMsgIn.write(msg, (std::streamsize)strlen(msg));
     }
@@ -266,7 +266,7 @@ void Portfolio::WriteState()
     {
         SEval se = Evaluate();
         
-        int timeCur = time;
+        int timeCur = time; // std::atomic_int
         sprintf(buf, "t = %5d sec\n", timeCur                 ); ofs << buf;
         sprintf(buf, "   bal  u  %12" PRId64 "\n" , se.balU   ); ofs << buf;
         sprintf(buf, "   bal b o %12" PRId64 "\n" , se.balBO  ); ofs << buf;

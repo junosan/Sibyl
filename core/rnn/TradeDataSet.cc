@@ -1,5 +1,5 @@
 #include "TradeDataSet.h"
-#include <sibyl/server/Simulation/Simulation.h>
+#include <sibyl/server/Simulation/Simulation_dep.h>
 
 #include <cstring>
 #include <fstream>

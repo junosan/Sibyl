@@ -24,31 +24,28 @@ public:
         const float ymax      = bp.ymax;
         const float interval  = (ymax - ymin) / (ny - 1);
         
-        std::map<float, STR> plot;
+        std::map<float, STR> y_str;
         STR blankline(nx, ' ');
         for (std::size_t i = 0; i < ny; i++)
-            plot[ymin + (i - 0.5f) * interval] = blankline; // store minimum value of each bin
+            y_str[ymin + (i - 0.5f) * interval] = blankline; // store minimum value of each bin
 
         for (std::size_t i = 0; i < nx; i++)
         {
             if (vec[i] > ymax + 0.5f * interval) // larger than all bins
-            {
-                auto last = std::end(plot);
-                (--last)->second[i] = '/';
-            }
+                y_str.rbegin()->second[i] = '/';
             else
             {
-                auto ub = plot.upper_bound(vec[i]);
-                if (ub == std::begin(plot)) // smaller than all bins
-                    std::begin(plot)->second[i] = '\\';
+                auto ub = y_str.upper_bound(vec[i]);
+                if (ub == std::begin(y_str)) // smaller than all bins
+                    ub->second[i] = '\\';
                 else
                     (--ub)->second[i] = '*';
             }
         }
         
-        for (auto it = plot.rbegin(); it != plot.rend(); it++)
+        for (auto it = y_str.rbegin(); it != y_str.rend(); it++)
         {
-            if (it != plot.rbegin()) os << '\n';
+            if (it != y_str.rbegin()) os << '\n';
             os << it->second;
         }
         

@@ -1,5 +1,5 @@
-#ifndef SIBYL_SERVER_SIMULATION_SIMULATION_H_
-#define SIBYL_SERVER_SIMULATION_SIMULATION_H_
+#ifndef SIBYL_SERVER_SIMULATION_SIMULATION_DEP_H_
+#define SIBYL_SERVER_SIMULATION_SIMULATION_DEP_H_
 
 #include "Simulation_data.h"
 #include "../Broker.h"
@@ -7,7 +7,8 @@
 namespace sibyl
 {
 
-class Simulation : public Broker<OrderSim, ItemSim>
+// Simulation with depletion mechanism
+class Simulation_dep : public Broker<OrderSim, ItemSim>
 {
 public:
     int LoadData(CSTR &config, CSTR &datapath); // non-0 for any error
@@ -20,7 +21,7 @@ public:
     
     static int ReadTypeExpiry(CSTR &path, CSTR &code); // returns kOptType * expiry (0: non-KOSPI200; skip)
     
-    Simulation() : nReqThisTick(0) { orderbook.time = -3600 + 600; } // starts at 08:10:10
+    Simulation_dep() : nReqThisTick(0) { orderbook.time = -3600 + 600; } // starts at 08:10:10
 private:
     void ReadData(int timeTarget); // fill TxtData classes with event info until right before timeTarget
     void SimulateTrades();
@@ -44,6 +45,8 @@ private:
     void  TrimM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q);  
 };
 
+typedef Simulation_dep Simulation;
+
 }
 
-#endif /* SIBYL_SERVER_SIMULATION_SIMULATION_H_ */
+#endif /* SIBYL_SERVER_SIMULATION_SIMULATION_DEP_H_ */

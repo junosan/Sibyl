@@ -1,4 +1,4 @@
-#include "Simulation.h"
+#include "Simulation_dep.h"
 
 #include <sys/stat.h>
 #include <dirent.h>
@@ -9,7 +9,7 @@
 namespace sibyl
 {
 
-int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
+int Simulation_dep::LoadData(CSTR &cfgfile, CSTR &datapath)
 {
     bool usingKOSPI = true;
     bool usingELW   = true;
@@ -215,24 +215,25 @@ int Simulation::LoadData(CSTR &cfgfile, CSTR &datapath)
     return 0;
 }
 
-int Simulation::AdvanceTick()
+int Simulation_dep::AdvanceTick()
 {
     int timeTarget = orderbook.time + kTimeRates::secPerTick;
+    
     do
     {
         ReadData(++orderbook.time);
-        orderbook.UpdateRefInitBal();
         SimulateTrades();
     } while (orderbook.time < timeTarget);
     
-    nReqThisTick = 0;
-    
+    orderbook.UpdateRefInitBal();
     if (verbose == true) PrintState();
+    
+    nReqThisTick = 0;
     
     return (orderbook.time < kTimeBounds::end ? 0 : -1);
 }
 
-CSTR& Simulation::BuildMsgOut()
+CSTR& Simulation_dep::BuildMsgOut()
 {
     // calc pr, qr
     for (const auto &code_pItem : orderbook.items)
@@ -242,21 +243,13 @@ CSTR& Simulation::BuildMsgOut()
         if (dataTr.SumQ() > 0)   i.pr = (FLOAT)dataTr.SumPQ() / dataTr.SumQ();
         if (orderbook.time <= 0) i.pr = (FLOAT)i.Ps0(); // follow ps0 until 09:00:00
         i.qr = dataTr.SumQ();
-    }
-    
-    const auto &msg = orderbook.BuildMsgOut(true);
-    
-    // InitSum for all data
-    for (const auto &code_pItem : orderbook.items)
-    {
-        auto &i = *code_pItem.second;
         i.TrData().InitSum();
     }
-    
-    return msg;
+
+    return orderbook.BuildMsgOut(true);
 }
 
-void Simulation::PrintState()
+void Simulation_dep::PrintState()
 {
     std::cout << "[t=" << orderbook.time << "] ----------------------------------------------------------------\n";
     std::cout << "bal " << orderbook.bal << "\n";
@@ -322,7 +315,7 @@ void Simulation::PrintState()
     std::cout << std::endl;
 }
 
-void Simulation::ReadData(int timeTarget)
+void Simulation_dep::ReadData(int timeTarget)
 {
     for (const auto &code_pItem : orderbook.items)
     {
@@ -338,7 +331,7 @@ void Simulation::ReadData(int timeTarget)
     }
 }
 
-void Simulation::SimulateTrades()
+void Simulation_dep::SimulateTrades()
 {
     for (auto iItems = std::begin(orderbook.items); iItems != std::end(orderbook.items); iItems++)
     {
@@ -352,7 +345,7 @@ void Simulation::SimulateTrades()
             Order o(t.p, t.q);
             auto AddIfInTbr = [&](const OrdType &type) {
                 INT tck = i.P2Tck(t.p, type);
-                if ((tck >= 0) && (tck < idx::tckN)) {
+                if (tck >= 0 && tck < idx::tckN) {
                     o.type = type;
                     vtro.push_back(o);
                 }
@@ -362,40 +355,13 @@ void Simulation::SimulateTrades()
         }
         
         // Process order queue
-        // Enforce OrdB <= tbqr for p1+ orders to partially take cancels by others into account
+        // Enforce OrdB <= tbqr for p1+ orders and OrdB = 0 for p0 orders
         for (auto &price_OrderSim : i.ord)
         {
             auto &o = price_OrderSim.second;
             INT tck = i.P2Tck(o.p, o.type);
-            if ((tck >= 0) && (tck < idx::tckN)) o.B = std::min(o.B, (INT64)i.Tck2Q(tck, o.type));
-        }
-        
-        // Make orders with trade events
-        for (const auto &t : vtro)
-        {
-            const auto &first_last = i.ord.equal_range(t.p);
-            for (auto iOrd = first_last.first; iOrd != first_last.second; iOrd++)
-            {
-                const auto &o = iOrd->second;
-                if (o.type == t.type && o.q > 0)
-                {
-                    if (verbose == true && t.q > o.B + o.M) std::cout << "- normal -" << std::endl;
-                    PopBM(iItems, iOrd, t.q);
-                }
-            }
-        }
-        
-        // Make p0 orders with any remaining OrdB to partially take cancels by others into account
-        for (auto iOrd = std::begin(i.ord); iOrd != std::end(i.ord); iOrd++)
-        {
-            auto &o = iOrd->second;
-            if (i.P2Tck(o.p, o.type) == -1 && o.B > 0 && o.q > 0)
-            {
-                INT delta = (INT)o.B;
-                o.B = 0;
-                if (verbose == true && delta > o.B + o.M) std::cout << "- B at 0 -" << std::endl;
-                PopBM(iItems, iOrd, delta);
-            }
+            if (tck >= 0 && tck < idx::tckN) o.B = std::min(o.B, (INT64) i.Tck2Q(tck, o.type));
+            else if (tck == -1)              o.B = 0;
         }
         
         // Make p0 orders with non-depleted tbqr
@@ -411,7 +377,7 @@ void Simulation::SimulateTrades()
                 for (auto iOrd = first_last.first; iOrd != first_last.second; iOrd++)
                 {
                     const auto &o = iOrd->second;
-                    if (o.type == type && o.q > 0) delta = (INT)std::max(o.M + o.q, (INT64)delta);
+                    if (o.type == type && o.q > 0) delta = (INT) std::max(o.M + o.q, (INT64) delta);
                 }
                 delta = std::min(qleft, delta);
                 if (delta > 0)
@@ -421,7 +387,7 @@ void Simulation::SimulateTrades()
                         const auto &o = iOrd->second;
                         if (o.type == type && o.q > 0)
                         {
-                            if (verbose == true && delta > o.B + o.M) std::cout << "- q at 0 -" << std::endl;
+                            if (verbose == true && delta > o.B + o.M) std::cout << "<q_0>" << std::endl;
                             PopBM(iItems, iOrd, delta);
                         }
                     }
@@ -434,39 +400,69 @@ void Simulation::SimulateTrades()
         MakeDeplete(OrdType::buy );
         MakeDeplete(OrdType::sell);
         
+        // Make p0+ orders with trade events, filling lowest tick first
+        for (const auto &t : vtro)
+        {
+            INT qleft = t.q;
+            int trTck = i.P2Tck(t.p, t.type); // (trTck >= 0 && trTck < idx::tckN) ensured above
+            for (int tck = -1; tck <= trTck; tck++)
+            {
+                INT deltaq(0);
+                const auto &first_last = i.ord.equal_range(i.Tck2P(tck, t.type));
+                for (auto iOrd = first_last.first; iOrd != first_last.second; iOrd++)
+                {
+                    const auto &o = iOrd->second;
+                    if (o.type == t.type && o.q > 0) deltaq = (INT) std::max(o.B + o.M + o.q, (INT64) deltaq);
+                }
+                deltaq = std::min(qleft, deltaq);
+                if (deltaq > 0)
+                {
+                    for (auto iOrd = first_last.first; iOrd != first_last.second; iOrd++)
+                    {
+                        const auto &o = iOrd->second;
+                        if (o.type == t.type && o.q > 0)
+                        {
+                            if (verbose == true && deltaq > o.B + o.M) std::cout << "<p_" << (tck + 1) << ">" << std::endl;
+                            PopBM(iItems, iOrd, deltaq);
+                        }
+                    }
+                    qleft -= deltaq;
+                    if (qleft <= 0) break;
+                }
+            }
+        }
+        
         // Make <-1th orders
         for (auto iOrd = std::begin(i.ord); iOrd != std::end(i.ord); iOrd++)
         {
-            auto &o = iOrd->second;
-            if (o.type == OrdType::buy  && o.p > i.Pb0() && o.q > 0) {
-                if (verbose == true) std::cout << "- < p_-1 -" << std::endl;
-                orderbook.ApplyTrade(iItems, iOrd, PQ(o.p, o.q));
-            }
-            if (o.type == OrdType::sell && o.p < i.Ps0() && o.q > 0) {
-                if (verbose == true) std::cout << "- < p_-1 -" << std::endl;
+            const auto &o = iOrd->second;
+            if (o.q > 0 && ((o.type == OrdType::buy  && o.p > i.Pb0()) || 
+                            (o.type == OrdType::sell && o.p < i.Ps0()) ))
+            {
+                if (verbose == true) std::cout << "<p_-1>" << std::endl;
                 orderbook.ApplyTrade(iItems, iOrd, PQ(o.p, o.q));
             }
         }
     }
 }
 
-int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
+int Simulation_dep::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
 {
-    if (nReqThisTick < kTimeRates::reqPerTick)
+    if (req.q > 0 && nReqThisTick < kTimeRates::reqPerTick)
     {
         verify(req.type != ReqType::ca && req.type != ReqType::sa);
         
-        if ((req.type == ReqType::cb) || (req.type == ReqType::cs) || (req.type == ReqType::mb) || (req.type == ReqType::ms))
+        if (req.type == ReqType::cb || req.type == ReqType::cs || req.type == ReqType::mb || req.type == ReqType::ms)
         {
             // q-asserts already in OrderBook's functions
             TrimM                (req.iItems, req.iOrd, req.q);
             orderbook.ApplyCancel(req.iItems, req.iOrd, req.q);
         }
         
-        if ((req.type == ReqType::b ) || (req.type == ReqType::s ) || (req.type == ReqType::mb) || (req.type == ReqType::ms))
+        if (req.type == ReqType::b  || req.type == ReqType::s  || req.type == ReqType::mb || req.type == ReqType::ms)
         {
             OrderSim o;
-            o.type = (((req.type == ReqType::b ) || (req.type == ReqType::mb)) ? OrdType::buy : OrdType::sell);
+            o.type = ((req.type == ReqType::b || req.type == ReqType::mb) ? OrdType::buy : OrdType::sell);
             o.p    = req.p;
             
             auto &i = *req.iItems->second;
@@ -484,7 +480,7 @@ int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
                 if (o.q > 0)
                 {
                     auto iOrdTemp = orderbook.ApplyInsert(req.iItems, o);
-                    if (verbose == true) std::cout << "- q at 0 -" << std::endl;
+                    if (verbose == true) std::cout << "<q_0>" << std::endl;
                     orderbook.ApplyTrade(req.iItems, iOrdTemp, PQ(o.p, o.q));
                     dep   += o.q;
                     req.q -= o.q;
@@ -504,14 +500,14 @@ int Simulation::ExecuteNamedReq(NamedReq<OrderSim, ItemSim> req)
     return (++nReqThisTick < kTimeRates::reqPerTick ? 0 : -1);
 }
 
-int Simulation::DisplayLoadError(CSTR &str)
+int Simulation_dep::DisplayLoadError(CSTR &str)
 {
     std::cerr << "Simulation::LoadData: " << str << std::endl;
     return -1;
 }
 
 
-SecType Simulation::ResolveSecType(CSTR &path, CSTR &code)
+SecType Simulation_dep::ResolveSecType(CSTR &path, CSTR &code)
 {
     SecType type(SecType::null);
     
@@ -538,7 +534,7 @@ SecType Simulation::ResolveSecType(CSTR &path, CSTR &code)
     return type;
 }
 
-int Simulation::ReadTypeExpiry(CSTR &path, CSTR &code)
+int Simulation_dep::ReadTypeExpiry(CSTR &path, CSTR &code)
 {    
     int type = 0;
     int expiry = 0;
@@ -572,7 +568,7 @@ int Simulation::ReadTypeExpiry(CSTR &path, CSTR &code)
     return type * expiry;
 }
 
-INT64 Simulation::GetM(it_itm_t<ItemSim> iItems, OrdType type, INT p) const
+INT64 Simulation_dep::GetM(it_itm_t<ItemSim> iItems, OrdType type, INT p) const
 {
     INT64 M(0);
     const auto &first_last = iItems->second->ord.equal_range(p);
@@ -584,7 +580,7 @@ INT64 Simulation::GetM(it_itm_t<ItemSim> iItems, OrdType type, INT p) const
     return M; 
 }
 
-void Simulation::PopBM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
+void Simulation_dep::PopBM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
 {
     auto &o = iOrd->second;
     if (o.q > 0) // skip already emptied orders
@@ -606,7 +602,7 @@ void Simulation::PopBM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
     }
 }
 
-void Simulation::TrimM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
+void Simulation_dep::TrimM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
 {
     const auto &first_last = iItems->second->ord.equal_range(iOrd->first);
     const auto type = iOrd->second.type;
@@ -614,7 +610,7 @@ void Simulation::TrimM(it_itm_t<ItemSim> iItems, it_ord_t<OrderSim> iOrd, INT q)
     for (iOrd++; iOrd != first_last.second; iOrd++)
     {
         auto &o = iOrd->second;
-        if ((o.type == type) && (o.q > 0)) // skip already emptied orders
+        if (o.type == type && o.q > 0) // skip already emptied orders
         {
             o.M -= q;
             verify(o.M >= 0);
