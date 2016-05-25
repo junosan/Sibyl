@@ -206,7 +206,7 @@ int NetServer<TOrder, TItem>::RecvMsgIn()
             #ifndef _WIN32
             if (errno == EAGAIN || errno == EWOULDBLOCK) // timeout
             #else
-            if (WSAGetLastError() == WSAEWOULDBLOCK)
+            if (WSAGetLastError() == WSAETIMEDOUT)
             #endif
             {
                 if (verbose) DisplayString("Timeout during recv");

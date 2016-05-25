@@ -88,6 +88,8 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
         std::array<PQ, idx::szTb> tbm = i.tbr; // tb_merged
         if (true == addMyOrd)
         {
+            INT ps0 = i.Tck2P(-1, OrdType::sell); // unique in tb.p
+            INT pb0 = i.Tck2P(-1, OrdType::buy ); // unique in tb.p
             for (auto iT = std::begin(tbm); iT != std::end(tbm); iT++)
             {
                 std::ptrdiff_t idx = iT - std::begin(tbm);
@@ -99,6 +101,8 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                          (idx >= idx::pb1 && o.type == OrdType::buy ) )
                         iT->q += o.q;
                 }
+                if (iT->p == ps0) iT->q = std::max(iT->q - i.depS0, 0);
+                if (iT->p == pb0) iT->q = std::max(iT->q - i.depB0, 0);
             }
         }
         

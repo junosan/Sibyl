@@ -22,6 +22,11 @@ template <class TOrder>
 class Item : public Security<TOrder>
 {
 public:
+
+    // "depletion"; only used by Simulation_dep, but added here as BuildMsgOut needs it
+    INT depS0, depB0; 
+    Item() : depS0(0), depB0(0) {}
+    
     virtual ~Item() {}
 };
 
