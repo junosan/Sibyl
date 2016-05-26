@@ -2,15 +2,18 @@
 
 #include <sibyl/server/Simulation/Simulation_dep.h>
 #include <sibyl/server/NetServer.h>
+#include <sibyl/util/OstreamRedirector.h>
 
 int main(int argc, char *argv[])
 {
-    if ( (argc != 4 && argc != 5)                   ||
-         (argc == 5 && std::string(argv[4]) != "-v") )
+    if (argc != 4)
     {
-        std::cerr << "USAGE: simserv <config file> <data path> <port> [-v]\n   -v\tVerbose output" << std::endl;
+        std::cerr << "USAGE: simserv <config file> <data path> <port>" << std::endl;
         exit(1);
     }
+    
+    std::string path(argv[0]);
+    path.resize(path.find_last_of('/'));
     
     using namespace sibyl;
     
@@ -19,8 +22,11 @@ int main(int argc, char *argv[])
         exit(1);
     
     SimulationServer server(&simulation);
-    server.SetVerbose(argc == 5 && std::string(argv[4]) == "-v");
-    server.Launch(argv[3], true, false);
+    server.SetVerbose(true);
+    {
+        OstreamRedirector redir(std::cout, path + "/log/sim.log");
+        server.Launch(argv[3], true, false);
+    }
     
     std::cout << std::setprecision(6) << std::fixed
               << simulation.orderbook.GetProfitRate() << std::endl;
