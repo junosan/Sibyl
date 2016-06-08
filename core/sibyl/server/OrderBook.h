@@ -195,7 +195,8 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
     
     if (verbose == true)
     {
-        std::cout << dispPrefix << "Allot:  " << req.type << " " << fmt_code(req.iItems->first) << " " << fmt_price(req.p) << " " << fmt_quant(req.q);
+        std::cout << dispPrefix << "Allot:  " << req.type;
+        if (req.type != ReqType::ca && req.type != ReqType::sa) std::cout << " " << fmt_code(req.iItems->first) << " " << fmt_price(req.p) << " " << fmt_quant(req.q);
         if (req.type == ReqType::mb || req.type == ReqType::ms) std::cout << " " << fmt_price(req.mp);
         std::cout << std::endl;
     }
@@ -203,7 +204,7 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
     nreq.clear();
     
     // validation
-    if ((req.type != ReqType::ca) && (req.type != ReqType::sa))
+    if (req.type != ReqType::ca && req.type != ReqType::sa)
     {
         auto &i = *(req.iItems->second);
         bool skip = false;
@@ -329,9 +330,9 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
     if (req.type == ReqType::ca)
     {
         NamedReq<TOrder, TItem> temp;
-        for (const auto &code_pItem : this->items)
+        for (auto iItems = std::begin(this->items), end = std::end(this->items); iItems != end; ++iItems)
         {
-            auto &i = *code_pItem.second;
+            auto &i = *iItems->second;
             for (auto iO = std::begin(i.ord); iO != std::end(i.ord); iO++)
             {
                 const auto &o = iO->second;
@@ -339,14 +340,14 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                 {
                     if (o.type == OrdType::buy ) temp.type = ReqType::cb;
                     if (o.type == OrdType::sell) temp.type = ReqType::cs;
-                    temp.iItems = req.iItems;
+                    temp.iItems = iItems;
                     temp.q      = o.q;
                     temp.iOrd   = iO;
                     nreq.push_back(temp);
                     if (verbose == true)
                     {
                         std::cout << dispPrefix
-                                  << "                 -> " << temp.type << " " << fmt_code(code_pItem.first) << " " << fmt_price(o.p) << " " << fmt_quant(o.q) << std::endl;
+                                  << "                 -> " << temp.type << " " << fmt_code(iItems->first) << " " << fmt_price(o.p) << " " << fmt_quant(o.q) << std::endl;
                     }
                 }
             }
@@ -356,19 +357,19 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
     if (req.type == ReqType::sa)
     {
         NamedReq<TOrder, TItem> temp;
-        for (const auto &code_pItem : this->items)
+        for (auto iItems = std::begin(this->items), end = std::end(this->items); iItems != end; ++iItems)
         {
-            const auto &i = *code_pItem.second;
+            auto &i = *iItems->second;
             if (i.cnt > 0)
             {
                 temp.type = ReqType::s;
-                temp.iItems = req.iItems;
+                temp.iItems = iItems;
                 temp.p      = i.Ps0();
                 temp.q      = i.cnt;
                 nreq.push_back(temp);
                 if (verbose == true)
                     std::cout << dispPrefix
-                              << "                 ->  s " << fmt_code(code_pItem.first) << " " << fmt_price(temp.p) << " " << fmt_quant(temp.q) << std::endl;
+                              << "                 ->  s " << fmt_code(iItems->first) << " " << fmt_price(temp.p) << " " << fmt_quant(temp.q) << std::endl;
             }
         }
     }
