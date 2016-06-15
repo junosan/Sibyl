@@ -26,18 +26,18 @@ const std::vector<ItemState>& Portfolio::GetStateVec()
         
         if (i.Type() == SecType::ELW)
         {
-            const auto &i = *dynamic_cast<ELW<Item>*>(code_pItem.second.get()); // reference as ELW<Item>
+            const auto &i = *static_cast<ELW<ItemPf>*>(code_pItem.second.get()); // reference as ELW<ItemPf>
             state.isELW = true;
             state.iCP = (i.CallPut() == OptType::call) - (i.CallPut() == OptType::put);
             state.expiry = i.Expiry(); 
-            state.kospi200 = ELW<Item>::kospi200;
+            state.kospi200 = ELW<ItemPf>::kospi200;
             state.thr = i.thr;
         } else
             state.isELW = false;
         
         if (i.Type() == SecType::ETF)
         {
-            const auto &i = *dynamic_cast<ETF<Item>*>(code_pItem.second.get()); // reference as ETF<Item>
+            const auto &i = *static_cast<ETF<ItemPf>*>(code_pItem.second.get()); // reference as ETF<ItemPf>
             state.isETF = true;
             state.devNAV = i.devNAV;
         } else
@@ -113,7 +113,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
-                if (cW == 1) sscanf(pcWord, "%f", &ELW<Item>::kospi200);
+                if (cW == 1) sscanf(pcWord, "%f", &ELW<ItemPf>::kospi200);
             }
         }
         if (pcLine[0] == 'd')
@@ -132,12 +132,12 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
                     iM = items.find(c);
                     if (iM == std::end(items))
                     {
-                        auto it_bool = items.insert(std::make_pair(c, std::unique_ptr<Item>(new KOSPI<Item>)));
+                        auto it_bool = items.insert(std::make_pair(c, std::unique_ptr<ItemPf>(new KOSPI<ItemPf>)));
                         verify(it_bool.second == true); // assure successful insertion
                         iM = it_bool.first;
                     }
                 }
-                auto &i = *(iM->second); // reference to Item
+                auto &i = *(iM->second); // reference to ItemPf
                 if  (cW ==  2)               sscanf(pcWord, "%f"      , &i.pr);
                 if  (cW ==  3)               sscanf(pcWord, "%" SCNd64, &i.qr);
                 if ((cW >=  4) && (cW < 24)) sscanf(pcWord, "%d"      , &i.tbr[(std::size_t)(cW -  4)].p);
@@ -149,13 +149,13 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             if (iM->second->Type() == SecType::KOSPI) // on first run: reallocate as ELW
             {
                 auto &ptr = iM->second;
-                KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get()); // store copy
-                ptr.reset(new ELW<Item>);
+                KOSPI<ItemPf> temp = *static_cast<KOSPI<ItemPf>*>(ptr.get()); // store copy
+                ptr.reset(new ELW<ItemPf>);
                 ptr->pr   = temp.pr;
                 ptr->qr   = temp.qr;
                 ptr->tbr  = temp.tbr;
             }
-            auto &i = *dynamic_cast<ELW<Item>*>(iM->second.get()); // reference as ELW<Item>
+            auto &i = *static_cast<ELW<ItemPf>*>(iM->second.get()); // reference as ELW<ItemPf>
             
             OptType optType(OptType::null);
             int expiry = -1;
@@ -176,13 +176,13 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
             if (iM->second->Type() == SecType::KOSPI) // on first run: reallocate as ETF
             {
                 auto &ptr = iM->second;
-                KOSPI<Item> temp = *dynamic_cast<KOSPI<Item>*>(ptr.get()); // store copy
-                ptr.reset(new ETF<Item>);
+                KOSPI<ItemPf> temp = *static_cast<KOSPI<ItemPf>*>(ptr.get()); // store copy
+                ptr.reset(new ETF<ItemPf>);
                 ptr->pr   = temp.pr;
                 ptr->qr   = temp.qr;
                 ptr->tbr  = temp.tbr;
             }
-            auto &i = *dynamic_cast<ETF<Item>*>(iM->second.get()); // reference as ETF<Item>
+            auto &i = *static_cast<ETF<ItemPf>*>(iM->second.get()); // reference as ETF<ItemPf>
             
             for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
@@ -192,9 +192,9 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
         }
         if (pcLine[0] == 'o')
         {
-            auto &i = *(iM->second); // reference to Item
+            auto &i = *(iM->second); // reference to ItemPf
             i.ord.clear();
-            Order o;
+            OrderPf o;
             for (char *pcWord = strchr(pcLine, ' '), cW = 1; pcWord != nullptr; pcWord = strchr(pcWord, ' '), cW++)
             {
                 while (*pcWord == ' ') pcWord++;
@@ -227,7 +227,7 @@ int Portfolio::ApplyMsgIn(char *msg) // Parse message and update entries
         logVecOut << "[t=" << time << "]\n";
         for (const auto &code_pItem : items)
         {
-            Item &i = *code_pItem.second;
+            ItemPf &i = *code_pItem.second;
             sprintf(bufLine, "{%s}\n"               , code_pItem.first.c_str()); logVecOut << bufLine;
             sprintf(bufLine, "t\t%10d\n"            , time.load());              logVecOut << bufLine;
             sprintf(bufLine, "pr\t%.4e\n"           , i.pr);                     logVecOut << bufLine;

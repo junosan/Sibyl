@@ -375,7 +375,7 @@ void Kiwoom::ReceiveMarketNAV(CSTR &code)
     {
         auto &i = *it_itm->second;
         if (i.Type() == SecType::ETF) 
-            dynamic_cast<ETF<ItemKw>&>(i).devNAV = (FLOAT) (((double) nav / p - 1.0) * 100.0);
+            static_cast<ETF<ItemKw>&>(i).devNAV = (FLOAT) (((double) nav / p - 1.0) * 100.0);
         else
             std::cerr << dispPrefix << "ApplyRealtimeNAV: " << fmt_code(code) << " is not ETF" << std::endl;
     }
@@ -507,10 +507,7 @@ void Kiwoom::ReceiveCntEvent()
     }
 }
 
-#ifdef _WIN32 // temporarily disable minwindef.h definitions
-    #undef max
-    #undef min
-#endif /* _WIN32 */
+#include "../../util/toggle_win32_min_max.h"
 
 int Kiwoom::ExecuteNamedReq(NamedReq<OrderKw, ItemKw> req)
 {
@@ -554,10 +551,7 @@ int Kiwoom::ExecuteNamedReq(NamedReq<OrderKw, ItemKw> req)
     return 0;
 }
 
-#ifdef _WIN32 // restore minwindef.h definitions
-    #define max(a,b)            (((a) > (b)) ? (a) : (b))
-    #define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif /* _WIN32 */
+#include "../../util/toggle_win32_min_max.h"
 
 it_itm_t<ItemKw> Kiwoom::FindItem(CSTR &code)
 {

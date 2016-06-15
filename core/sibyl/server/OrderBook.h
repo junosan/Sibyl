@@ -12,10 +12,7 @@
 #include "OrderBook_data.h"
 #include "../ostream_format.h"
 
-#ifdef _WIN32 // temporarily disable minwindef.h definitions
-    #undef max
-    #undef min
-#endif /* _WIN32 */
+#include "../util/toggle_win32_min_max.h"
 
 namespace sibyl
 {
@@ -121,7 +118,7 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
         
         if (i.Type() == SecType::ELW)
         {
-            auto &i = *dynamic_cast<ELW<TItem>*>(code_pItem.second.get()); // reference as ELW<TItem>
+            auto &i = *static_cast<ELW<TItem>*>(code_pItem.second.get()); // reference as ELW<TItem>
             int CP = (i.CallPut() == OptType::call) - (i.CallPut() == OptType::put); 
             sprintf(buf, "e %s %+d %d %.5e %.5e %.5e %.5e %.5e %.5e %.5e %.5e\n",
                                 code_pItem.first.c_str(), CP, i.Expiry(),
@@ -131,7 +128,7 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
         
         if (i.Type() == SecType::ETF)
         {
-            auto &i = *dynamic_cast<ETF<TItem>*>(code_pItem.second.get()); // reference as ETF<TItem>
+            auto &i = *static_cast<ETF<TItem>*>(code_pItem.second.get()); // reference as ETF<TItem>
             sprintf(buf, "n %s %.5e\n", code_pItem.first.c_str(), i.devNAV);
             msg.append(buf);
         }
@@ -511,9 +508,6 @@ void OrderBook<TOrder, TItem>::ApplyCancel(it_itm_t<TItem> iItems, it_ord_t<TOrd
 
 }
 
-#ifdef _WIN32 // restore minwindef.h definitions
-    #define max(a,b)            (((a) > (b)) ? (a) : (b))
-    #define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif /* _WIN32 */
+#include "../util/toggle_win32_min_max.h"
 
 #endif /* SIBYL_SERVER_ORDERBOOK_H_ */

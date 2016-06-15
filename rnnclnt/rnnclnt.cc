@@ -33,7 +33,7 @@ int main(int argc, char *argv[])
     
     Trader trader;
     trader.model.ReadConfig(argv[1]);    
-    trader.SetStateLogPaths(path + "/state", "");//path + "/log");
+    trader.SetStateLogPaths(path + "/state", path + "/log");
 
     NetClient netClient(&trader);
     netClient.SetVerbose((argc == 7) && (std::string(argv[6]) == "-v"));

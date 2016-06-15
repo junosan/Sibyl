@@ -11,20 +11,20 @@
 namespace sibyl
 {
 
-class Order : public PQ
+class OrderPf : public PQ
 {
 public:
     OrdType type;
-    Order() : type(OrdType::null) {}
+    OrderPf() : type(OrdType::null) {}
 };
 
-class Item : public Security<Order> // abstract class; derive as stock, ELW, ETF, option, etc.
+class ItemPf : public Security<OrderPf> // abstract class; derive as stock, ELW, ETF, option, etc.
 {
 public:
-    virtual ~Item() {}
+    virtual ~ItemPf() {}
 };
 
-class Portfolio : public Catalog<Item>
+class Portfolio : public Catalog<ItemPf>
 {
 public:
     // to be used by rnn client

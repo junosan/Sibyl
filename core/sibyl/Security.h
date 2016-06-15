@@ -165,10 +165,7 @@ INT Security<TOrder>::Tck2Q(int tck, OrdType type) const
     verify(false);
 }
 
-#ifdef _WIN32 // temporarily disable minwindef.h definitions
-    #undef max
-    #undef min
-#endif /* _WIN32 */
+#include "util/toggle_win32_min_max.h"
 
 template <class TOrder>
 INT Security<TOrder>::MaxBuyQ(INT64 bal, INT p) const
@@ -179,10 +176,7 @@ INT Security<TOrder>::MaxBuyQ(INT64 bal, INT p) const
     return qmax;
 }
 
-#ifdef _WIN32 // restore minwindef.h definitions
-    #define max(a,b)            (((a) > (b)) ? (a) : (b))
-    #define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif /* _WIN32 */
+#include "util/toggle_win32_min_max.h"
 
 }
 

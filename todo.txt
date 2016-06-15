@@ -1,0 +1,10 @@
+[ Bug fix ]
+
+
+[ Minor corrections ]
+
+
+[ Style change for new code ]
+
+postincrement->preincrement in for loops
+for (auto it = std::begin, end = std::end; it != end; ++it) style loops (unless end is being modified inside loop)

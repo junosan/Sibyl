@@ -183,7 +183,7 @@ using it_map_t = typename std::map<STR, std::unique_ptr<TItem>>::iterator;
 class GTck {
 public:
     FLOAT G;
-    it_map_t<Item> iM;
+    it_map_t<ItemPf> iM;
     int tick;          // 0-based index of price (-1: Gs0/Gb0, and so on)
     GTck() : G(0.0f), tick(0) {}
 };
@@ -192,7 +192,7 @@ class GReq {
 public:
     FLOAT G;           // GTck * price * quant * (1 +- fee/tax)
     ReqType type;    
-    it_map_t<Item> iM;
+    it_map_t<ItemPf> iM;
     INT price;         // actual price
     INT quant;         // actual quantity
     INT modprice;      // actual mod price
@@ -482,7 +482,7 @@ CSTR& RewardModel::BuildMsgOut()
         INT64 balLeft = balAvail - (INT64)std::round(balAvail * rhoWeight * lastRho / sumPosGb); // invest in unused fund first
         for (const auto &req : vPosGb)
         {
-            auto &i = *(req.iM->second); // reference to Item
+            auto &i = *(req.iM->second); // reference to ItemPf
             if (exclusiveBuy == false || i.cnt == 0)
             {
                 const auto &r = rewards.find(req.iM->first)->second;

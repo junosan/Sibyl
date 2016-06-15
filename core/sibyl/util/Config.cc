@@ -7,10 +7,7 @@
 namespace sibyl
 {
 
-#ifdef _WIN32 // temporarily disable minwindef.h definitions
-    #undef max
-    #undef min
-#endif /* _WIN32 */
+#include "toggle_win32_min_max.h"
 
 bool Config::SetFile(CSTR &filename_, Config::Mode mode_)
 {
@@ -63,10 +60,7 @@ bool Config::SetFile(CSTR &filename_, Config::Mode mode_)
     return success;
 }
 
-#ifdef _WIN32 // restore minwindef.h definitions
-    #define max(a,b)            (((a) > (b)) ? (a) : (b))
-    #define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif /* _WIN32 */
+#include "toggle_win32_min_max.h"
 
 Config::SS& Config::Get(CSTR &key)
 {
