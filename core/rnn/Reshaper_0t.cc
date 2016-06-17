@@ -4,7 +4,7 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#include "Reshaper_0.h"
+#include "Reshaper_0t.h"
 
 #include <sibyl/Security.h>
 #include <sibyl/time_common.h>
@@ -13,19 +13,19 @@
 namespace sibyl
 {
 
-Reshaper_0::Reshaper_0(unsigned long maxGTck_,
-                       TradeDataSet *pTradeDataSet_,
-                       std::vector<std::string> *pFileList_,
-                       const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
-                       : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_),
-                         b_th(1.0), s_th(1.0)
+Reshaper_0t::Reshaper_0t(unsigned long maxGTck_,
+                        TradeDataSet *pTradeDataSet_,
+                        std::vector<std::string> *pFileList_,
+                        const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
+                        : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_),
+                          b_th(1.0), s_th(1.0)
 {
     maxGTck   = 0;  // overwrite Reshaper's constructor value 
-    inputDim  = 45;
+    inputDim  = 44;
     targetDim = 1;  // overwrite Reshaper's constructor value
 }
 
-void Reshaper_0::ReadConfig(CSTR &filename)
+void Reshaper_0t::ReadConfig(CSTR &filename)
 {
     Config cfg(filename);
     
@@ -38,15 +38,15 @@ void Reshaper_0::ReadConfig(CSTR &filename)
     verify(ss_s_th.fail() == false);
 }
 
-void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
+void Reshaper_0t::State2VecIn(FLOAT *vec, const ItemState &state)
 {
-    const long interval = kTimeRates::secPerTick; // seconds
-    const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
+    // const long interval = kTimeRates::secPerTick; // seconds
+    // const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
     
     auto iItems = items.find(state.code);
     if (iItems == std::end(items))
     {
-        auto it_bool = items.insert(std::make_pair(state.code, ItemMem_0()));
+        auto it_bool = items.insert(std::make_pair(state.code, ItemMem_0t()));
         verify(it_bool.second == true);
         iItems = it_bool.first;
         iItems->second.initPr = state.tbr[idx::ps1].p;
@@ -66,8 +66,8 @@ void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
     
     unsigned long idxInput = 0;
     
-    // t
-    vec[idxInput++] = (FLOAT) state.time / (interval * T);
+    // // t
+    // vec[idxInput++] = (FLOAT) state.time / (interval * T);
     
     // pr
     vec[idxInput++] = ReshapePrice(state.pr) - ReshapePrice(i.initPr);
@@ -114,7 +114,7 @@ void Reshaper_0::State2VecIn(FLOAT *vec, const ItemState &state)
     WhitenVector(vec); // this alters vector only if matrices are initialized
 }
 
-void Reshaper_0::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
+void Reshaper_0t::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
 {
     auto iItems = items.find(code);
     verify(iItems != std::end(items));
@@ -140,7 +140,7 @@ void Reshaper_0::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
     verify(targetDim == idxTarget);
 }
 
-void Reshaper_0::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
+void Reshaper_0t::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
 {
     const auto iItems = items.find(code);
     verify(iItems != std::end(items));

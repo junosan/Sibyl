@@ -1,33 +1,39 @@
+/* ========================================================================== */
+/*  Copyright (C) 2016 Hosang Yoon (hosangy@gmail.com) - All Rights Reserved  */
+/*  Unauthorized copying of this file, via any medium is strictly prohibited  */
+/*                        Proprietary and confidential                        */
+/* ========================================================================== */
+
 #ifndef SIBYL_COMMON_H_
 #define SIBYL_COMMON_H_
 
-/* ============================================================================== */
-/*         SIBYL: Simulation of Intraday Book and Yield with Limit-orders         */
-/* ============================================================================== */
+/* ========================================================================== */
+/*       SIBYL: Simulation of Intraday Book and Yield with Limit-orders       */
+/* ========================================================================== */
 
-/* ============================================================================== */
-/*                                Inheritance tree                                */
-/* ------------------------------------------------------------------------------ */ 
-/* (^: abstract class)                                                            */
-/*     PQ - Order (application specific)                                          */
-/*     Security<Order>^ - Item^ (application specific) - KOSPI, ELW, ETF          */
-/*     Catalog<Item> - Portfolio (client side data management)                    */
-/*                   - OrderBook (server side data management)                    */
-/*     Model^ - RewardModel                                                       */
-/*     Trader  (Portfolio and Model interface)                                    */
-/*     Broker^ (OrderBook interface) - Simulation, Kiwoom                         */
-/*     NetAgent - NetClient (TCP client and &Trader interface)                    */
-/*              - NetServer (TCP server and &Broker interface)                    */
-/*     TxtData^ - TxtDataTr, TxtDataTb, TxtDataVec                                */
-/* ============================================================================== */
+/* ========================================================================== */
+/*                              Inheritance tree                              */
+/* -------------------------------------------------------------------------- */ 
+/* (^: abstract class)                                                        */
+/*     PQ - Order (application specific)                                      */
+/*     Security<Order>^ - Item^ (application specific) - KOSPI, ELW, ETF      */
+/*     Catalog<Item> - Portfolio (client side data management)                */
+/*                   - OrderBook (server side data management)                */
+/*     Model^ - RewardModel                                                   */
+/*     Trader  (Portfolio and Model interface)                                */
+/*     Broker^ (OrderBook interface) - Simulation, Kiwoom                     */
+/*     NetAgent - NetClient (TCP client and &Trader interface)                */
+/*              - NetServer (TCP server and &Broker interface)                */
+/*     TxtData^ - TxtDataTr, TxtDataTb, TxtDataVec                            */
+/* ========================================================================== */
 
-/* ============================================================================== */
-/*                                  Terminology                                   */
-/* ------------------------------------------------------------------------------ */
-/*    ord : buy/sell (a.k.a. bid/ask) registered in Security by my request        */
-/*    req : request for action from client to server (b/s/cb/cs/mb/ms/etc.)       */
-/*    msg : content of TCP communication                                          */
-/* ============================================================================== */
+/* ========================================================================== */
+/*                                Terminology                                 */
+/* -------------------------------------------------------------------------- */
+/*    ord : buy/sell (a.k.a. bid/ask) registered in Security by my request    */
+/*    req : request for action from client to server (b/s/cb/cs/mb/ms/etc.)   */
+/*    msg : content of TCP communication                                      */
+/* ========================================================================== */
 
 #include <string>
 

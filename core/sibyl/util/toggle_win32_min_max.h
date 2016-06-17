@@ -1,3 +1,9 @@
+/* ========================================================================== */
+/*  Copyright (C) 2016 Hosang Yoon (hosangy@gmail.com) - All Rights Reserved  */
+/*  Unauthorized copying of this file, via any medium is strictly prohibited  */
+/*                        Proprietary and confidential                        */
+/* ========================================================================== */
+
 // Note: include guard intentionally omitted
 
 // Wrap a block of code to be protected from min & max macros defined in minwindef.h

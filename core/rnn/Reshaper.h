@@ -1,3 +1,9 @@
+/* ========================================================================== */
+/*  Copyright (C) 2016 Hosang Yoon (hosangy@gmail.com) - All Rights Reserved  */
+/*  Unauthorized copying of this file, via any medium is strictly prohibited  */
+/*                        Proprietary and confidential                        */
+/* ========================================================================== */
+
 #ifndef SIBYL_RESHAPER_H_
 #define SIBYL_RESHAPER_H_
 
@@ -60,8 +66,8 @@ protected:
     virtual FLOAT ReshapeQuant(INT   q) { return (FLOAT) (std::log((FLOAT) 1 + std::abs(q)) * ((q > 0) - (q < 0)) / 4.0); }
     
     constexpr static const double kR2V = 100.0;
-    virtual FLOAT ReshapeG_R2V(FLOAT g) { return (FLOAT)(g * kR2V); }
-    virtual FLOAT ReshapeG_V2R(FLOAT g) { return (FLOAT)(g / kR2V); }
+    virtual FLOAT ReshapeG_R2V(FLOAT g) { return (FLOAT) (g * kR2V); }
+    virtual FLOAT ReshapeG_V2R(FLOAT g) { return (FLOAT) (g / kR2V); }
     
     unsigned long maxGTck, inputDim, targetDim;
     std::map<STR, TItemMem> items;

@@ -1,3 +1,9 @@
+/* ========================================================================== */
+/*  Copyright (C) 2016 Hosang Yoon (hosangy@gmail.com) - All Rights Reserved  */
+/*  Unauthorized copying of this file, via any medium is strictly prohibited  */
+/*                        Proprietary and confidential                        */
+/* ========================================================================== */
+
 #ifndef __TRADEDATASET_H__
 #define __TRADEDATASET_H__
 
@@ -8,7 +14,7 @@
 
 #include <fractal/fractal.h>
 
-#include "Reshaper_0.h"
+#include "Reshaper_0t.h"
 
 class TradeDataSet : public fractal::DataSet
 {
@@ -38,7 +44,7 @@ public:
             const unsigned long frameIdx, void *const frame);
     
     /* Reshaper */
-    typedef sibyl::Reshaper_0 Reshaper; // TradeRnn also refers TradeDataSet::Reshaper
+    typedef sibyl::Reshaper_0t Reshaper; // TradeRnn also refers TradeDataSet::Reshaper
     Reshaper reshaper;
     
 protected:
