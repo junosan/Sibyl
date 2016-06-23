@@ -1,0 +1,18 @@
+[ Bug fix ]
+
+
+[ Minor corrections ]
+
+
+[ Style change for new code ]
+
+postincrement->preincrement in for loops
+for (auto it = std::begin, end = std::end; it != end; ++it) style loops (unless end is being modified inside loop)
+
+[ Simulation ]
+
+- Likely cause for real-simulation difference is tb.q data delay vs tr data which invalidates trade amount for large orders that do not fit below both real-time & delayed tb.q
+- Getting DMA may resolve this issue
+- However, impossible to accurately estimate behavior *after* q0 is emptied anyways
+
+Try: limiting tr trades to p_1 max to see if accuracy improves

@@ -500,7 +500,7 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
 
     for(long i = 0; i < n; i++)
     {
-        if(isinff(vec[i]) || isnanf(vec[i]) || isinf(vec[i]) || isnan(vec[i]))
+        if(isinff(vec[i]) || isnanf(vec[i]) || std::isinf(vec[i]) || std::isnan(vec[i]))
         {
             std::cerr << "ERR: " << date << "/" << code << " (" << i / pThis->inputDim << ", " << i % pThis->inputDim << ") " << vec[i] << std::endl;
         }
@@ -605,7 +605,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
     {
         //if(i % targetDim == 0) std::cout << std::endl;
         //std::cout << vec[i] << " ";
-        if(isinff(vec[i]) || isnanf(vec[i]) || isinf(vec[i]) || isnan(vec[i]))
+        if(isinff(vec[i]) || isnanf(vec[i]) || std::isinf(vec[i]) || std::isnan(vec[i]))
         {
             std::cerr << "ERR: " << filename << " (" << i / targetDim << ", " << i % targetDim << ") " << vec[i] << std::endl;
         }

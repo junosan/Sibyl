@@ -410,8 +410,9 @@ void Simulation_dep::SimulateTrades()
         for (const auto &t : vtro)
         {
             INT qleft = t.q;
-            int trTck = i.P2Tck(t.p, t.type); // (trTck >= 0 && trTck < idx::tckN) ensured above
-            for (int tck = -1; tck <= trTck; tck++)
+            // int trTck = i.P2Tck(t.p, t.type); // (trTck >= 0 && trTck < idx::tckN) ensured above
+            // for (int tck = -1; tck <= trTck; tck++)
+            for (int tck = -1; tck <= 0; tck++) // limit to p1; appears to provide better accuracy
             {
                 INT deltaq(0);
                 const auto &first_last = i.ord.equal_range(i.Tck2P(tck, t.type));

@@ -235,7 +235,7 @@ CSTR& RewardModel::BuildMsgOut()
         WriteGLogs();
     }
     
-    const int timeCancelAll  = 21000 + 600 + 60;
+    const int timeCancelAll  = kTimeBounds::stop + 600 + 60;
     
     // Stop buying anything between 14:30 and 14:50
     if ((time >= kTimeBounds::stop - 1200) && (time < kTimeBounds::stop))
@@ -545,6 +545,9 @@ CSTR& RewardModel::BuildMsgOut()
             }            
         }
     }
+
+    // If < 5 min, process rho as usual, but don't send any msg (unstable data)
+    if (time < (5 * 60)) msg.clear();
     
     if (msg.size() == 0) msg.append("\n");  // should have '\n' even for empty msg's
     

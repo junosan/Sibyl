@@ -8,6 +8,7 @@
 #define EIGEN_HELPER_H_
 
 #include <fstream>
+#include <cmath>
 
 namespace Eigen
 {
@@ -45,7 +46,7 @@ bool is_all_finite(const Matrix &matrix)
     for (const EScalar *it = beg; it != end; it++)
     {
         const auto &i = *it;
-        if (isinff(i) == true || isnanf(i) == true || isinf(i) == true || isnan(i) == true)
+        if (isinff(i) == true || isnanf(i) == true || std::isinf(i) == true || std::isnan(i) == true)
         {
             allFinite = false;
             break;
