@@ -151,7 +151,8 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                 PQ pq;
                 pq.p = iO->first;
                 for (auto iP = first_last.first; iP != first_last.second; iP++) {
-                    if (iP->second.type == type) pq.q += iP->second.q;
+                    if (iP->second.type == type && iP->second.q > 0)
+                        pq.q += iP->second.q;
                 }
                 if (type == OrdType::sell) pq.q = -pq.q;
                 if (pq.q != 0) ordm.push_back(pq);
@@ -184,7 +185,11 @@ void OrderBook<TOrder, TItem>::RemoveEmptyOrders()
         for (auto iO = std::begin(i.ord); iO != std::end(i.ord);)
         {
             if (iO->second.q < 0)
-                std::cerr << dispPrefix << "OrderBook::RemoveEmptyOrders: o.q " << fmt_quant(iO->second.q) << " < 0 found" << std::endl;  
+            {
+                std::cerr << dispPrefix << "OrderBook::RemoveEmptyOrders: o.q " << fmt_quant(iO->second.q) << " < 0 found" << std::endl;
+                std::cerr << dispPrefix << "OrderBook::RemoveEmptyOrders: Removing this order to suppress further errors"  << std::endl;
+                iO->second.q = 0;
+            }  
             if (iO->second.q == 0) iO = i.ord.erase(iO);
             else                   iO++;
         }

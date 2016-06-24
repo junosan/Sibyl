@@ -8,17 +8,18 @@
 
 #include <iostream>
 #include <fstream>
+#include <numeric>
 
 #include "../ReqType.h"
 
 namespace sibyl
 {
 
-void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_, bool exclusiveBuy_)
+void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_, bool exclusiveBuy_, bool earlyQuit_)
 {
-    verify((timeConst_ > 0.0) && (rhoWeight_ >= 0.0) && (rhoInit_ >= 0.0));
+    verify(timeConst_ > 0.0 && rhoWeight_ >= 0.0 && rhoInit_ >= 0.0);
     timeConst = timeConst_; rhoWeight = rhoWeight_; rho = rhoInit_;
-    exclusiveBuy = exclusiveBuy_;
+    exclusiveBuy = exclusiveBuy_; earlyQuit = earlyQuit_;
 }
 
 void RewardModel::ReadConfig(CSTR &filename)
@@ -27,7 +28,7 @@ void RewardModel::ReadConfig(CSTR &filename)
     verify(sCfg.is_open() == true);
     
     double timeConst_(-1.0), rhoWeight_(-1.0), rhoInit_(-1.0);
-    bool exclusiveBuy_(false);
+    bool exclusiveBuy_(false), earlyQuit_(false);
     
     for (STR line; std::getline(sCfg, line);)
     {
@@ -45,9 +46,11 @@ void RewardModel::ReadConfig(CSTR &filename)
             rhoInit_      = std::stod(val);
         else if ((name == "EXCLUSIVE_BUY") && (val.empty() == false))
             exclusiveBuy_ = (std::stoi(val) != 0);
+        else if ((name == "EARLY_QUIT"   ) && (val.empty() == false))
+            earlyQuit_    = (std::stoi(val) != 0);
     }
     
-    SetParams(timeConst_, rhoWeight_, rhoInit_, exclusiveBuy_);
+    SetParams(timeConst_, rhoWeight_, rhoInit_, exclusiveBuy_, earlyQuit_);
 }
 
 void RewardModel::SetStateLogPaths(CSTR &state, CSTR &log)
@@ -235,6 +238,29 @@ CSTR& RewardModel::BuildMsgOut()
         WriteGLogs();
     }
     
+    // For early quit mechanism; if rate_r > 1% and rate_r's slope is negative, exit market
+    if (earlyQuit == true && exitMarket == false)
+    {
+        const std::size_t covWindow = 120; // 120 ticks = 20 min 
+        vec_rate_r.resize(covWindow, 1.0);
+        vec_rate_r[idx_rate_r] = pPortfolio->GetProfitRate(true);
+        idx_rate_r = (idx_rate_r + 1) % covWindow;
+        // starting from idx_rate_r (oldest rate_r)
+        // 0 .. (T-1) : xmean = (T-1)/2
+
+        double ymean = std::accumulate(std::begin(vec_rate_r),
+                                       std::end  (vec_rate_r), 0.0) / (double) covWindow;
+        if (ymean > 1.01)
+        {
+            double cov(0.0); // covariance is the numerator in linear regression
+            for (std::size_t idx = 0; idx < covWindow; ++idx)
+                cov += (((idx + covWindow - idx_rate_r) % covWindow) - (covWindow - 1) / 2) *
+                       (vec_rate_r[idx] - ymean);
+            if (cov < 0.0)
+                exitMarket = true;
+        }
+    }
+
     const int timeCancelAll  = kTimeBounds::stop + 600 + 60;
     
     // Stop buying anything between 14:30 and 14:50
@@ -288,6 +314,24 @@ CSTR& RewardModel::BuildMsgOut()
         }        
     }
     
+    // Early quit mechanism
+    if (exitMarket == true)
+    {
+        for (auto &code_reward : rewards)
+        {
+            auto &r = code_reward.second;
+            r.G0.b    = -100.0f;
+            r.G0.s    =  100.0f;
+            for (auto &gn : r.G)
+            {
+                gn.b  = -100.0f;
+                gn.cb =  100.0f;
+                gn.s  = -100.0f;
+                gn.cs =  100.0f;
+            }
+        }
+    }
+
     // between 09:00:int and 15:01:00
     if (time >= kTimeBounds::init)
     {

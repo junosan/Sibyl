@@ -394,6 +394,18 @@ void Kiwoom::ReceiveOrdEvent()
     if (reqStat == ReqStat::confirmed)
     {
         // debug_msg("[OrdEvent] ReqStat::confirmed received");
+
+        // TEMPORARY //
+        ReqType reqType = static_cast<ReqType>(std::stol(K::GetChejanData(kFID::reqtype)));
+        INT ordq  = std::stoi(K::GetChejanData(kFID::ordq ));
+        if ((reqType == ReqType::cb || reqType == ReqType::cs) && ordq > 0) {
+            STR code  =           K::GetChejanData(kFID::code );
+            INT ordq_i = std::stoi(K::GetChejanData(kFID::ordq_i));
+            debug_msg("[IncompleteCancel] " << fmt_code(code) << " " << reqType << " " << fmt_quant(ordq_i) << " orderd but "
+                      << fmt_quant(ordq) << " left");
+        }
+        // TEMPORARY //
+
         return;
     }
 

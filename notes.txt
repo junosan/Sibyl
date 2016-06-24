@@ -1,5 +1,7 @@
 [ Bug fix ]
 
+Cancel/modify orders should be made on ‘confirm’ instead of ‘received’ with actual quant deduced from ordq/ordq_i
+- Waiting for the bug to be replicated to gain event information
 
 [ Minor corrections ]
 
@@ -14,5 +16,3 @@ for (auto it = std::begin, end = std::end; it != end; ++it) style loops (unless 
 - Likely cause for real-simulation difference is tb.q data delay vs tr data which invalidates trade amount for large orders that do not fit below both real-time & delayed tb.q
 - Getting DMA may resolve this issue
 - However, impossible to accurately estimate behavior *after* q0 is emptied anyways
-
-Try: limiting tr trades to p_1 max to see if accuracy improves

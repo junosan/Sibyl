@@ -93,10 +93,11 @@ namespace kFID
     constexpr long reqtype = 905;  // "+b"/"-s"/"cb"/"cs"/"+mb"/"-ms" (in EUC-KR)
     constexpr long ordno   = 9203;
     constexpr long ordp    = 901;
-    constexpr long ordq    = 902;
+    constexpr long ordq    = 902;  // currently left
     constexpr long ordno_o = 904;
     constexpr long delta_p = 914;
     constexpr long delta_q = 915;
+    constexpr long ordq_i  = 900;  // initially ordered
     
     // OnReceiveRealData
     constexpr long tr_t    = 20; // = nav_t
