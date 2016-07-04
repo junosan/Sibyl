@@ -53,8 +53,10 @@ enum class InputKey
     pin,         // 
     pin_input_s, // 
     query_s,     // 
-    reqstat_s,   // 
-    ordtype_s    //     
+    reqstat_s,   //
+    ordtype_s,   //
+    market_s,    //
+    sector_code  //
 };
 
 enum class CommDataKey
@@ -75,7 +77,8 @@ enum class MarketEventType
     null,
     trade,
     table,
-    NAV
+    NAV,
+    index
 };
 
 enum class BookEventType : long
@@ -101,7 +104,7 @@ namespace kFID
     
     // OnReceiveRealData
     constexpr long tr_t    = 20; // = nav_t
-    constexpr long tr_p    = 10; // = nav_p
+    constexpr long tr_p    = 10; // = nav_p, index_p
     constexpr long tr_q    = 15;
     constexpr long tr_ps1  = 27;
     constexpr long tr_pb1  = 28;

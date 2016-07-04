@@ -81,7 +81,8 @@ int Simulation_dep::LoadData(CSTR &cfgfile, CSTR &datapath)
                 STR str = "Nonunique code {" + code + "} found";
                 DisplayLoadError(str);
             }
-        }
+        } else
+            delete p;
         return success;
     };
     
@@ -166,6 +167,9 @@ int Simulation_dep::LoadData(CSTR &cfgfile, CSTR &datapath)
         }
     }
 
+    // KOSPI200.txt
+    dataKOSPI200.open(path + "KOSPI200.txt");
+
     // if data date is in DELAY_1H, set delay of 1 hour
     if (listDelay1h.size() > 0)
     {
@@ -181,10 +185,12 @@ int Simulation_dep::LoadData(CSTR &cfgfile, CSTR &datapath)
         std::istringstream sDelay1h(listDelay1h);
         for (STR date; std::getline(sDelay1h, date, ';');)
         {
-            if ((date.size() == dateSize) && (0 == path.compare(path.size() - dateSize, dateSize, date)))
+            if (date.size() == dateSize && 
+                0 == path.compare(path.size() - dateSize, dateSize, date))
             {
                 for (auto &code_pItem : orderbook.items)
                     code_pItem.second->SetDelay(3600);
+                dataKOSPI200.SetDelay(3600);
                 break;
             }
         }
@@ -334,6 +340,11 @@ void Simulation_dep::ReadData(int timeTarget)
         
         if (i.Tck2P(-1, OrdType::buy ) != lastPb0) i.depB0 = 0; // reset depletion if ps0/pb0 shifted
         if (i.Tck2P(-1, OrdType::sell) != lastPs0) i.depS0 = 0;
+    }
+
+    if (dataKOSPI200.is_open() == true) {
+        dataKOSPI200.AdvanceTime(timeTarget);
+        ELW<ItemSim>::kospi200 = std::fabs(dataKOSPI200[0]);
     }
 }
 

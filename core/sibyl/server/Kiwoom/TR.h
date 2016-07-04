@@ -327,6 +327,24 @@ private:
     void  RetrieveData(CSTR &code_) override { type = ReqType::null; /* force SetReq */      }
 };
 
+class TRIndex : public TR
+{
+public:
+     TRIndex() { TR_name = "TRIndex";
+                 TR_code = "OPT20001";
+                 scrno   = "9994";
+                 Register  (); }
+    ~TRIndex() { Deregister(); }
+private:
+    bool  AllowCarry()              override { return false;                                         }
+    bool  AllowTimeout()            override { return false;                                         }
+    long  SendOnce(State state)     override { K::SetInputValue(InputKey::market_s   , "0"  );
+                                               K::SetInputValue(InputKey::sector_code, "201"); // KOSPI200 index
+                                               // (001: KOSPI index, 201: KOSPI200 index, etc.)
+                                               return K::CommRqData(Name(), Code(), false, ScrNo()); }
+    void  RetrieveData(CSTR &code_) override {                                                       }
+};
+
 }
 
 #endif /* SIBYL_SERVER_KIWOOM_TR_H_ */

@@ -33,9 +33,11 @@ public:
     double  dSF   ()        const { return dSF0;                        }
     
     // additionals
-    static FLOAT                          kospi200;
-    constexpr static const std::ptrdiff_t szTh = 8;  // number of fields in theoretical Greeks
-    std::array<FLOAT, szTh>               thr;
+    static FLOAT kospi200;
+
+    constexpr static std::ptrdiff_t szTh = 8;  // number of fields in theoretical Greeks
+    std::array<FLOAT, szTh>         thr;
+
     void    SetInfo(OptType optType_, INT expiry_) {
         verify((optType_ == OptType::call || optType_ == OptType::put) && expiry_ >= 0);
         optType = optType_; expiry = expiry_;
@@ -53,7 +55,7 @@ private:
 };
     
 template <class TItem>
-FLOAT ELW<TItem>::kospi200 = 0.0f;
+FLOAT ELW<TItem>::kospi200 = (FLOAT) std::nan("");
 
 }
 

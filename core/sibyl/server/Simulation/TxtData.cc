@@ -32,7 +32,7 @@ bool TxtData::is_open() const
 
 void TxtData::AdvanceTime(int timeTarget)
 {
-    while ((open_bool == true) && (time < timeTarget)) {
+    while (open_bool == true && time < timeTarget) {
         Cur2Last(true);
         AdvanceLine();
     }

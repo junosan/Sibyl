@@ -72,16 +72,18 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
     msg.append("\n");
     
     // k kospi200
-    bool existELW = false;
-    for (const auto &code_pItem : this->items)
-        if (code_pItem.second->Type() == SecType::ELW) { existELW = true; break; }
-    if (existELW == true)
-    {
-        if (ELW<TItem>::kospi200 <= 0.0f)
-            std::cerr << dispPrefix << "OrderBook::BuildMsgOut: Nonpositive KOSPI200 index " << ELW<TItem>::kospi200 << std::endl; 
-        sprintf(buf, "k %.5e\n", ELW<TItem>::kospi200);
-        msg.append(buf);
-    }
+    sprintf(buf, "k %.5e\n", ELW<TItem>::kospi200);
+    msg.append(buf);
+    // bool existELW = false;
+    // for (const auto &code_pItem : this->items)
+    //     if (code_pItem.second->Type() == SecType::ELW) { existELW = true; break; }
+    // if (existELW == true)
+    // {
+    //     if (ELW<TItem>::kospi200 <= 0.0f)
+    //         std::cerr << dispPrefix << "OrderBook::BuildMsgOut: Nonpositive KOSPI200 index " << ELW<TItem>::kospi200 << std::endl; 
+    //     sprintf(buf, "k %.5e\n", ELW<TItem>::kospi200);
+    //     msg.append(buf);
+    // }
     
     // Individual items (d, (e), (n), o)
     for (const auto &code_pItem : this->items)
@@ -321,7 +323,8 @@ const std::vector<NamedReq<TOrder, TItem>>& OrderBook<TOrder, TItem>::AllotReq(U
                             if (verbose == true)
                             {
                                 std::cout << dispPrefix
-                                          << "                 -> " << fmt_quant(deltaq);
+                                          << "                 -> " << std::setw(fmt_price::w) << ""
+                                          << " " << fmt_quant(deltaq);
                                 if ((req.type == ReqType::mb) || (req.type == ReqType::ms))
                                     std::cout << " " << fmt_price(req.mp);
                                 std::cout << std::endl;
@@ -456,7 +459,7 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             
             if ((o.tck_orig >= -1) && (o.tck_orig < idx::tckN)) {
                 int idx = (o.tck_orig != -1 ? idx::pb1 + o.tck_orig : this->idxTckOrigB0);
-                this->sum.tck_orig[(std::size_t)idx].bal += raw + i.BFee(raw);
+                this->sum.tck_orig[(std::size_t)idx].bal += raw;// + i.BFee(raw);
                 this->sum.tck_orig[(std::size_t)idx].q   += pq.q;
                 this->sum.tck_orig[(std::size_t)idx].evt += 1;
             }
@@ -478,7 +481,7 @@ void OrderBook<TOrder, TItem>::ApplyTrade (it_itm_t<TItem> iItems, it_ord_t<TOrd
             
             if ((o.tck_orig >= -1) && (o.tck_orig < idx::tckN)) {
                 int idx = (o.tck_orig != -1 ? idx::ps1 - o.tck_orig : this->idxTckOrigS0);
-                this->sum.tck_orig[(std::size_t)idx].bal += raw - i.SFee(raw);
+                this->sum.tck_orig[(std::size_t)idx].bal += raw;// - i.SFee(raw);
                 this->sum.tck_orig[(std::size_t)idx].q   += pq.q;
                 this->sum.tck_orig[(std::size_t)idx].evt += 1;
             }

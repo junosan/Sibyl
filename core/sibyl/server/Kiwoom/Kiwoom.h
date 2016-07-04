@@ -34,9 +34,10 @@ public:
     
     // Asynchronous data (OnReceiveRealData { code = sRealKey } | OnReceiveChejanData)    
     // called by OpenAPI event thread
-/**/void ReceiveMarketTr (CSTR &code); // OnReceiveRealData   sRealType == "stock trade" (in Korean)
-/**/void ReceiveMarketTb (CSTR &code); // OnReceiveRealData   sRealType == "stock table" (in Korean)
+/**/void ReceiveMarketTr (CSTR &code); // OnReceiveRealData   sRealType == "stock trade"  (in Korean)
+/**/void ReceiveMarketTb (CSTR &code); // OnReceiveRealData   sRealType == "stock table"  (in Korean)
 /**/void ReceiveMarketNAV(CSTR &code); // OnReceiveRealData   sRealType == "ETF NAV"   }
+/**/void ReceiveIndex    (CSTR &code); // OnReceiveRealData   sRealType == "sector index" (in Korean)   }
 /**/void ReceiveOrdEvent ();           // OnReceiveChejanData sGubun    == "0"         }
 /**/void ReceiveCntEvent ();           // OnReceiveChejanData sGubun    == "1"         }
     
@@ -71,6 +72,7 @@ private:
     TRAccBalance trAccBalance;
     TRCntOList   trCntOList;
     TROrdList    trOrdList;
+    TRIndex      trIndex;
     // called by NetServer thread
     TRReqOrder   trReqOrder;
     

@@ -27,8 +27,10 @@ public:
     
     static int ReadTypeExpiry(CSTR &path, CSTR &code); // returns kOptType * expiry (0: non-KOSPI200; skip)
     
-    Simulation_dep() : nReqThisTick(0) { orderbook.time = -3600 + 600; } // starts at 08:10:10
+    Simulation_dep() : dataKOSPI200(1),
+                       nReqThisTick(0) { orderbook.time = -3600 + 600; } // starts at 08:10:10
 private:
+    TxtDataVec<FLOAT> dataKOSPI200;
     void ReadData(int timeTarget); // fill TxtData classes with event info until right before timeTarget
     void SimulateTrades();
 

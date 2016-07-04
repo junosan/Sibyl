@@ -9,8 +9,10 @@
 #include <iostream>
 #include <cinttypes>
 #include <cstring>
+#include <iomanip>
+#include <cmath>
 
-#include "../util/BasicPlot.h"
+#include "../util/CandlePlot.h"
 
 namespace sibyl
 {
@@ -263,62 +265,108 @@ void Portfolio::WriteState()
     else
         filename.append("client_cur.log");
     
-    static char buf[1 << 10];
+    static const std::size_t size= 1 << 10;
+    static wchar_t buf[size];
     const int  nItemPerLine = 4;
     const char itemSpacer[] = "        ";
     
-    std::ofstream ofs(filename);
+    std::wofstream ofs(filename);
+    ofs.imbue(std::locale("en_US.UTF-8"));
     if (ofs.is_open() == true)
     {
         SEval se = Evaluate();
         
         int timeCur = time; // std::atomic_int
-        sprintf(buf, "t = %5d sec\n", timeCur                 ); ofs << buf;
-        sprintf(buf, "   bal  u  %12" PRId64 "\n" , se.balU   ); ofs << buf;
-        sprintf(buf, "   bal b o %12" PRId64 "\n" , se.balBO  ); ofs << buf;
-        sprintf(buf, "   evl cnt %12" PRId64 "\n" , se.evalCnt); ofs << buf;
-        sprintf(buf, "   evl s o %12" PRId64 "\n" , se.evalSO ); ofs << buf;
-        sprintf(buf, "   evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot,
+        // ofs << "t = " << std::setw(5) << timeCur << " sec\n";
+        swprintf(buf, size, L"t = %5d sec\n"            , timeCur   ); ofs << buf;
+        swprintf(buf, size, L"  bal  u  %12" PRId64 "\n", se.balU   ); ofs << buf;
+        swprintf(buf, size, L"  bal b_o %12" PRId64 "\n", se.balBO  ); ofs << buf;
+        swprintf(buf, size, L"  evl cnt %12" PRId64 "\n", se.evalCnt); ofs << buf;
+        swprintf(buf, size, L"  evl s_o %12" PRId64 "\n", se.evalSO ); ofs << buf;
+        swprintf(buf, size, L"  evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot,
             ((double) se.evalTot / balRef - 1.0) * 100.0, ((double) se.evalTot / balInit - 1.0) * 100.0); ofs << buf;
-        sprintf(buf, "   sum  b  %12" PRId64 "\n" , sum.buy   ); ofs << buf;
-        sprintf(buf, "   sum  s  %12" PRId64 "\n" , sum.sell  ); ofs << buf;
-        sprintf(buf, "   sum f+t %12" PRId64 "\n" , sum.feetax); ofs << buf;
+        // swprintf(buf, size, L"   sum  b  %12" PRId64 "\n" , sum.buy   ); ofs << buf;
+        // swprintf(buf, size, L"   sum  s  %12" PRId64 "\n" , sum.sell  ); ofs << buf;
         ofs << '\n';
         
-        ofs << "sum  [t_o]          bal    quant      evt\n";
+        ofs << "sum [t_o]          bal    quant      evt\n";
         for (std::size_t idx = idx::ps1; idx <= idx::pb1; idx++)
         {
-            sprintf(buf, "     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
-                (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1)); ofs << buf;
-            sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
-                sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt); ofs << buf;
+            // swprintf(buf, size, L"     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
+            //     (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1)); ofs << buf;
+            // swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+            //     sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt); ofs << buf;
             if (idx == idx::ps1)
             {
-                ofs << "     [s 0] ";
-                sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+                ofs << "    [s 0] ";
+                swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
                     sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt); ofs << buf;                        
-                ofs << "     [b 0] ";
-                sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+                ofs << "    [b 0] ";
+                swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
                     sum.tck_orig[idxTckOrigB0].bal, sum.tck_orig[idxTckOrigB0].q, sum.tck_orig[idxTckOrigB0].evt); ofs << buf;
             }
         }
+        swprintf(buf, size, L"    [f+t] %12" PRId64 "\n" , sum.feetax); ofs << buf;
         ofs << '\n';
 
-        static std::vector<float> tot_s, u_tot;
+        static std::vector<float> tot_s, u_tot, index;
+        static float index_init = std::nan("");
+
         if (timeCur == 0) {
             tot_s.clear();
             u_tot.clear();
+            index.clear();
         }
-        if (timeCur >= 0 && timeCur <= kTimeBounds::stop && timeCur % 300 == 0) { // every 5 min
+
+        // if (timeCur >= 0 && timeCur <= kTimeBounds::stop && timeCur % 300 == 0) { // every 5 min
+        if (timeCur >= kTimeBounds::init && timeCur < kTimeBounds::stop) { 
             tot_s.push_back((float) ((double) se.evalTot / balInit - 1.0) * 100.0);
             u_tot.push_back((float) ((double) se.balU / se.evalTot));
+
+#ifndef __linux__
+            if (std::isnan(index_init) == true)
+#else // g++'s std::isnan is defective under -ffast-math
+            if (isnanf(index_init) == true)
+#endif /* __linux__ */
+            {
+                index.push_back(0.0f);
+#ifndef __linux__
+                if (std::isnan(ELW<ItemPf>::kospi200) == false)
+#else // g++'s std::isnan is defective under -ffast-math
+                if (isnanf(ELW<ItemPf>::kospi200) == false)
+#endif /* __linux__ */
+                    index_init = ELW<ItemPf>::kospi200; // store the first non-nan value
+            } else
+                index.push_back((float) ((double) ELW<ItemPf>::kospi200 / index_init - 1.0) * 100.0);
         }
         
-        ofs << "rate_s (-2%, +2%) ------------------------------------------------------\n"
-            << BasicPlot(tot_s, 21, -2.0f, +2.0f) << '\n';
-        ofs << "u / tot (0, 1) ---------------------------------------------------------\n"
-            << BasicPlot(u_tot, 11, 0.0f, 1.0f) << '\n';
-        ofs << "------------------------------------------------------------------------\n";
+        // v should not contain nan's
+        auto FindRange = [](const std::vector<float> &v) {
+            int range = 1;
+            if (v.empty() == false) {
+                float maxval = std::max(std::fabs(*std::max_element(std::begin(v), std::end(v))),
+                                        std::fabs(*std::min_element(std::begin(v), std::end(v))));
+                if      (maxval > 2.0f) range = 5;
+                else if (maxval > 1.0f) range = 2;
+            }
+            return range;
+        };
+
+        int rng_r = FindRange(tot_s);
+        int rng_i = FindRange(index);
+
+        ofs << L"─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─\n"
+            << CandlePlot(u_tot, 11, 0.0f, 1.0f, 30, L"u / tot (0, 1)") << '\n';
+
+        std::wstring title_r = L"rate_s (-" + std::to_wstring(rng_r) + L"%, +" + std::to_wstring(rng_r) + L"%)"; 
+        ofs << L"─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
+            << CandlePlot(tot_s, 21, (float) -rng_r, (float) rng_r, 30, title_r) << '\n';
+
+        std::wstring title_i = L"index (-" + std::to_wstring(rng_i) + L"%, +" + std::to_wstring(rng_i) + L"%)";
+        ofs << L"─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
+            << CandlePlot(index, 21, (float) -rng_i, (float) rng_i, 30, title_i) << '\n';
+            
+        ofs << L"─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─\n";
         ofs << '\n';
         
         ofs << "cnt\n";
@@ -329,7 +377,7 @@ void Portfolio::WriteState()
             const auto &i = *code_pItem.second;
             if (i.cnt > 0)
             {
-                sprintf(buf, "      {%s} %8d (%6d)", code_pItem.first.c_str(), i.Ps0(), i.cnt); ofs << buf;
+                swprintf(buf, size, L"      {%s} %8d (%6d)", code_pItem.first.c_str(), i.Ps0(), i.cnt); ofs << buf;
                 if (nItemPerLine == ++iCnt)
                 {
                     ofs << '\n';
@@ -355,7 +403,7 @@ void Portfolio::WriteState()
                     {
                         int tck = i.P2Tck(o.p, o.type); // 0-based tick
                         if (tck == idx::tckN) tck = 98;     // display as 99 if not found
-                        sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1,
+                        swprintf(buf, size, L"[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1,
                             code_pItem.first.c_str(), o.p, o.q); ofs << buf;
                         if (nItemPerLine == ++iCnt)
                         {
@@ -370,7 +418,7 @@ void Portfolio::WriteState()
             if (iCnt != 0) ofs << '\n';
         };
         
-        sprintf(buf, "ord  [t_c] (%4d)\n", nOrdTot); ofs << buf;
+        swprintf(buf, size, L"ord  [t_c] (%4d)\n", nOrdTot); ofs << buf;
         ListOrder(OrdType::buy) ;
         ListOrder(OrdType::sell);
         ofs << std::endl;

@@ -118,6 +118,12 @@ bool Kiwoom::Launch()
         code_pItem.second->ord.swap(reverse);
     }
     
+    // Initiate realtime index event
+    std::cerr << dispPrefix << "Launch: Initiating index events" << std::endl;
+
+    if (TR::State::error == trIndex.Send(false))
+        return false;
+
     // Build FID list
     std::vector<long> vFID = { kFID::tr_t,
                                kFID::tr_p,
@@ -170,6 +176,8 @@ bool Kiwoom::Launch()
     AllotScrNo(SecType::ETF  , 9980, scrno_codes_ETF  ); // 9980, 9979, ...
 
     // SetRealReg
+    std::cerr << dispPrefix << "Launch: Initiating security events" << std::endl;
+
     long retsum = 0;
     for (const auto &scrno_codes : scrno_codes_KOSPI)
     {
@@ -385,6 +393,15 @@ void Kiwoom::ReceiveMarketNAV(CSTR &code)
         else
             std::cerr << dispPrefix << "ApplyRealtimeNAV: " << fmt_code(code) << " is not ETF" << std::endl;
     }
+}
+
+void Kiwoom::ReceiveIndex(CSTR &code)
+{
+    FLOAT index = std::abs(std::stof(K::GetCommRealData(code, kFID::tr_p)));
+    
+    std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
+    
+    ELW<ItemKw>::kospi200 = index;
 }
 
 void Kiwoom::ReceiveOrdEvent()
