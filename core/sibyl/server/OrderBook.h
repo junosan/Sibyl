@@ -12,6 +12,7 @@
 #include <cinttypes>
 #include <mutex>
 #include <iostream>
+#include <type_traits>
 
 #include "../Catalog.h"
 #include "../util/DispPrefix.h"
@@ -22,6 +23,8 @@
 
 namespace sibyl
 {
+
+class ItemSim;
 
 template <class TOrder, class TItem>
 class OrderBook : public Catalog<TItem> //  /**/ mutex'd  
@@ -47,6 +50,25 @@ private:
 
     std::vector<NamedReq<TOrder, TItem>> nreq;
     STR msg;
+
+    // Note: assume that the lock is already held before calling GetDep
+    // GetDep returns 0 in general (i.e., no depletion)
+    template <class T = TItem>
+    typename std::enable_if<!std::is_same<T, ItemSim>::value, INT>::type
+    GetDep(const T& i, OrdType ordType) {
+        return 0;
+    }
+
+    // specialization for Simulation (in particular, Simulation_dep)
+    template <class T = TItem>
+    typename std::enable_if< std::is_same<T, ItemSim>::value, INT>::type
+    GetDep(const T& i, OrdType ordType) {
+        switch (ordType) {
+            case OrdType::sell: return i.depS0;
+            case OrdType::buy : return i.depB0;
+            default           : return 0;
+        }
+    }
 };
 
 template <class TOrder, class TItem>
@@ -106,8 +128,8 @@ CSTR& OrderBook<TOrder, TItem>::BuildMsgOut(bool addMyOrd)
                          (idx >= idx::pb1 && o.type == OrdType::buy ) )
                         iT->q += o.q;
                 }
-                if (iT->p == ps0) iT->q = std::max(iT->q - i.depS0, 0);
-                if (iT->p == pb0) iT->q = std::max(iT->q - i.depB0, 0);
+                if (iT->p == ps0) iT->q = std::max(iT->q - GetDep(i, OrdType::sell), 0);
+                if (iT->p == pb0) iT->q = std::max(iT->q - GetDep(i, OrdType::buy ), 0);
             }
         }
         

@@ -31,6 +31,10 @@ public:
     virtual void SetDelay   (int d)                  = 0;
     TxtDataTr&   TrData     () { return dataTr; }   // use this to InitSum() or const access vecTr
 
+    // "depletion"; only used by Simulation_dep
+    INT depS0, depB0; 
+    ItemSim() : depS0(0), depB0(0) {}
+
 protected:
     TxtDataTr dataTr;
 };
