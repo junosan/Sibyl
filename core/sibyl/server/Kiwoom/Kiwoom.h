@@ -24,7 +24,7 @@ class Kiwoom : public Broker<OrderKw, ItemKw> // /**/ locks orderbook.items_mute
 public:
     // called by Windows msg loop (initialization)
     void SetStateFile(CSTR &filename);
-    void ReadConfigFiles(CSTR &config, CSTR &codelist);
+    void ReadConfigFiles(CSTR &config);//, CSTR &codelist);
     bool Launch(); // retruns true if successful (then NetServer::StartMainLoop)
 
     // called by NetServer thread

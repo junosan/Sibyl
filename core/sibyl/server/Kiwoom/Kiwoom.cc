@@ -26,20 +26,22 @@ void Kiwoom::SetStateFile(CSTR &filename)
     stateFileName = filename;
 }
 
-void Kiwoom::ReadConfigFiles(CSTR &config, CSTR &codelist)
+void Kiwoom::ReadConfigFiles(CSTR &config)//, CSTR &codelist)
 {
     orderbook.items.clear();
     
-    Config cfg(config), list(codelist);
+    Config cfg(config);//, list(codelist);
     
-    // this part can be revised using polymorphic lambdas (C++14)
+    // this part can be revised using polymorphic lambdas and make_unique (C++14)
     int val;
     
     auto &ssUSE_KOSPI = cfg.Get("USE_KOSPI");
     ssUSE_KOSPI >> val;
     if (ssUSE_KOSPI.fail() == false && val != 0) // USE_KOSPI == true
     {
-        auto &ss = list.Get("KRX_CODE");
+        // auto &ss = list.Get("KRX_CODE"); // Gets code list from KiwoomScribe's config
+        auto &ss = cfg.Get("KOSPI_CODE"); // Gets code list from KiwoomAgent's config
+
         // int n = 0; // for debugging
         for (STR code; std::getline(ss, code, ';');)
         {
@@ -54,7 +56,9 @@ void Kiwoom::ReadConfigFiles(CSTR &config, CSTR &codelist)
     ssUSE_ETF >> val;
     if (ssUSE_ETF.fail() == false && val != 0) // USE_ETF == true
     {
-        auto &ss = list.Get("ETF_CODE");
+        // auto &ss = list.Get("ETF_CODE"); // Gets code list from KiwoomScribe's config
+        auto &ss = cfg.Get("ETF_CODE"); // Gets code list from KiwoomAgent's config
+
         for (STR code; std::getline(ss, code, ';');)
         {
             auto it_success = orderbook.items.insert(std::make_pair(code, std::unique_ptr<ItemKw>(new ETF<ItemKw>)));
