@@ -11,8 +11,10 @@
 #include <cstring>
 #include <iomanip>
 #include <cmath>
+#include <sstream>
 
 #include "../util/CandlePlot.h"
+#include "../ostream_format.h"
 
 namespace sibyl
 {
@@ -275,38 +277,79 @@ void Portfolio::WriteState()
     if (ofs.is_open() == true)
     {
         SEval se = Evaluate();
-        
+
+        constexpr std::size_t colHeight = 10;
+        auto topCnts = GetTopCnts(2 * colHeight); // returns iterators for up to top 20 items sorted by cnt * ps0
+        auto GetNthCnt = [&](std::size_t n) {
+            if (n >= topCnts.size())
+                return STR();
+            else {
+                std::stringstream ss;
+                ss << fmt_code(topCnts[n]->first) << ' ' << std::setw(2)
+                   << (int) (std::round((double) 100 * topCnts[n]->second->cnt * topCnts[n]->second->Ps0() / se.evalTot))
+                   << "%";
+                return ss.str();
+            } 
+        };
+        auto FillLeft = [](std::wofstream &ofs, const wchar_t *buf) {
+            constexpr std::size_t leftColWidth = 50;
+            ofs << buf << std::setw(leftColWidth - std::wcslen(buf)) << "";
+        };
+        auto FillRight = [&](std::wofstream &ofs, std::size_t n) {
+            ofs << GetNthCnt(n).c_str() << "    " << GetNthCnt(n + colHeight).c_str() << '\n';
+        };
+
         int timeCur = time; // std::atomic_int
-        // ofs << "t = " << std::setw(5) << timeCur << " sec\n";
-        swprintf(buf, size, L"t = %5d sec\n"            , timeCur   ); ofs << buf;
-        swprintf(buf, size, L"  bal  u  %12" PRId64 "\n", se.balU   ); ofs << buf;
-        swprintf(buf, size, L"  bal b_o %12" PRId64 "\n", se.balBO  ); ofs << buf;
-        swprintf(buf, size, L"  evl cnt %12" PRId64 "\n", se.evalCnt); ofs << buf;
-        swprintf(buf, size, L"  evl s_o %12" PRId64 "\n", se.evalSO ); ofs << buf;
-        swprintf(buf, size, L"  evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)\n", se.evalTot,
-            ((double) se.evalTot / balRef - 1.0) * 100.0, ((double) se.evalTot / balInit - 1.0) * 100.0); ofs << buf;
+        
+        swprintf(buf, size, L"t = %5d sec", timeCur);
+        FillLeft(ofs, buf); ofs << (topCnts.size() > 0 ? "top\n" : "\n");
+
+        swprintf(buf, size, L"  bal  u  %12" PRId64, se.balU   );
+        FillLeft(ofs, buf); FillRight(ofs, 0);
+
+        swprintf(buf, size, L"  bal b_o %12" PRId64, se.balBO  );
+        FillLeft(ofs, buf); FillRight(ofs, 1);
+
+        swprintf(buf, size, L"  evl cnt %12" PRId64, se.evalCnt);
+        FillLeft(ofs, buf); FillRight(ofs, 2);
+
+        swprintf(buf, size, L"  evl s_o %12" PRId64, se.evalSO );
+        FillLeft(ofs, buf); FillRight(ofs, 3);
+
+        swprintf(buf, size, L"  evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)", se.evalTot,
+            ((double) se.evalTot / balRef - 1.0) * 100.0, ((double) se.evalTot / balInit - 1.0) * 100.0);
+        FillLeft(ofs, buf); FillRight(ofs, 4);
+
         // swprintf(buf, size, L"   sum  b  %12" PRId64 "\n" , sum.buy   ); ofs << buf;
         // swprintf(buf, size, L"   sum  s  %12" PRId64 "\n" , sum.sell  ); ofs << buf;
-        ofs << '\n';
+        buf[0] = '\0';
+        FillLeft(ofs, buf); FillRight(ofs, 5);
         
-        ofs << "sum [t_o]          bal    quant      evt\n";
-        for (std::size_t idx = idx::ps1; idx <= idx::pb1; idx++)
-        {
-            // swprintf(buf, size, L"     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
-            //     (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1)); ofs << buf;
-            // swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
-            //     sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt); ofs << buf;
-            if (idx == idx::ps1)
-            {
-                ofs << "    [s 0] ";
-                swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
-                    sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt); ofs << buf;                        
-                ofs << "    [b 0] ";
-                swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
-                    sum.tck_orig[idxTckOrigB0].bal, sum.tck_orig[idxTckOrigB0].q, sum.tck_orig[idxTckOrigB0].evt); ofs << buf;
-            }
-        }
-        swprintf(buf, size, L"    [f+t] %12" PRId64 "\n" , sum.feetax); ofs << buf;
+        swprintf(buf, size, L"sum [t_o]          bal    quant      evt");
+        FillLeft(ofs, buf); FillRight(ofs, 6);
+
+        // for (std::size_t idx = idx::ps1; idx <= idx::pb1; idx++)
+        // {
+        //     swprintf(buf, size, L"     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
+        //         (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1)); ofs << buf;
+        //     swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+        //         sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt); ofs << buf;
+        //     if (idx == idx::ps1)
+        //     {
+        //         taken out below
+        //     }
+        // }
+        swprintf(buf, size, L"    [s 0] %12" PRId64 " %8" PRId64 " %8" PRId64,
+            sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt);
+        FillLeft(ofs, buf); FillRight(ofs, 7);
+
+        swprintf(buf, size, L"    [b 0] %12" PRId64 " %8" PRId64 " %8" PRId64,
+            sum.tck_orig[idxTckOrigB0].bal, sum.tck_orig[idxTckOrigB0].q, sum.tck_orig[idxTckOrigB0].evt);
+        FillLeft(ofs, buf); FillRight(ofs, 8);
+
+        swprintf(buf, size, L"    [f+t] %12" PRId64, sum.feetax);
+        FillLeft(ofs, buf); FillRight(ofs, 9);
+
         ofs << '\n';
 
         static std::vector<float> tot_s, u_tot, index;
@@ -327,14 +370,14 @@ void Portfolio::WriteState()
             if (std::isnan(index_init) == true)
 #else // g++'s std::isnan is defective under -ffast-math
             if (isnanf(index_init) == true)
-#endif /* __linux__ */
+#endif /* !__linux__ */
             {
                 index.push_back(0.0f);
 #ifndef __linux__
                 if (std::isnan(ELW<ItemPf>::kospi200) == false)
 #else // g++'s std::isnan is defective under -ffast-math
                 if (isnanf(ELW<ItemPf>::kospi200) == false)
-#endif /* __linux__ */
+#endif /* !__linux__ */
                     index_init = ELW<ItemPf>::kospi200; // store the first non-nan value
             } else
                 index.push_back((float) ((double) ELW<ItemPf>::kospi200 / index_init - 1.0) * 100.0);

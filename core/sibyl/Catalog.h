@@ -10,6 +10,8 @@
 #include <memory>
 #include <map>
 #include <atomic>
+#include <vector>
+#include <algorithm>
 
 #include "Security.h"
 #include "time_common.h"
@@ -37,6 +39,9 @@ public:
     
     struct SEval { INT64 balU, balBO, evalCnt, evalSO, evalTot; };
     SEval Evaluate() const;
+
+    // returns (at most) n items sorted by count * price 
+    std::vector<typename std::map<STR, std::unique_ptr<TItem>>::const_iterator> GetTopCnts(std::size_t n);
     
     Catalog() : time(kTimeBounds::null), bal(0), sum{0, 0, 0, {}},
                 balRef(0), balInit(0), isFirstTick(true) {}
@@ -106,6 +111,24 @@ typename Catalog<TItem>::SEval Catalog<TItem>::Evaluate() const {
         }
     }
     return se;
+}
+
+template <class TItem>
+std::vector<typename std::map<STR, std::unique_ptr<TItem>>::const_iterator> Catalog<TItem>::GetTopCnts(std::size_t n)
+{
+    verify(n >= 0);
+
+    using it_t = typename std::map<STR, std::unique_ptr<TItem>>::const_iterator; 
+    std::vector<it_t> vec;
+    for (auto it = std::begin(items), end = std::end(items); it != end; ++it)
+        if (it->second->cnt > 0) vec.push_back(it);
+    
+    n = std::min(n, vec.size());
+    std::partial_sort(std::begin(vec), std::begin(vec) + n, std::end(vec), [](it_t a, it_t b){
+        return (INT64) a->second->cnt * a->second->Ps0() > (INT64) b->second->cnt * b->second->Ps0(); });
+    
+    vec.resize(n);
+    return vec; // relies on RVO
 }
 
 }
