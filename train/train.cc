@@ -30,12 +30,12 @@ int main(int argc, char *argv[])
 
     if     (std::string(argv[1]) == "-t" || std::string(argv[1]) == "-tc")
     {
-        tradeRnn.Configure(engine, TradeRnn::RunType::kTrain, argv[2], argv[3], std::string(argv[1]) == "-tc");
+        tradeRnn.Configure(engine, TradeRnn::RunType::train, argv[2], argv[3], std::string(argv[1]) == "-tc");
         tradeRnn.Train();
     }
     else if(std::string(argv[1]) == "-d")
     {
-        tradeRnn.Configure(engine, TradeRnn::RunType::kDump , argv[2], argv[3]);
+        tradeRnn.Configure(engine, TradeRnn::RunType::dump , argv[2], argv[3]);
         tradeRnn.Dump();
     }
 

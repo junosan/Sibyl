@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
         if (workspace[0] != '/') workspace = path + "/" + workspace;
         vecRnn.push_back(std::unique_ptr<TradeRnn>(new TradeRnn()));
         vecRnn.back()->Reshaper().ReadConfig(argv[2]);
-        vecRnn.back()->Configure(engine, TradeRnn::RunType::kNetwork, "", workspace);
+        vecRnn.back()->Configure(engine, TradeRnn::RunType::network, "", workspace);
     }
     std::size_t nRnn = vecRnn.size();
     verify(nRnn > 0);

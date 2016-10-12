@@ -20,30 +20,29 @@
 namespace fractal
 {
 
-class TradeRnn : public Rnn
+class TradeRnn
 {
 public:
-    enum class RunType { kNull, kTrain, kDump, kNetwork };
+    enum class RunType { null, train, dump, network };
     
     void  Configure(Engine &engine, RunType runType_, const std::string &dataPath_, const std::string &workspacePath_, bool cont = false);
     void  InitUnrollStream(unsigned long nUnroll_, unsigned long nStream_);
     
-    /*  kTrain  */
     void Train();
-    
-    /*  kDump  */
     void Dump();
     
-    /* kNetwork */
+    /* network */
     TradeDataSet::Reshaper&
            Reshaper    () { return networkData.reshaper; }
     FLOAT* GetInputVec () { verify(nStream > 0); return matInput .GetHostData(); }
     void   RunOneFrame ();
     FLOAT* GetOutputVec() { verify(nStream > 0); return matOutput.GetHostData(); }
     
-    TradeRnn() : runType(RunType::kNull), nStream(0) {}
+    TradeRnn() : runType(RunType::null), nStream(0) {}
     ~TradeRnn();
-protected:
+private:
+    Rnn rnn;
+
     RunType runType;
     int frameIdx;
 

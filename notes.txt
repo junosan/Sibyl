@@ -1,15 +1,66 @@
 [ Bug fix ]
 
-Cancel/modify orders should be made on ‘confirm’ instead of ‘received’ with actual quant deduced from ordq/ordq_i
+(tentative) Cancel/modify orders should be made on ‘confirm’ instead of ‘received’ with actual quant deduced from ordq/ordq_i
 - Waiting for the bug to be replicated to gain event information
-
-[ Minor corrections ]
-
 
 [ Style change for new code ]
 
 postincrement->preincrement in for loops
+
 for (auto it = std::begin, end = std::end; it != end; ++it) style loops (unless end is being modified inside loop)
+
+std::tie for unpacking return values of std::pair or std::tuple
+std::variant<state1, state2, etc> to designate states and its specific members as separate struct types
+
+[ Boost (features not in C++11) - consider these for new code ]
+See: http://theboostcpplibraries.com
+
+String Handling
+    string algorithms (missing features in std, e.g., join/split, replace, etc.)
+    tokenizer
+    spirit (parsing)
+Containers
+    multi_index (containers with one or more indices with different sorting/access)
+    bimap (bidirectional version of std::map)
+    circular_buffer
+    multi_array (C++ style multi-dimensional array)
+Data Structures
+    optional (avoid -1, nullptr, etc. as return values and use this)
+    any (can change type on the fly; type not specified in advance)
+    variant (C++ style union; type specified in advance; run-time exception)
+    property_tree (tree of key/value pairs)
+Algorithms
+    range
+    graph (graphs and algorithms for them; sparse and dense edge versions)
+Communication
+    asio (asynchronous i/o, e.g., networking)
+    interprocess
+Streams and Files
+    iostreams (e.g., zlib, filtered io)
+    filesystem
+Time
+    date/time, chrono, timer
+Parallel Programming
+    thread (missing features in std, e.g., timed join, interrupt)
+Generic Programming
+    fusion (heterogeneous containers)
+    hana (metaprogramming; recommended over MPL & fusion)
+Language Extensions
+    coroutine (define functions that run interleaved in tandem)
+Application Libraries
+    log (highly extensible logging)
+    program_options (managed command-line options)
+    serialization (convert object to byte stream)
+Design Patterns
+    signals2 (signals & slots; thread safe)
+Others
+    test (extensive testing suite)
+    python
+    crc
+    units (dimensional analysis for physics)
+
+containers (small_vector, static_vector, flat_map, etc.)
+
 
 [ Simulation ]
 
