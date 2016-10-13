@@ -43,7 +43,7 @@ void Reshaper_p0::State2VecIn(FLOAT *vec, const ItemState &state)
     auto iItems = items.find(state.code);
     if (iItems == std::end(items))
     {
-        auto it_bool = items.insert(std::make_pair(state.code, ItemMem_p0()));
+        auto it_bool = items.insert(std::make_pair(state.code, ItemMem()));
         verify(it_bool.second == true);
         iItems = it_bool.first;
         iItems->second.initPr = state.tbr[idx::ps1].p;

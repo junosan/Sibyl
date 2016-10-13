@@ -7,15 +7,14 @@
 #ifndef TRADERNN_H_
 #define TRADERNN_H_
 
+#include <fractal/fractal.h>
+#include "value/ValueDataSet.h"
+
 #include <ctime>
 #include <cstdio>
 #include <string>
 #include <sstream>
 #include <iostream>
-
-#include <fractal/fractal.h>
-
-#include "TradeDataSet.h"
 
 namespace fractal
 {
@@ -32,8 +31,8 @@ public:
     void Dump();
     
     /* network */
-    TradeDataSet::Reshaper&
-           Reshaper    () { return networkData.reshaper; }
+    sibyl::Reshaper&
+           Reshaper    () { return networkData.Reshaper(); }
     FLOAT* GetInputVec () { verify(nStream > 0); return matInput .GetHostData(); }
     void   RunOneFrame ();
     FLOAT* GetOutputVec() { verify(nStream > 0); return matOutput.GetHostData(); }
@@ -48,7 +47,7 @@ private:
 
     std::string dataPath;
     std::string workspacePath;
-    TradeDataSet trainData, devData, networkData;
+    ValueDataSet trainData, devData, networkData;
     unsigned long inputChannel, outputChannel, inputDim, outputDim;
     DataStream trainDataStream, devDataStream;
     

@@ -11,18 +11,12 @@
 
 #include <array>
 #include <vector>
+#include <map>
 
 namespace sibyl
 {
 
-class ItemMem_p0 : public ItemMem
-{
-public:
-    std::array<PQ, idx::szTb> lastTb;
-    ItemMem_p0() : ItemMem(), lastTb{} {}
-};
-
-class Reshaper_p0 : public Reshaper<ItemMem_p0>
+class Reshaper_p0 : public Reshaper
 {
 public:
     Reshaper_p0(unsigned long maxGTck_, // this will be ignored and overwritten
@@ -50,6 +44,13 @@ public:
 
 private:
     double b_th, s_th;
+
+    struct ItemMem {
+        FLOAT initPr;
+        std::array<PQ, idx::szTb> lastTb;
+        ItemMem() : initPr(0.0f), lastTb{} {}
+    };
+    std::map<STR, ItemMem> items;
 };
 
 }

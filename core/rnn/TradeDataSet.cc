@@ -15,16 +15,12 @@
 
 using namespace fractal;
 
-const unsigned long TradeDataSet::CHANNEL_INPUT = 0;
-const unsigned long TradeDataSet::CHANNEL_TARGET = 1;
-const unsigned long TradeDataSet::CHANNEL_SIG_NEWSEQ = 2;
-
-TradeDataSet::TradeDataSet() : reshaper(1, this, &fileList, &ReadRawFile) // reshaper(maxGTck, &, &, &)
+TradeDataSet::TradeDataSet() : nSeq(0),
+                               pReshaper(nullptr),
+                               inputDim(0),
+                               targetDim(0)
 {
-    nSeq = 0;
 
-    inputDim  = reshaper.GetInputDim();
-    targetDim = reshaper.GetTargetDim();
 }
 
 
@@ -201,39 +197,6 @@ const unsigned long TradeDataSet::GetNumChannel() const
     return 3;
 }
 
-
-const ChannelInfo TradeDataSet::GetChannelInfo(const unsigned long channelIdx) const
-{
-    ChannelInfo channelInfo;
-
-    switch(channelIdx)
-    {
-        case CHANNEL_INPUT:
-            channelInfo.dataType = ChannelInfo::DATATYPE_VECTOR;
-            channelInfo.frameSize = inputDim;
-            channelInfo.frameDim = inputDim;
-            break;
-
-        case CHANNEL_TARGET:
-            channelInfo.dataType = ChannelInfo::DATATYPE_VECTOR;
-            channelInfo.frameSize = targetDim;
-            channelInfo.frameDim = targetDim;
-            break;
-
-        case CHANNEL_SIG_NEWSEQ:
-            channelInfo.dataType = ChannelInfo::DATATYPE_VECTOR;
-            channelInfo.frameSize = 1;
-            channelInfo.frameDim = 1;
-            break;
-
-        default:
-            verify(false);
-    }
-
-    return channelInfo;
-}
-
-
 const unsigned long TradeDataSet::GetNumSeq() const
 {
     return nSeq;
@@ -245,32 +208,6 @@ const unsigned long TradeDataSet::GetNumFrame(const unsigned long seqIdx) const
     verify(seqIdx < nSeq);
 
     return nFrame[seqIdx];
-}
-
-
-void TradeDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
-        const unsigned long frameIdx, void *const frame)
-{
-    verify(seqIdx < nSeq);
-    verify(frameIdx < nFrame[seqIdx]);
-
-    switch(channelIdx)
-    {
-        case CHANNEL_INPUT:
-            memcpy(frame, input[seqIdx].data() + inputDim * frameIdx, sizeof(FLOAT) * inputDim);
-            break;
-
-        case CHANNEL_TARGET:
-            memcpy(frame, target[seqIdx].data() + targetDim * frameIdx, sizeof(FLOAT) * targetDim);
-            break;
-
-        case CHANNEL_SIG_NEWSEQ:
-            reinterpret_cast<FLOAT *>(frame)[0] = (FLOAT) (frameIdx == 0);
-            break;
-
-        default:
-            verify(false);
-    }
 }
 
 /* static member function */
@@ -495,7 +432,7 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
         
         /* Write on vec based on state */
         long idxInput = t * pThis->inputDim;
-        pThis->reshaper.State2VecIn(vec.data() + idxInput, state);
+        pThis->pReshaper->State2VecIn(vec.data() + idxInput, state);
     }
 
     for(long i = 0; i < n; i++)
@@ -567,10 +504,10 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
     fclose(f);
 
     sibyl::Reward reward;
-    long maxGTck = (long) reshaper.GetMaxGTck();
+    long maxGTck = (long) pReshaper->GetMaxGTck();
     
     /* (if present) rewind any time-dependent variables */
-    reshaper.Reward2VecOut(nullptr, reward, code);
+    pReshaper->Reward2VecOut(nullptr, reward, code);
 
     for(long t = 0; t < T; t++)
     {
@@ -598,7 +535,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
         }
         
         /* Write on vec based on reward */
-        reshaper.Reward2VecOut(vec.data() + t * targetDim, reward, code);
+        pReshaper->Reward2VecOut(vec.data() + t * targetDim, reward, code);
     }
 
     for(long i = 0; i < n; i++)

@@ -59,9 +59,9 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
             {
                 verify(workspacePath != "");
                 verify(system(std::string("mkdir -p " + workspacePath).c_str()) == 0);
-                trainData.reshaper.CalcWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
+                trainData.Reshaper().CalcWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
             }
-            verify(true == trainData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
+            verify(true == trainData.Reshaper().ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
         }
         
         trainData.ReadData();
@@ -75,7 +75,7 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
         // must appear before ReadData()
         if (whiten == true)
         {
-            verify(true == devData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
+            verify(true == devData.Reshaper().ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
         }
 
         devData.ReadData();
@@ -187,7 +187,7 @@ void TradeRnn::Configure(Engine &engine, RunType runType_, const std::string &da
     
     if (runType == RunType::network)
     {
-        networkData.reshaper.ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
+        networkData.Reshaper().ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix");
     }
 }
 

@@ -4,24 +4,23 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#ifndef __TRADEDATASET_H__
-#define __TRADEDATASET_H__
+#ifndef TRADEDATASET_H_
+#define TRADEDATASET_H_
+
+#include <fractal/fractal.h>
+#include "Reshaper.h"
 
 #include <vector>
 #include <string>
 #include <list>
 #include <fstream>
 
-#include <fractal/fractal.h>
-
-#include "Reshaper_0t.h"
-
 class TradeDataSet : public fractal::DataSet
 {
 public:
-    static const unsigned long CHANNEL_INPUT;
-    static const unsigned long CHANNEL_TARGET;
-    static const unsigned long CHANNEL_SIG_NEWSEQ;
+    static constexpr unsigned long CHANNEL_INPUT      = 0;
+    static constexpr unsigned long CHANNEL_TARGET     = 1;
+    static constexpr unsigned long CHANNEL_SIG_NEWSEQ = 2;
 
     TradeDataSet();
 
@@ -34,18 +33,16 @@ public:
     const std::vector<fractal::FLOAT> &GetStdev();
 
     const unsigned long GetNumChannel() const;
-    const fractal::ChannelInfo GetChannelInfo(const unsigned long channelIdx) const;
+    virtual const fractal::ChannelInfo GetChannelInfo(const unsigned long channelIdx) const = 0;
     const unsigned long GetNumSeq() const;
     const unsigned long GetNumFrame(const unsigned long seqIdx) const;
 
     const std::string &GetFilename(const unsigned long seqIdx) const { verify(seqIdx < nSeq); return fileList[seqIdx]; }
 
-    void GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
-            const unsigned long frameIdx, void *const frame);
+    virtual void GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
+            const unsigned long frameIdx, void *const frame) = 0;
     
-    /* Reshaper */
-    typedef sibyl::Reshaper_0t Reshaper; // TradeRnn also refers TradeDataSet::Reshaper
-    Reshaper reshaper;
+    sibyl::Reshaper& Reshaper() { verify(pReshaper != nullptr); return *pReshaper; }
     
 protected:
     static const unsigned long ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename, TradeDataSet *pThis);
@@ -60,9 +57,12 @@ protected:
     std::vector<fractal::FLOAT> mean, stdev;
 
     unsigned long nSeq;
+
+    /* These three must be initialized in the derived class' constructor */
+    sibyl::Reshaper* pReshaper;
     unsigned long inputDim;
     unsigned long targetDim;
 };
 
-#endif /* __TRADEDATASET_H__ */
+#endif /* TRADEDATASET_H_ */
 
