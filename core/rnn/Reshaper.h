@@ -58,9 +58,11 @@ protected:
     constexpr static const double kR2V = 100.0;
     virtual FLOAT ReshapeG_R2V(FLOAT g) { return (FLOAT) (g * kR2V); }
     virtual FLOAT ReshapeG_V2R(FLOAT g) { return (FLOAT) (g / kR2V); }
-    
+
     unsigned long maxGTck, inputDim, targetDim;
+    void WhitenVector(FLOAT *vec); // to be used by State2VecIn
     
+private:
     /* TradeDataSet */
     TradeDataSet *pTradeDataSet;
     std::vector<std::string> *pFileList;
@@ -73,7 +75,7 @@ protected:
     bool useWhitening;
     EMatrix matMean, matWhitening;
     bool IsWhiteningMatrixValid();
-    void WhitenVector(FLOAT *vec); // to be used by State2VecIn
+
 };
 
 }

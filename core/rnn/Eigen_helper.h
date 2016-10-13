@@ -37,6 +37,7 @@ bool read_binary(const std::string &filename, Matrix &matrix)
 }
 
 template<class Matrix> // to circumvent problems with allFinite or hasNaN functions
+                       // under floating point optimization compiler options
 bool is_all_finite(const Matrix &matrix)
 {
     bool allFinite = true;

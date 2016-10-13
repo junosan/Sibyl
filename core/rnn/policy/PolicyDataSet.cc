@@ -4,18 +4,18 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#include "ValueDataSet.h"
+#include "PolicyDataSet.h"
 
 using namespace fractal;
 
-ValueDataSet::ValueDataSet() : reshaper(0, this, &fileList, &ReadRawFile) // reshaper(maxGTck, &, &, &)
+PolicyDataSet::PolicyDataSet() : reshaper(0, this, &fileList, &ReadRawFile) // reshaper(maxGTck, &, &, &)
 {
     pReshaper = &reshaper;
     inputDim  = reshaper.GetInputDim();
     targetDim = reshaper.GetTargetDim();
 }
 
-const ChannelInfo ValueDataSet::GetChannelInfo(const unsigned long channelIdx) const
+const ChannelInfo PolicyDataSet::GetChannelInfo(const unsigned long channelIdx) const
 {
     ChannelInfo channelInfo;
 
@@ -28,8 +28,8 @@ const ChannelInfo ValueDataSet::GetChannelInfo(const unsigned long channelIdx) c
             break;
 
         case CHANNEL_TARGET:
-            channelInfo.dataType = ChannelInfo::DATATYPE_VECTOR;
-            channelInfo.frameSize = targetDim;
+            channelInfo.dataType = ChannelInfo::DATATYPE_INDEX;
+            channelInfo.frameSize = 1;
             channelInfo.frameDim = targetDim;
             break;
 
@@ -46,11 +46,14 @@ const ChannelInfo ValueDataSet::GetChannelInfo(const unsigned long channelIdx) c
     return channelInfo;
 }
 
-void ValueDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
+void PolicyDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
         const unsigned long frameIdx, void *const frame)
 {
     verify(seqIdx < nSeq);
     verify(frameIdx < nFrame[seqIdx]);
+
+    typedef sibyl::Reshaper_p0::vecout_idx idx;
+    auto vecout = target[seqIdx].data() + targetDim * frameIdx;
 
     switch(channelIdx)
     {
@@ -59,7 +62,8 @@ void ValueDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long 
             break;
 
         case CHANNEL_TARGET:
-            memcpy(frame, target[seqIdx].data() + targetDim * frameIdx, sizeof(FLOAT) * targetDim);
+            *reinterpret_cast<INT*>(frame) = (INT) ( idx::sell * (vecout[idx::sell] > 0.0f) +
+                                                     idx::buy  * (vecout[idx::buy ] > 0.0f) );
             break;
 
         case CHANNEL_SIG_NEWSEQ:
