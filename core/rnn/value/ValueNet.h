@@ -4,16 +4,16 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#ifndef POLICYNET_H_
-#define POLICYNET_H_
+#ifndef VALUENET_H_
+#define VALUENET_H_
 
 #include "../TradeNet.h"
-#include "PolicyDataSet.h"
+#include "ValueDataSet.h"
 
 namespace fractal
 {
 
-class PolicyNet : public TradeNet<PolicyDataSet>
+class ValueNet : public TradeNet<ValueDataSet>
 {
 public:
     void Train() override;
@@ -23,4 +23,4 @@ private:
 
 }
 
-#endif /* POLICYNET_H_ */
+#endif /* VALUENET_H_ */

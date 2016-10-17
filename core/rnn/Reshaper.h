@@ -9,7 +9,7 @@
 
 #include <sibyl/client/ItemState.h>
 #include <sibyl/client/Reward.h>
-#include "Eigen_helper.h"
+#include <sibyl/util/Eigen_helper.h>
 
 #include <Eigen/Eigenvalues>
 

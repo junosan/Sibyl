@@ -505,7 +505,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
 
     sibyl::Reward reward;
     long maxGTck = (long) pReshaper->GetMaxGTck();
-    
+  
     /* (if present) rewind any time-dependent variables */
     pReshaper->Reward2VecOut(nullptr, reward, code);
 
@@ -533,7 +533,7 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
             data32.uint32  = le32toh(buf32[t * refDim + 32 + j].uint32);
             reward.G[j].cb = (sibyl::FLOAT) data32.float32;
         }
-        
+
         /* Write on vec based on reward */
         pReshaper->Reward2VecOut(vec.data() + t * targetDim, reward, code);
     }

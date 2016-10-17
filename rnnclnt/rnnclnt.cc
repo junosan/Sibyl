@@ -12,10 +12,11 @@
 
 #include <fractal/fractal.h>
 
-#include <rnn/TradeRnn.h>
-
 #include <sibyl/client/Trader.h>
 #include <sibyl/client/NetClient.h>
+
+#include <rnn/policy/PolicyNet.h>
+typedef fractal::PolicyNet Net;
 
 int main(int argc, char *argv[])
 {
@@ -52,7 +53,7 @@ int main(int argc, char *argv[])
     
     Engine engine;
     
-    std::vector<std::unique_ptr<TradeRnn>> vecRnn;
+    std::vector<std::unique_ptr<Net>> vecNet;
     std::ifstream pathList(argv[3]);
     if (pathList.is_open() == false)
     {
@@ -63,15 +64,15 @@ int main(int argc, char *argv[])
     {
         if (workspace.empty() == true) continue;
         if (workspace[0] != '/') workspace = path + "/" + workspace;
-        vecRnn.push_back(std::unique_ptr<TradeRnn>(new TradeRnn()));
-        vecRnn.back()->Reshaper().ReadConfig(argv[2]);
-        vecRnn.back()->Configure(engine, TradeRnn::RunType::network, "", workspace);
+        vecNet.push_back(std::unique_ptr<Net>(new Net()));
+        vecNet.back()->Reshaper().ReadConfig(argv[2]);
+        vecNet.back()->Configure(engine, Net::RunType::network, "", workspace);
     }
-    std::size_t nRnn = vecRnn.size();
-    verify(nRnn > 0);
+    std::size_t nNet = vecNet.size();
+    verify(nNet > 0);
     
-    unsigned long inputDim  = vecRnn[0]->Reshaper().GetInputDim ();
-    unsigned long outputDim = vecRnn[0]->Reshaper().GetTargetDim();
+    unsigned long inputDim  = vecNet[0]->Reshaper().GetInputDim ();
+    unsigned long outputDim = vecNet[0]->Reshaper().GetTargetDim();
     
     unsigned long nUnroll = 2;
     unsigned long nStream = 0; // will be set below
@@ -96,8 +97,8 @@ int main(int argc, char *argv[])
         if(is_init == true)
         {
             nStream = trader.portfolio.items.size();
-            for (auto &pRnn : vecRnn)
-                pRnn->InitUnrollStream(nUnroll, nStream);
+            for (auto &pNet : vecNet)
+                pNet->InitUnrollStream(nUnroll, nStream);
             is_init = false;
         }
         
@@ -109,32 +110,32 @@ int main(int argc, char *argv[])
             const auto &vecState = trader.portfolio.GetStateVec();
 
             /* Generate the input matrix */
-            for (auto &pRnn : vecRnn)
+            for (auto &pNet : vecNet)
             {
-                FLOAT *vecIn = pRnn->GetInputVec();
+                FLOAT *vecIn = pNet->GetInputVec();
                 for (std::size_t codeIdx = 0; codeIdx < nStream; codeIdx++)
-                    pRnn->Reshaper().State2VecIn(vecIn + codeIdx * inputDim, vecState[codeIdx]);
+                    pNet->Reshaper().State2VecIn(vecIn + codeIdx * inputDim, vecState[codeIdx]);
             }
 
             /* Run RNN */
-            for (auto &pRnn : vecRnn)
-                pRnn->RunOneFrame();
+            for (auto &pNet : vecNet)
+                pNet->RunOneFrame();
 
             /* Allocate 0-filled rewards vector */
             auto &vecReward = trader.model.GetRewardVec(); 
 
             /* Get gain values from the output matrix */
-            for (auto &pRnn : vecRnn)
+            for (auto &pNet : vecNet)
             {
-                FLOAT *vecOut = pRnn->GetOutputVec();
+                FLOAT *vecOut = pNet->GetOutputVec();
                 for (std::size_t codeIdx = 0; codeIdx < nStream; codeIdx++)
                 {
                     Reward temp;
-                    pRnn->Reshaper().VecOut2Reward(temp, vecOut + codeIdx * outputDim, vecState[codeIdx].code);
+                    pNet->Reshaper().VecOut2Reward(temp, vecOut + codeIdx * outputDim, vecState[codeIdx].code);
                     vecReward[codeIdx] += temp;
                 }
             }
-            for (auto &reward : vecReward) reward *= (FLOAT) 1 / nRnn;
+            for (auto &reward : vecReward) reward *= (FLOAT) 1 / nNet;
             
             /* Send rewards vector back to model */
             trader.model.SetRewardVec(vecReward); 

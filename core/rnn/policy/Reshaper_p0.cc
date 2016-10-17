@@ -105,6 +105,8 @@ void Reshaper_p0::State2VecIn(FLOAT *vec, const ItemState &state)
 
 void Reshaper_p0::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
 {
+    if (vec == nullptr) return;
+
     bool sell = (reward.G0.s > 0.0f) && (reward.G0.s > reward.G0.b);
     bool buy  = (reward.G0.b > 0.0f) && (reward.G0.b > reward.G0.s); // sell && buy is never true
 
