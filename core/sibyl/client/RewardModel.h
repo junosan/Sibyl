@@ -23,7 +23,8 @@ namespace sibyl
 class RewardModel : public Model
 {
 public:  
-    void SetParams(double timeConst_, double rhoWeight_, double rhoInit_, bool exclusiveBuy_, bool earlyQuit_);
+    void SetParams(double timeConst_, double rhoWeight_, double rhoInit_,
+                   bool exclusiveBuy_, bool sellBeforeEnd_, bool earlyQuit_);
     void ReadConfig(CSTR &filename);
 
     // for ref
@@ -39,14 +40,17 @@ public:
     CSTR& BuildMsgOut     ();
     
     RewardModel() : timeConst(0.0), // for initialization check
-                    rhoWeight(0.0), rho(0.0), exclusiveBuy(false),
-                    earlyQuit(false), exitMarket(false), idx_rate_r(0),
-                    isFirstTick(true) {}
+                    rhoWeight(0.0),
+                    rho(0.0),
+                    exclusiveBuy(false),
+                    sellBeforeEnd(false),
+                    earlyQuit(false),
+                    exitMarket(false), idx_rate_r(0), isFirstTick(true) {}
 private:
     double timeConst;
     double rhoWeight;
     double rho;
-    bool   exclusiveBuy;
+    bool   exclusiveBuy, sellBeforeEnd;
 
     bool   earlyQuit, exitMarket;
     std::vector<double> vec_rate_r;

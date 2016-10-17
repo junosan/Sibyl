@@ -23,7 +23,7 @@ namespace kTimeBounds
     constexpr int ref  =                  -3600; // 08:00:00 last ref price reference
     constexpr int init = kTimeRates::secPerTick; // 09:00:10 initiate rnn
     constexpr int stop =                  21000; // 14:50:00 stop rnn
-    constexpr int end  =                  22200; // 15:10:00 end everything
+    constexpr int end  =                  24000; // 15:40:00 end everything
 }
 
 }

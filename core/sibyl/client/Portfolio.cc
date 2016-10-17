@@ -362,7 +362,8 @@ void Portfolio::WriteState()
         }
 
         // if (timeCur >= 0 && timeCur <= kTimeBounds::stop && timeCur % 300 == 0) { // every 5 min
-        if (timeCur >= kTimeBounds::init && timeCur < kTimeBounds::stop) { 
+
+        if (timeCur >= kTimeBounds::init && timeCur <= kTimeBounds::stop + 40 * 60) { 
             tot_s.push_back((float) ((double) se.evalTot / balInit - 1.0) * 100.0);
             u_tot.push_back((float) ((double) se.balU / se.evalTot));
 

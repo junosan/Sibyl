@@ -15,11 +15,16 @@
 namespace sibyl
 {
 
-void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_, bool exclusiveBuy_, bool earlyQuit_)
+void RewardModel::SetParams(double timeConst_, double rhoWeight_, double rhoInit_,
+                            bool exclusiveBuy_, bool sellBeforeEnd_, bool earlyQuit_)
 {
     verify(timeConst_ > 0.0 && rhoWeight_ >= 0.0 && rhoInit_ >= 0.0);
-    timeConst = timeConst_; rhoWeight = rhoWeight_; rho = rhoInit_;
-    exclusiveBuy = exclusiveBuy_; earlyQuit = earlyQuit_;
+    timeConst = timeConst_;
+    rhoWeight = rhoWeight_;
+    rho = rhoInit_;
+    exclusiveBuy = exclusiveBuy_;
+    sellBeforeEnd = sellBeforeEnd_;
+    earlyQuit = earlyQuit_;
 }
 
 void RewardModel::ReadConfig(CSTR &filename)
@@ -28,7 +33,7 @@ void RewardModel::ReadConfig(CSTR &filename)
     verify(sCfg.is_open() == true);
     
     double timeConst_(-1.0), rhoWeight_(-1.0), rhoInit_(-1.0);
-    bool exclusiveBuy_(false), earlyQuit_(false);
+    bool exclusiveBuy_(false), sellBeforeEnd_(false), earlyQuit_(false);
     
     for (STR line; std::getline(sCfg, line);)
     {
@@ -38,19 +43,21 @@ void RewardModel::ReadConfig(CSTR &filename)
         auto namelen = std::min(posEq, line.find_first_of(' '));
         STR name(line, 0, namelen);
         STR val (line, posEq + 1 );
-        if      ((name == "TIME_CONST"   ) && (val.empty() == false))
-            timeConst_    = std::stod(val);
-        else if ((name == "RHO_WEIGHT"   ) && (val.empty() == false))
-            rhoWeight_    = std::stod(val);
-        else if ((name == "RHO_INIT"     ) && (val.empty() == false))
-            rhoInit_      = std::stod(val);
-        else if ((name == "EXCLUSIVE_BUY") && (val.empty() == false))
-            exclusiveBuy_ = (std::stoi(val) != 0);
-        else if ((name == "EARLY_QUIT"   ) && (val.empty() == false))
-            earlyQuit_    = (std::stoi(val) != 0);
+        if      (name == "TIME_CONST"      && val.empty() == false)
+            timeConst_     = std::stod(val);
+        else if (name == "RHO_WEIGHT"      && val.empty() == false)
+            rhoWeight_     = std::stod(val);
+        else if (name == "RHO_INIT"        && val.empty() == false)
+            rhoInit_       = std::stod(val);
+        else if (name == "EXCLUSIVE_BUY"   && val.empty() == false)
+            exclusiveBuy_  = (std::stoi(val) != 0);
+        else if (name == "SELL_BEFORE_END" && val.empty() == false)
+            sellBeforeEnd_ = (std::stoi(val) != 0);
+        else if (name == "EARLY_QUIT"      && val.empty() == false)
+            earlyQuit_     = (std::stoi(val) != 0);
     }
     
-    SetParams(timeConst_, rhoWeight_, rhoInit_, exclusiveBuy_, earlyQuit_);
+    SetParams(timeConst_, rhoWeight_, rhoInit_, exclusiveBuy_, sellBeforeEnd_, earlyQuit_);
 }
 
 void RewardModel::SetStateLogPaths(CSTR &state, CSTR &log)
@@ -261,25 +268,25 @@ CSTR& RewardModel::BuildMsgOut()
         }
     }
 
-    const int timeCancelAll  = kTimeBounds::stop + 600 + 60;
+    const int timeSellAll  = kTimeBounds::stop + 600 + 15 * 60; // 15:15
     
-    // Stop buying anything between 14:30 and 14:50
-    if ((time >= kTimeBounds::stop - 1200) && (time < kTimeBounds::stop))
-    {
-        for (auto &code_reward : rewards)
-        {
-            auto &r = code_reward.second;
-            r.G0.b    = -100.0f;
-            for (auto &gn : r.G)
-            {
-                gn.b  = -100.0f;
-                gn.cb =  100.0f;
-            }
-        }
-    }
+    // // Stop buying anything between 14:30 and 14:50
+    // if ((time >= kTimeBounds::stop - 1200) && (time < kTimeBounds::stop))
+    // {
+    //     for (auto &code_reward : rewards)
+    //     {
+    //         auto &r = code_reward.second;
+    //         r.G0.b    = -100.0f;
+    //         for (auto &gn : r.G)
+    //         {
+    //             gn.b  = -100.0f;
+    //             gn.cb =  100.0f;
+    //         }
+    //     }
+    // }
     
-    // Don't do anything between 14:50 and 15:01
-    if ((time >= kTimeBounds::stop) && (time < timeCancelAll))
+    // Don't do anything between 14:50 and 15:15
+    if ((time >= kTimeBounds::stop) && (time < timeSellAll))
     {
         for (auto &code_reward : rewards)
         {
@@ -296,23 +303,9 @@ CSTR& RewardModel::BuildMsgOut()
         }
     }
     
-    // Cancel everything after 15:01
-    if (time >= timeCancelAll)
-    {
-        for (auto &code_reward : rewards)
-        {
-            auto &r = code_reward.second;
-            r.G0.b    = -100.0f;
-            r.G0.s    = -100.0f;
-            for (auto &gn : r.G)
-            {
-                gn.b  = -100.0f;
-                gn.cb =  100.0f;
-                gn.s  = -100.0f;
-                gn.cs =  100.0f;
-            }
-        }        
-    }
+    // Sell everything after 15:15
+    if (sellBeforeEnd == true && time >= timeSellAll)
+        exitMarket = true;
     
     // Early quit mechanism
     if (exitMarket == true)
