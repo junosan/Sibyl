@@ -96,10 +96,10 @@ bool Kiwoom::Launch()
     TR::State state = trAccBalance.Send(true);
     if (state == TR::State::error || state == TR::State::timeout)
         return false;
-    if (orderbook.bal <= 0) {
-        std::cerr << dispPrefix << "Launch: [Fail] Nonpositive balance" << std::endl;
-        return false;
-    }
+    // if (orderbook.bal <= 0) {
+    //     std::cerr << dispPrefix << "Launch: [Fail] Nonpositive balance" << std::endl;
+    //     return false;
+    // }
     
     // Retrieve cnt + sell_order_q
     std::cerr << dispPrefix << "Launch: Querying inventory (idle + sell order)" << std::endl;
@@ -368,7 +368,7 @@ void Kiwoom::ReceiveMarketTb(CSTR &code)
     
     std::lock_guard<std::recursive_mutex> lock(orderbook.items_mutex);
     static STR lastTime;
-    if (lastTime != time) // update at new second (i.e., closest to HHMMSS.000)
+    if (lastTime < time) // update at new second (i.e., closest to HHMMSS.000)
     {
         int t_data = Clock::HHMMSS_to_ms(time);
         t_data_minus_local = t_data - clock.Now();
