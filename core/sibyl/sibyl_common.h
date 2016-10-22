@@ -50,6 +50,9 @@ typedef const STR   CSTR;  // for brevity
 
 #ifdef NDEBUG
     #define verify(expression) ((void)(expression))
+
+    // Dump error message to cerr (redirected to a file elsewhere)
+    // and exit cleanly while avoiding Kiwoom API's bugs
     #if defined _WIN32 && !defined DISABLE_VERIFY_IN_RELEASE_MODE
         #undef verify
         #include <iostream>

@@ -13,11 +13,11 @@ namespace sibyl
 namespace kTimeRates
 {
     constexpr int secPerTick = 10;
-    constexpr int reqPerSec  = 5;
-    constexpr int reqPerTick = reqPerSec * secPerTick;
+    constexpr int reqPerSec  = 5;                      // as required by Kiwoom  
+    constexpr int reqPerTick = reqPerSec * secPerTick; // maximum number of reqs possible in a tick
 }
 
-namespace kTimeBounds
+namespace kTimeBounds // [seconds]
 {
     constexpr int null =              -9 * 3600; // defines conversion to 00:00:00-based time
     constexpr int ref  =                  -3600; // 08:00:00 last ref price reference

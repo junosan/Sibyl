@@ -15,11 +15,13 @@
 
 namespace sibyl
 {
-    
+
+// Redirect cout, cerr to files for logging in GUI environment
+// Instantiate in the longest living scope in an application
+// Redirecting the same stream multiple times is undefined behavior
 class OstreamRedirector
 {
 public:
-    // calling this on the same stream multiple times is undefined behavior
     void Redirect(std::ostream &os, CSTR &filename) {
         if (ofs.is_open() == true) ofs.close();
         ofs.open(filename, std::ios::trunc);

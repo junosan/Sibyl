@@ -24,6 +24,7 @@
 namespace sibyl
 {
 
+// Base class for NetServer and NetClient
 class NetAgent
 {
 public:

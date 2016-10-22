@@ -36,8 +36,9 @@ bool read_binary(const std::string &filename, Matrix &matrix)
     return in.is_open();
 }
 
-template<class Matrix> // to circumvent problems with allFinite or hasNaN functions
-                       // under floating point optimization compiler options
+// Custom defined to circumvent problems with allFinite or hasNaN functions
+// under floating point optimization compiler options
+template<class Matrix> 
 bool is_all_finite(const Matrix &matrix)
 {
     bool allFinite = true;

@@ -15,6 +15,10 @@
 namespace sibyl
 {
 
+// General formatting helper classes
+// Feed ostream with fmt_price(36000), fmt_code("000660"), etc. for consistent formatting/alignment
+// Decoration convention: (quant), {code}, #ordno
+
 // struct name_ {
 //     constexpr static int w =  w_;
 //     vtype_ val;

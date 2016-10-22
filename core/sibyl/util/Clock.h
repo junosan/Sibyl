@@ -16,14 +16,15 @@ namespace sibyl
 {
 
 // Clock representing time point in milliseconds from 00:00:00:000 local time as int 
-// system_clock is referenced only once at constructor and the rest uses steady_clock 
+// system_clock is referenced only once at constructor and the rest uses steady_clock
+// Use the global instance "clock" 
 class Clock
 {
 public:
     Clock();
     int Now() const; // milliseconds from 00:00:00:000 local time
     static int   HHMMSS_to_ms(CSTR &str); // pad 0 ms and convert
-    static CSTR& ms_to_HHMMSS(int ms, bool colons = false);    // discard milliseconds
+    static CSTR& ms_to_HHMMSS(int ms, bool colons = false); // discards trailing milliseconds
 protected:
     int ms_init;
     std::chrono::steady_clock::time_point stdclk_init;

@@ -18,6 +18,17 @@
 namespace sibyl
 {
 
+// Use as os << CandlePlot(vec, nline, ymin, ymax, xbin, title)
+// Creates a candle plot in an area of width vec.size() / xbin (approx) and height nline
+// Title is placed at lower left corner
+// Each candle is formed by finding starting/ending/min/max values from xbin items in vec
+// Symbols
+//     higher than ymax        '/'
+//     lower  than ymin        '\\'
+//     between starting/ending '░' (rising), '█' (falling), or '-' (no change)
+//     between min/max         '|' (unless masked by '░', '█', or '-')
+// 
+// Note: requires os.imbue(std::locale("en_US.UTF-8")) to properly display candles
 class CandlePlot
 {
 public:
@@ -26,7 +37,6 @@ public:
         verify(nline >= 2 && ymax > ymin && xbin > 0);
     }
     
-    // Note: requires os.imbue(std::locale("en_US.UTF-8")); from outside to properly display candles
     friend std::wostream& operator<<(std::wostream &os, const CandlePlot &bp) {
         const auto &vec        = *bp.pvec;
         const std::size_t xbin = bp.xbin;

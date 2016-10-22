@@ -18,29 +18,46 @@
 
 namespace sibyl
 {
-    
+
+// Container for dynamically allocated securities with other relevant info
 template <class TItem> // default: Item
-class Catalog          // container for dynamically allocated TItem with other relevant info
+class Catalog
 {
 public:
-    std::atomic_int time;
-    INT64 bal;
+    std::atomic_int time; // [seconds] from 09:00:00 (-kTimeBounds::null)
+    INT64           bal;  // balance excluding amount staged as buy orders
+
+    // Accumulated statistics
     struct {
         INT64 buy, sell, feetax;
+
+        // For each tick at which an order was placed
         struct tck_orig_sum {
             INT64 bal, q, evt;
         };
+
+        // Index convention is the same as usual for [0, idx::szTb)
+        // Use idxTckOrigS0 & idxTckOrigB0 for s0 & b0 
         std::array<tck_orig_sum, idx::szTb + 2> tck_orig;
     } sum;
+
+    // Pointers to items; indexed by code
     std::map<STR, std::unique_ptr<TItem>> items;
 
     void   UpdateRefInitBal();
     double GetProfitRate   (bool isRef = false); // based on balInit by default
     
-    struct SEval { INT64 balU, balBO, evalCnt, evalSO, evalTot; };
+    // Evaluation of the whole catalog
+    struct SEval {
+        INT64 balU,    // unused balance (i.e., excluding buy orders)
+              balBO,   // balance staged as buy orders
+              evalCnt, // evaluated sum of cnt's (i.e., excluding sell orders) 
+              evalSO,  // evaluated sum of sell orders
+              evalTot; // sum of above
+    };
     SEval Evaluate() const;
 
-    // returns (at most) n items sorted by count * price 
+    // returns (at most) n items sorted by count * price
     std::vector<typename std::map<STR, std::unique_ptr<TItem>>::const_iterator> GetTopCnts(std::size_t n);
     
     Catalog() : time(kTimeBounds::null), bal(0), sum{0, 0, 0, {}},

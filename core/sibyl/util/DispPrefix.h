@@ -14,6 +14,8 @@
 namespace sibyl
 {
 
+// Prefix string returned by a function (e.g., timestamps) to any output message
+// Use the global instance "dispPrefix": cout/err << dispPrefix << (desired content)
 class DispPrefix
 {
 public:

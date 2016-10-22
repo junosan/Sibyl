@@ -20,7 +20,13 @@
 namespace sibyl
 {
 
-namespace idx
+// Index convention for prices/quants stored in Security::tbr
+// Prices are stored in two consecutive sections {ps10-ps1}{pb1-pb10} where
+//     ps1: 1 tick above the price of immediate sell, ps0 (= highest bid in the market)
+//     pb1: 1 tick below the price of immediate buy,  pb0 (= lowest  ask in the market)
+// If there is no gap between bids/asks, the prices are sorted from highest to lowest
+// If there is a gap, some prices at lower ticks may overlap
+namespace idx 
 {
     constexpr int tckN = 10; // largest tick 
     constexpr int szTb = tckN * 2;
@@ -28,12 +34,19 @@ namespace idx
     constexpr int pb1  = tckN;
 }
 
-enum class SecType { null, KOSPI, ELW, ETF };
+enum class SecType
+{
+    null,
+    KOSPI,
+    ELW,
+    ETF
+};
+
 enum class OrdType
 {
     null =  0,
-    buy  = +1,
-    sell = -1
+    buy  = +1, // a.k.a. bid
+    sell = -1  // a.k.a. ask
 };
 
 inline std::ostream& operator<<(std::ostream &os, OrdType type)
@@ -55,41 +68,46 @@ public:
     PQ(int p_, int q_) : p(p_), q(q_) {}
 };
 
-template <class TOrder> // default: Order
-class Security          // abstract class; derive first as Item with application specific members, and then derive it as KOSPI/ELW/etc.
+// Abstract class for holding the current state of a security item
+// Derive with application specific members, then derive again as KOSPI/ELW/etc.
+template <class TOrder> // TOrder should be derived from PQ with additional members as needed
+class Security
 {
 public:
-    FLOAT                      pr;
-    INT64                      qr;
-    std::array<PQ, idx::szTb>  tbr;
-    INT                        cnt;
-    std::multimap<INT, TOrder> ord;
+    FLOAT                      pr;  // average trade price     during        this time tick
+    INT64                      qr;  // trade amount            during        this time tick
+    std::array<PQ, idx::szTb>  tbr; // bids/asks in the market at the end of this time tick
+    INT                        cnt; // # of idle holds that I own, NOT staged as sell orders
+    std::multimap<INT, TOrder> ord; // orders placed by me staged in the market; indexed by price
     
     virtual SecType Type  ()        const = 0;
-    virtual INT     TckHi (INT p)   const = 0;
-    virtual INT     TckLo (INT p)   const = 0;
-    virtual bool    ValidP(INT p)   const = 0;
-    virtual INT64   BFee  (INT64 r) const = 0;
-    virtual INT64   SFee  (INT64 r) const = 0;
-    virtual double  dBF   ()        const = 0;
-    virtual double  dSF   ()        const = 0;
+    virtual INT     TckHi (INT p)   const = 0; // price one tick higher than p 
+    virtual INT     TckLo (INT p)   const = 0; // price one tick lower  than p
+    virtual bool    ValidP(INT p)   const = 0; // check if p conforms to tick rules of a security
+    virtual INT64   BFee  (INT64 r) const = 0; // floored/rounded (fee + tax) for raw buy  price * quant
+    virtual INT64   SFee  (INT64 r) const = 0; // floored/rounded (fee + tax) for raw sell price * quant
+    virtual double  dBF   ()        const = 0; // ratio of buy  (fee + tax)
+    virtual double  dSF   ()        const = 0; // ratio of sell (fee + tax)
     
+    // NOTE: the following must be used on Requantized tbr
     INT Ps0() const { return TckLo(tbr[idx::ps1].p); }
     INT Pb0() const { return TckHi(tbr[idx::pb1].p); }
     
+    // Convert from raw market data to ps#|pb# convention defined above, while filling any price gaps 
     void Requantize(std::array<PQ, idx::szTb> &in, INT trPs1, INT trPb1);
     void Requantize(INT trPs1, INT trPb1)          { Requantize(tbr, trPs1          , trPb1          ); }
     void Requantize(std::array<PQ, idx::szTb> &in) { Requantize(in , in [idx::ps1].p, in [idx::pb1].p); }
     void Requantize()                              { Requantize(tbr, tbr[idx::ps1].p, tbr[idx::pb1].p); }                                               
     
     // Utility functions for OrdType-generic operations
-    // NOTE: the following must be used on a Requantized tbr
-    // tck: -1 (ps0/pb0), 0 (0-based tick), idx::tckN (not found) 
+    // NOTE: the following must be used on Requantized tbr
+    // tck: -1 (ps0/pb0), 0 (ps1/pb1), ..., idx::tckN (not found) 
     int P2Tck(INT p  , OrdType type) const;
     INT Tck2P(int tck, OrdType type) const;
     INT Tck2Q(int tck, OrdType type) const;
     
-    // floor(bal / (p + BFee)), handling potential overflow & special cases (e.g., ELW)
+    // Max quantity that can be bought for given balance and price, i.e., floor(bal / (p + BFee)) 
+    // Handling potential overflow & special cases (e.g., ELW)
     INT MaxBuyQ(INT64 bal, INT p) const;
     
     Security() : pr(0.0f), qr(0), cnt(0) {}

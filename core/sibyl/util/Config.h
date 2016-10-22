@@ -16,6 +16,11 @@
 namespace sibyl
 {
 
+// Read/write config files of format
+//
+// KEY1     =some_value
+// LONGERKEY=some_other_value
+//
 // Note 1: this class re-parses the whole file before each Get/Set operation
 //         consider using something else if Get/Set's are going to be frequent
 // Note 2: Set operations can mess up character encoding if locale does not match

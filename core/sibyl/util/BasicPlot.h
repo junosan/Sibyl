@@ -16,6 +16,12 @@
 namespace sibyl
 {
 
+// Use as os << BasicPlot(vec, nline, ymin, ymax)
+// Creates a very basic plot in an area of width vec.size() and height nline
+// Symbols
+//     higher than ymax '/'
+//     lower  than ymin '\\'
+//     otherwise        '*'
 class BasicPlot
 {
 public:
