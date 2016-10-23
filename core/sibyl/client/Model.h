@@ -12,16 +12,19 @@
 namespace sibyl
 {
 
+// Defines interface for use by Trader
+// Base class for RewardModel
 class Model
 {
 public:
-    virtual
-    CSTR& BuildMsgOut() = 0; // build ref list based on pPortfolio and other calculated results
+    // Build list of requests based on pPortfolio and internal model
+    virtual CSTR& BuildMsgOut() = 0;
 
-    // to be called by Trader
-    virtual
-    void SetStateLogPaths(CSTR &state, CSTR &log) = 0;
-    void SetPortfolio    (Portfolio *pPortfolio_) { pPortfolio = pPortfolio_; }
+    // Called by Trader
+    virtual void SetStateLogPaths(CSTR &state, CSTR &log) = 0;
+
+    void SetPortfolio(Portfolio *pPortfolio_) { pPortfolio = pPortfolio_; }
+
     Model() : pPortfolio(nullptr) {} 
 protected:
     Portfolio *pPortfolio;

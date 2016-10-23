@@ -22,6 +22,9 @@ class TradeDataSet;
 namespace sibyl
 {
 
+// Defines conversion from sibyl's input state (ItemState) to fractal's input vector
+// and conversion between sibyl's output state (Reward) and fractal's target vector
+// Implements ZCA whitening for the former case
 class Reshaper
 {
 public:
@@ -41,14 +44,20 @@ public:
 
     virtual void ReadConfig(CSTR &filename) = 0;
 
-    /*   raw   -> fractal */
-    /*  sibyl  -> fractal */
+    //   raw   -> fractal (during training)
+    //  sibyl  -> fractal (during running)
     virtual void State2VecIn(FLOAT *vec, const ItemState &state) = 0;
     
-    /*   ref   -> fractal */ /* (State2VecIn)xN, (Reward2VecOut)xN (called in batch) */
+    //   ref   -> fractal (during training)
+    // (State2VecIn * nFrame) -> (Reward2VecOut * nFrame) (called in batch)
+    // NOTE: This will be called with vec = nullptr by TradeDataSet::ReadRefFile
+    //       to signal rewind of time-dependent variables (if present) in processing,
+    //       allowing time-dependent variables to be implemented whether
+    //       input and target processing functions are called in batch or pairs
     virtual void Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code);
     
-    /* fractal ->  sibyl  */ /* (State2VecIn   ,  VecOut2Reward)xN (called in pairs) */
+    // fractal ->  sibyl  (during running)
+    // (State2VecIn -> VecOut2Reward) * nFrame (called in pairs every frame)
     virtual void VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code);
     
 protected:

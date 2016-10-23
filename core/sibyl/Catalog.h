@@ -20,6 +20,7 @@ namespace sibyl
 {
 
 // Container for dynamically allocated securities with other relevant info
+// Base class for Portfolio and OrderBook
 template <class TItem> // default: Item
 class Catalog
 {

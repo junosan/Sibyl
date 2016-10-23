@@ -15,6 +15,7 @@
 #include <list>
 #include <fstream>
 
+// Reads training data set while processing data as defined by a Reshaper
 class TradeDataSet : public fractal::DataSet
 {
 public:
@@ -24,44 +25,51 @@ public:
 
     TradeDataSet();
 
+    // Read list file and fill in fileList entries
     const unsigned long ReadFileList(const std::string &filename);
+
+    // Actually read files and fill in nSeq, nFrame, input, target
+    // Any data processing is performed by Reshaper 
     void ReadData();
-    void Normalize();
-    void Normalize(const std::vector<fractal::FLOAT> &mean, const std::vector<fractal::FLOAT> &stdev);
 
-    const std::vector<fractal::FLOAT> &GetMean();
-    const std::vector<fractal::FLOAT> &GetStdev();
+    // TradeNet refers to the Reshaper used here for use from outside code
+    // so that the same Reshaper used during training can be used for running
+    sibyl::Reshaper& Reshaper() { verify(pReshaper != nullptr); return *pReshaper; }
 
+    // Virtuals from DataSet
     const unsigned long GetNumChannel() const;
     virtual const fractal::ChannelInfo GetChannelInfo(const unsigned long channelIdx) const = 0;
     const unsigned long GetNumSeq() const;
     const unsigned long GetNumFrame(const unsigned long seqIdx) const;
-
-    const std::string &GetFilename(const unsigned long seqIdx) const { verify(seqIdx < nSeq); return fileList[seqIdx]; }
-
     virtual void GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
             const unsigned long frameIdx, void *const frame) = 0;
-    
-    sibyl::Reshaper& Reshaper() { verify(pReshaper != nullptr); return *pReshaper; }
-    
+
+    // These 5 are unused at the moment
+    void Normalize();
+    void Normalize(const std::vector<fractal::FLOAT> &mean, const std::vector<fractal::FLOAT> &stdev);
+    const std::vector<fractal::FLOAT> &GetMean();
+    const std::vector<fractal::FLOAT> &GetStdev();
+    const std::string &GetFilename(const unsigned long seqIdx) const { verify(seqIdx < nSeq); return fileList[seqIdx]; }
+
 protected:
     static const unsigned long ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename, TradeDataSet *pThis);
     const unsigned long ReadRefFile(std::vector<fractal::FLOAT> &vec, const std::string &filename);
 
-    std::vector<std::string> fileList;
-    std::vector<unsigned long> nFrame;
-
-    std::vector<std::vector<fractal::FLOAT>> input;
-    std::vector<std::vector<fractal::FLOAT>> target;
-
-    std::vector<fractal::FLOAT> mean, stdev;
-
     unsigned long nSeq;
 
-    /* These three must be initialized in the derived class' constructor */
+    // Holds info for each sequence
+    std::vector<std::string> fileList; // file name
+    std::vector<unsigned long> nFrame; // # of frames = inner_vectors_below.size()
+    std::vector<std::vector<fractal::FLOAT>> input;  // input  data (after Reshaper processing)
+    std::vector<std::vector<fractal::FLOAT>> target; // target data (after Reshaper processing)
+
+    // NOTE: These three must be initialized in the derived class' constructor
     sibyl::Reshaper* pReshaper;
     unsigned long inputDim;
     unsigned long targetDim;
+
+    // Unused
+    std::vector<fractal::FLOAT> mean, stdev;
 };
 
 #endif /* TRADEDATASET_H_ */

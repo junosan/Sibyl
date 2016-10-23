@@ -15,7 +15,8 @@
 namespace sibyl
 {
 
-/* For communication with fractal */
+// Stores data in a flattened structure for communication with fractal
+// Used by Portfolio and Reshaper::State2VecIn
 class ItemState
 {
 public:

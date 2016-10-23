@@ -13,6 +13,8 @@
 namespace sibyl
 {
 
+// Mediates interfaces for NetClient, Portfolio, Model
+// May be expanded if multiple Models are present
 class Trader
 {
 public:

@@ -19,12 +19,19 @@
 namespace fractal
 {
 
+// Encapsulates code blocks for training or running fractal::Rnn
+// Base class for ValueNet and PolicyNet
 template <class TDataSet>
 class TradeNet
 {
 public:
     enum class RunType { null, train, network };
     
+    // To train: Configure -> Train
+    // To run  : Configure -> InitUnrollStream ->
+    //           { GetInputVec  -> (fill input data) -> 
+    //             RunOneFrame  ->
+    //             GetOutputVec -> (use output data) } x N
     void Configure(Engine &engine, RunType runType_,
                    const std::string &dataPath_, const std::string &workspacePath_, bool cont = false);
     

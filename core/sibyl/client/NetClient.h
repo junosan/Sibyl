@@ -13,11 +13,19 @@
 namespace sibyl
 {
 
+// Implement a TCP client and relay messages between Trader and the server
 class NetClient : public NetAgent
 {
 public:
-    int  Connect     (CSTR &addr, CSTR &port); // returns 0 for success, non-0 otherwise
-    int  RecvNextTick();                       // returns 0 for success, non-0 otherwise
+    // Connect to server and send password
+    // Returns 0 for success, non-0 otherwise
+    int Connect(CSTR &addr, CSTR &port);
+    
+    // Block until message from server arrives and call Trader::ApplyMsgIn
+    // Returns 0 for success, non-0 otherwise
+    int RecvNextTick();
+
+    // Call Trader::BuildMsgOut and send the built message to server
     void SendResponse();
 
     NetClient(Trader *ptr) : pTrader(ptr), sock(sock_fail) {}
