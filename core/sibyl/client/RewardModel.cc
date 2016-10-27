@@ -267,8 +267,6 @@ CSTR& RewardModel::BuildMsgOut()
                 exitMarket = true;
         }
     }
-
-    const int timeSellAll  = kTimeBounds::stop + 600 + 15 * 60; // 15:15
     
     // // Stop buying anything between 14:30 and 14:50
     // if ((time >= kTimeBounds::stop - 1200) && (time < kTimeBounds::stop))
@@ -285,26 +283,26 @@ CSTR& RewardModel::BuildMsgOut()
     //     }
     // }
     
-    // Don't do anything between 14:50 and 15:15
-    if ((time >= kTimeBounds::stop) && (time < timeSellAll))
-    {
-        for (auto &code_reward : rewards)
-        {
-            auto &r = code_reward.second;
-            r.G0.b    = -100.0f;
-            r.G0.s    = -100.0f;
-            for (auto &gn : r.G)
-            {
-                gn.b  = -100.0f;
-                gn.cb =  100.0f;
-                gn.s  = -100.0f;
-                gn.cs = -100.0f;
-            }
-        }
-    }
-    
-    // Sell everything after 15:15
-    if (sellBeforeEnd == true && time >= timeSellAll)
+    // // Don't do anything between 14:50 and 15:15
+    // if ((time >= kTimeBounds::stop) && (time < timeSellAll))
+    // {
+    //     for (auto &code_reward : rewards)
+    //     {
+    //         auto &r = code_reward.second;
+    //         r.G0.b    = -100.0f;
+    //         r.G0.s    = -100.0f;
+    //         for (auto &gn : r.G)
+    //         {
+    //             gn.b  = -100.0f;
+    //             gn.cb =  100.0f;
+    //             gn.s  = -100.0f;
+    //             gn.cs = -100.0f;
+    //         }
+    //     }
+    // }
+
+    // Sell everything after 14:50
+    if (sellBeforeEnd == true && time >= kTimeBounds::stop)
         exitMarket = true;
     
     // Early quit mechanism
