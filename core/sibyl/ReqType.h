@@ -30,7 +30,7 @@
 //     cancel all orders
 //
 // sa
-//     sell all holds at ps0
+//     sell all shares at ps0
 //
 // Notes:
 //     Delimiter for each field is ‘ ‘

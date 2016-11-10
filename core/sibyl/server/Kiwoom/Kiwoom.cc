@@ -67,6 +67,9 @@ void Kiwoom::ReadConfigFiles(CSTR &config)//, CSTR &codelist)
         }
     }
     
+    // TODO: add DELAY_SECOND option
+    // Kiwoom::SetDelay is the only thing that needs to be touched
+
     std::cerr << dispPrefix << "ReadConfig: " << orderbook.items.size() << " securities read from config files" << std::endl;
 }
 

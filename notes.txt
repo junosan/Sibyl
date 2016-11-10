@@ -1,18 +1,34 @@
-[ Bug fix ]
+[[ Bug fix (tentative) ]]
 
-(tentative) Cancel/modify orders should be made on ‘confirm’ instead of ‘received’ with actual quant deduced from ordq/ordq_i
+Cancel/modify orders should be made on ‘confirm’ instead of ‘received’ with actual quant deduced from ordq/ordq_i
 - Waiting for the bug to be replicated to gain event information
 
-[ Style change for new code ]
+
+[[ Style change for new code ]]
 
 postincrement->preincrement in for loops
 
-for (auto it = std::begin, end = std::end; it != end; ++it) style loops (unless end is being modified inside loop)
+for (auto it = std::begin, end = std::end; it != end; ++it) style loops
+(unless end is being modified inside loop)
 
-std::tie for unpacking return values of std::pair or std::tuple
-std::variant<state1, state2, etc> to designate states and its specific members as separate struct types
 
-[ Boost (features not in C++11) - consider these for new code ]
+[[ Consider for new code ]]
+
+std::tie (when appropriate)
+
+(C++17) std::variant<state1, state2, etc> to designate states and state-specific members as separate struct types
+
+clang-tidy
+
+
+[[ Simulation ]]
+
+- Likely cause for real-simulation difference is tb.q data delay vs tr data which invalidates trade amount for large orders that do not fit below both real-time & delayed tb.q
+- Getting DMA may resolve this issue
+- However, impossible to accurately estimate behavior *after* q0 is emptied anyways
+
+
+[[ Boost (features not in C++11) - consider these for new code ]]
 See: http://theboostcpplibraries.com
 
 String Handling
@@ -60,10 +76,3 @@ Others
     units (dimensional analysis for physics)
 
 containers (small_vector, static_vector, flat_map, etc.)
-
-
-[ Simulation ]
-
-- Likely cause for real-simulation difference is tb.q data delay vs tr data which invalidates trade amount for large orders that do not fit below both real-time & delayed tb.q
-- Getting DMA may resolve this issue
-- However, impossible to accurately estimate behavior *after* q0 is emptied anyways

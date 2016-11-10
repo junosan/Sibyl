@@ -9,8 +9,8 @@
 
 #include <fractal/fractal.h>
 
-#include <rnn/policy/PolicyNet.h>
-typedef fractal::PolicyNet Net;
+#include <rnn/value/ValueNet.h>
+typedef fractal::ValueNet Net;
 
 int main(int argc, char *argv[])
 {
