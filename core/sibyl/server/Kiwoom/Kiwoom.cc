@@ -67,8 +67,13 @@ void Kiwoom::ReadConfigFiles(CSTR &config)//, CSTR &codelist)
         }
     }
     
-    // TODO: add DELAY_SECOND option
-    // Kiwoom::SetDelay is the only thing that needs to be touched
+    auto &ssDELAY_SECOND = cfg.Get("DELAY_SECOND");
+    ssDELAY_SECOND >> val;
+    if (ssDELAY_SECOND.fail() == false && val != 0)
+    {
+        std::cerr << dispPrefix << "ReadConfig: Applying " << val << " sec market time delay" << std::endl;
+        SetDelay(val);
+    }
 
     std::cerr << dispPrefix << "ReadConfig: " << orderbook.items.size() << " securities read from config files" << std::endl;
 }

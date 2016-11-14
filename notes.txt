@@ -14,6 +14,8 @@ for (auto it = std::begin, end = std::end; it != end; ++it) style loops
 
 [[ Consider for new code ]]
 
+ZeroMQ for interprocess communication
+
 std::tie (when appropriate)
 
 (C++17) std::variant<state1, state2, etc> to designate states and state-specific members as separate struct types

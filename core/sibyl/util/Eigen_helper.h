@@ -36,6 +36,9 @@ bool read_binary(const std::string &filename, Matrix &matrix)
     return in.is_open();
 }
 
+// write_binary(...) and read_binary(...) uses modified
+// code from http://stackoverflow.com/questions/25389480
+
 // Custom defined to circumvent problems with allFinite or hasNaN functions
 // under floating point optimization compiler options
 template<class Matrix> 

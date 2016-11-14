@@ -33,11 +33,11 @@
 //     sell all shares at ps0
 //
 // Notes:
-//     Delimiter for each field is ‘ ‘
-//     Delimiter for each request is ’\n’ (“\r\n” is acceptable)
+//     Delimiter for each field is ' '
+//     Delimiter for each request is '\n' ("\r\n" is acceptable)
 //     Multiple requests can be sent as multiple lines of a message
-//     The last character in a message MUST be ‘\n’ (for proper packet concatenation)
-//     If there is no order to send, send “\n”
+//     The last character in a message MUST be '\n' (for proper packet concatenation)
+//     If there is no order to send, send "\n"
 
 #include <iostream>
 
