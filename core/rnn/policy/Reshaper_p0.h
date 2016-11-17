@@ -22,7 +22,7 @@ public:
     Reshaper_p0(unsigned long maxGTck_, // this will be ignored and overwritten
                 TradeDataSet *pTradeDataSet_,
                 std::vector<std::string> *pFileList_,
-                const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*));
+                const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&));
 
     void ReadConfig(CSTR &filename) override;
 

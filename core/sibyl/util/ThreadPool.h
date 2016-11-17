@@ -26,8 +26,9 @@ namespace sibyl
 class ThreadPool
 {
 public:
-    // Starts threadCount threads, waiting in paused state
-    // May throw a std::system_error if a thread could not be started
+    // Launches threadCount threads, waiting in paused state
+    // Use Start() either before or after adding jobs to actually start working
+    // May throw a std::system_error if a thread could not be launched
     ThreadPool(std::size_t threadCount = 4);
 
     // Clears job queue, then blocks until all threads finished executing their current job
@@ -39,7 +40,7 @@ public:
     ThreadPool           (ThreadPool&&)      = default;
     ThreadPool& operator=(ThreadPool&&)      = default;
 
-    // Store a function to be executed with its arguments as a bind expression
+    // Store a function to be executed along with its arguments as a bind expression
     // Can be called both while paused or running
     // If called while running, it will attempt to wake a thread (which may or may not succeed)
     template<typename Func, typename... Args>
@@ -82,7 +83,7 @@ auto ThreadPool::Add(Func&& func, Args&&... args) -> std::future<typename std::r
 {
     using Task = std::packaged_task<typename std::result_of<Func(Args...)>::type()>;
 
-    // Store as a Callable object (0 arguments) with arguments pre-stored in a bind expression
+    // Store as a Callable object (requiring 0 arguments) with arguments pre-stored in a bind expression
     // Task pointed to here will be destroyed later when job is popped and destroyed
     auto task_ptr = std::make_shared<Task>(std::bind(std::forward<Func>(func), std::forward<Args>(args)...));
     auto ret = task_ptr->get_future();

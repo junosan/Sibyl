@@ -12,7 +12,7 @@ namespace sibyl
 Reshaper::Reshaper(unsigned long maxGTck_,
                              TradeDataSet *pTradeDataSet_,
                              std::vector<std::string> *pFileList_,
-                             const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
+                             const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&))
                              : useWhitening(false)
 {
     verify(maxGTck_ >= 0 && pTradeDataSet_ != nullptr && pFileList_ != nullptr && ReadRawFile_ != nullptr);
@@ -102,7 +102,7 @@ void Reshaper::CalcWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening
     // check frame count per file
     verify(nSeq > 0);
     std::vector<FLOAT> vecRaw;
-    unsigned long nFrame = ReadRawFile(vecRaw, (*pFileList)[0] + ".raw", pTradeDataSet);
+    unsigned long nFrame = (pTradeDataSet->*ReadRawFile)(vecRaw, (*pFileList)[0] + ".raw");
     
     EMatrix M;
     M.resize(nSeq * nFrame, inputDim); // N x K (large)
@@ -110,7 +110,7 @@ void Reshaper::CalcWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening
     unsigned long iRow = 0;
     for (unsigned long iSeq = 0; iSeq < nSeq; iSeq++)
     {
-        verify(nFrame == ReadRawFile(vecRaw, (*pFileList)[iSeq] + ".raw", pTradeDataSet));
+        verify(nFrame == (pTradeDataSet->*ReadRawFile)(vecRaw, (*pFileList)[iSeq] + ".raw"));
         for (unsigned long iFrame = 0; iFrame < nFrame; iFrame++)
             M.row(iRow++) = Eigen::Map<EMatrix>(vecRaw.data() + iFrame * inputDim, 1, inputDim);
     }

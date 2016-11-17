@@ -19,7 +19,7 @@
 namespace fractal
 {
 
-// Encapsulates code blocks for training or running fractal::Rnn
+// Encapsulates code blocks for fractal::Rnn training or inference
 // Base class for ValueNet and PolicyNet
 template <class TDataSet>
 class TradeNet
@@ -132,7 +132,7 @@ void TradeNet<TDataSet>::Configure(Engine &engine, RunType runType_,
         }
         verify(true == trainData.Reshaper().ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
         
-        trainData.ReadData();
+        // trainData.ReadData();
         trainDataStream.LinkDataSet(&trainData);
 
         /* Prepare dev data */
@@ -140,7 +140,7 @@ void TradeNet<TDataSet>::Configure(Engine &engine, RunType runType_,
 
         verify(true == devData.Reshaper().ReadWhiteningMatrix(workspacePath + "/mean.matrix", workspacePath + "/whitening.matrix"));
 
-        devData.ReadData();
+        // devData.ReadData();
         devDataStream.LinkDataSet(&devData);
 
         printf("Train: %ld sequences\n", trainData.GetNumSeq());

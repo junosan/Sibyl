@@ -17,8 +17,7 @@ public:
 
     const fractal::ChannelInfo GetChannelInfo(const unsigned long channelIdx) const override;
     
-    void GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
-            const unsigned long frameIdx, void *const frame) override;
+    void PutFrameData(const fractal::FLOAT *data, const unsigned long channelIdx, void *const frame) override;
 
 private:
     sibyl::Reshaper_v0 reshaper;
