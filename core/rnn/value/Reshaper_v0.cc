@@ -16,7 +16,7 @@ namespace sibyl
 Reshaper_v0::Reshaper_v0(unsigned long maxGTck_,
                         TradeDataSet *pTradeDataSet_,
                         std::vector<std::string> *pFileList_,
-                        const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*))
+                        const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&))
                         : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_),
                           b_th(1.0), s_th(1.0)
 {

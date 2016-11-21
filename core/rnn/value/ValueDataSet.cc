@@ -8,7 +8,7 @@
 
 using namespace fractal;
 
-ValueDataSet::ValueDataSet() : reshaper(0, this, &fileList, &ReadRawFile) // reshaper(maxGTck, &, &, &)
+ValueDataSet::ValueDataSet() : reshaper(0, this, &fileList, &TradeDataSet::ReadRawFile) // reshaper(maxGTck, &, &, &)
 {
     pReshaper = &reshaper;
     inputDim  = reshaper.GetInputDim();
@@ -46,24 +46,20 @@ const ChannelInfo ValueDataSet::GetChannelInfo(const unsigned long channelIdx) c
     return channelInfo;
 }
 
-void ValueDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
-        const unsigned long frameIdx, void *const frame)
+void ValueDataSet::PutFrameData(const FLOAT *data, const unsigned long channelIdx, void *const frame)
 {
-    verify(seqIdx < nSeq);
-    verify(frameIdx < nFrame[seqIdx]);
-
     switch(channelIdx)
     {
         case CHANNEL_INPUT:
-            memcpy(frame, input[seqIdx].data() + inputDim * frameIdx, sizeof(FLOAT) * inputDim);
+            memcpy(frame, data, sizeof(FLOAT) * inputDim);
             break;
 
         case CHANNEL_TARGET:
-            memcpy(frame, target[seqIdx].data() + targetDim * frameIdx, sizeof(FLOAT) * targetDim);
+            memcpy(frame, data, sizeof(FLOAT) * targetDim);
             break;
 
         case CHANNEL_SIG_NEWSEQ:
-            reinterpret_cast<FLOAT *>(frame)[0] = (FLOAT) (frameIdx == 0);
+            reinterpret_cast<FLOAT *>(frame)[0] = data[0];
             break;
 
         default:

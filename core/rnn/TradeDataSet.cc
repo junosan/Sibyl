@@ -82,115 +82,37 @@ const unsigned long TradeDataSet::ReadFileList(const std::string &filename)
         }
     }
 
-    return fileList.size();
+    return (nSeq = fileList.size());
 }
 
 
-void TradeDataSet::ReadData()
-{
-    unsigned long i;
+// void TradeDataSet::ReadData()
+// {
+//     unsigned long i;
 
-    nSeq = fileList.size();
+//     nFrame.clear();
+//     input.clear();
+//     target.clear();
 
-    nFrame.clear();
-    input.clear();
-    target.clear();
+//     nFrame.shrink_to_fit();
+//     input.shrink_to_fit();
+//     target.shrink_to_fit();
 
-    nFrame.shrink_to_fit();
-    input.shrink_to_fit();
-    target.shrink_to_fit();
+//     nFrame.resize(nSeq);
+//     input.resize(nSeq);
+//     target.resize(nSeq);
 
-    nFrame.resize(nSeq);
-    input.resize(nSeq);
-    target.resize(nSeq);
+//     for(i = 0; i < nSeq; i++)
+//     {
+//         unsigned long nRaw, nRef;
 
-    for(i = 0; i < nSeq; i++)
-    {
-        unsigned long nRaw, nRef;
+//         nRaw = ReadRawFile(input[i], fileList[i] + ".raw", this);
+//         nRef = ReadRefFile(target[i], fileList[i] + ".ref");
 
-        nRaw = ReadRawFile(input[i], fileList[i] + ".raw", this);
-        nRef = ReadRefFile(target[i], fileList[i] + ".ref");
-
-        verify(nRaw == nRef);
-        nFrame[i] = nRaw;
-    }
-}
-
-void TradeDataSet::Normalize()
-{
-    unsigned long i, j, k, n;
-    FLOAT val;
-    std::vector<double> sum, ssum;
-
-    mean.resize(inputDim);
-    mean.shrink_to_fit();
-
-    stdev.resize(inputDim);
-    stdev.shrink_to_fit();
-
-    sum.assign(inputDim, 0.0);
-    ssum.assign(inputDim, 0.0);
-
-    n = 0;
-
-    for(i = 0; i < nSeq; i++)
-    {
-        n += nFrame[i];
-        for(j = 0; j < nFrame[i]; j++)
-        {
-            for(k = 0; k < inputDim; k++)
-            {
-                val = input[i][j * inputDim + k];
-                sum[k] += val;
-                ssum[k] += val * val;
-            }
-        }
-    }
-
-    for(k = 0; k < inputDim; k++)
-    {
-        mean[k] = sum[k] / n;
-        stdev[k] = sqrt((ssum[k] / n) - mean[k] * mean[k]);
-    }
-
-    Normalize(mean, stdev);
-}
-
-
-void TradeDataSet::Normalize(const std::vector<FLOAT> &mean, const std::vector<FLOAT> &stdev)
-{
-    unsigned long i, j, k;
-
-    if(&this->mean != &mean)
-        this->mean = mean;
-
-    if(&this->stdev != &stdev)
-        this->stdev = stdev;
-
-    for(i = 0; i < nSeq; i++)
-    {
-        for(j = 0; j < nFrame[i]; j++)
-        {
-            for(k = 0; k < inputDim; k++)
-            {
-                input[i][j * inputDim + k] = (input[i][j * inputDim + k] - mean[k]) / stdev[k];
-            }
-        }
-    }
-}
-
-
-const std::vector<FLOAT> &TradeDataSet::GetMean()
-{
-    return mean;
-}
-
-
-const std::vector<FLOAT> &TradeDataSet::GetStdev()
-{
-    return stdev;
-}
-
+//         verify(nRaw == nRef);
+//         nFrame[i] = nRaw;
+//     }
+// }
 
 const unsigned long TradeDataSet::GetNumChannel() const
 {
@@ -207,14 +129,94 @@ const unsigned long TradeDataSet::GetNumFrame(const unsigned long seqIdx) const
 {
     verify(seqIdx < nSeq);
 
-    return nFrame[seqIdx];
+    return nFrame;
 }
 
-/* static member function */
-const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename, TradeDataSet *pThis)
+void TradeDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
+        const unsigned long frameIdx, void *const frame)
 {
-    verify(pThis != nullptr);
-    
+    verify(seqIdx < nSeq);
+    verify(frameIdx < nFrame);
+
+    // if accessing a new input/target file pair, allocate buffer
+    if (frameIdx == 0 && channelIdx == CHANNEL_INPUT)
+    {
+        auto it = input.find(seqIdx);
+        if (std::end(input) != it) input.erase(it);
+
+        auto it_success = input.insert(std::make_pair(seqIdx, std::vector<fractal::FLOAT>()));
+        verify(it_success.second == true);
+        ReadRawFile(it_success.first->second, fileList[seqIdx] + ".raw");
+
+        it = target.find(seqIdx);
+        if (std::end(target) != it) target.erase(it);
+        
+        it_success = target.insert(std::make_pair(seqIdx, std::vector<fractal::FLOAT>()));
+        verify(it_success.second == true);
+        ReadRefFile(it_success.first->second, fileList[seqIdx] + ".ref");
+
+        // for debugging
+        auto idx_it = lastFrameIdx.find(seqIdx);
+        if (std::end(lastFrameIdx) != idx_it) lastFrameIdx.erase(idx_it);
+        auto idx_it_success = lastFrameIdx.insert(std::make_pair(seqIdx, 0));
+        verify(idx_it_success.second == true);
+    }
+
+    const FLOAT *data(nullptr);
+    FLOAT isFirstFrame = (FLOAT) (frameIdx == 0);
+
+    std::map<unsigned long, std::vector<fractal::FLOAT>>::iterator it;
+
+    switch(channelIdx)
+    {
+        case CHANNEL_INPUT:
+            it = input.find(seqIdx);
+            verify(it != std::end(input));
+            data = it->second.data() + inputDim * frameIdx;
+            break;
+
+        case CHANNEL_TARGET:
+            it = target.find(seqIdx);
+            verify(it != std::end(target));
+            data = it->second.data() + targetDim * frameIdx;
+            break;
+
+        case CHANNEL_SIG_NEWSEQ:
+            data = &isFirstFrame;
+            break;
+
+        default:
+            verify(false);
+    }
+
+    PutFrameData(data, channelIdx, frame);
+
+    // for debugging
+    auto idx_it = lastFrameIdx.find(seqIdx);
+    verify(idx_it != std::end(lastFrameIdx));
+    verify(frameIdx >= idx_it->second);
+    idx_it->second = frameIdx;
+
+    // if done with a input/target file pair, erase buffer
+    if (frameIdx == nFrame - 1 && channelIdx == CHANNEL_TARGET)
+    {
+        it = input.find(seqIdx);
+        verify(it != std::end(input));
+        input.erase(it);
+
+        it = target.find(seqIdx);
+        verify(it != std::end(target));
+        target.erase(it);
+
+        // for debugging
+        idx_it = lastFrameIdx.find(seqIdx);
+        verify(idx_it != std::end(lastFrameIdx));
+        lastFrameIdx.erase(idx_it);
+    }
+}
+
+const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename)
+{
     /*
         % code.raw
         % little endian 32bit signed int (pr is float32)
@@ -284,8 +286,7 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
 #endif
 
     /* Number of frames */
-    const long interval = sibyl::kTimeRates::secPerTick; // seconds
-    const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
+    const long T = nFrame;
     
     /* .raw file */
     const long rawDim = 43;
@@ -351,7 +352,7 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
     }
 
     /* Prepare vec */
-    const long n = pThis->inputDim * T;
+    const long n = inputDim * T;
     vec.resize(n);
 
     for(long t = 0; t < T; t++)
@@ -431,15 +432,15 @@ const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, 
         }
         
         /* Write on vec based on state */
-        long idxInput = t * pThis->inputDim;
-        pThis->pReshaper->State2VecIn(vec.data() + idxInput, state);
+        long idxInput = t * inputDim;
+        pReshaper->State2VecIn(vec.data() + idxInput, state);
     }
 
     for(long i = 0; i < n; i++)
     {
         if(isinff(vec[i]) || isnanf(vec[i]) || std::isinf(vec[i]) || std::isnan(vec[i]))
         {
-            std::cerr << "ERR: " << date << "/" << code << " (" << i / pThis->inputDim << ", " << i % pThis->inputDim << ") " << vec[i] << std::endl;
+            std::cerr << "ERR: " << date << "/" << code << " (" << i / inputDim << ", " << i % inputDim << ") " << vec[i] << std::endl;
         }
         //verify(!isnan(vec[i]));
         //verify(!isinf(vec[i]));
@@ -460,9 +461,8 @@ const unsigned long TradeDataSet::ReadRefFile(std::vector<fractal::FLOAT> &vec, 
        Gs0 Gb0 Gs(1:10) Gb(1:10) Gcs(1:10) Gcb(1:10)
     */
 
-    const long interval = sibyl::kTimeRates::secPerTick; // seconds
     const long refDim = 42;
-    const long T = std::ceil((6 * 3600 - 10 * 60)/interval) - 1;
+    const long T = nFrame;
     const long n = targetDim * T;
     const long nRef = refDim * T;
 

@@ -32,7 +32,7 @@ public:
     Reshaper(unsigned long maxGTck_,
              TradeDataSet *pTradeDataSet_,
              std::vector<std::string> *pFileList_,
-             const unsigned long (*ReadRawFile_)(std::vector<FLOAT>&, CSTR&, TradeDataSet*));
+             const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&));
     
     unsigned long GetMaxGTck  () { return maxGTck;   }
     unsigned long GetInputDim () { return inputDim;  }
@@ -45,7 +45,7 @@ public:
     virtual void ReadConfig(CSTR &filename) = 0;
 
     //   raw   -> fractal (during training)
-    //  sibyl  -> fractal (during running)
+    //  sibyl  -> fractal (during inference)
     virtual void State2VecIn(FLOAT *vec, const ItemState &state) = 0;
     
     //   ref   -> fractal (during training)
@@ -56,7 +56,7 @@ public:
     //       input and target processing functions are called in batch or pairs
     virtual void Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code);
     
-    // fractal ->  sibyl  (during running)
+    // fractal ->  sibyl  (during inference)
     // (State2VecIn -> VecOut2Reward) * nFrame (called in pairs every frame)
     virtual void VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code);
     
@@ -75,7 +75,7 @@ private:
     /* TradeDataSet */
     TradeDataSet *pTradeDataSet;
     std::vector<std::string> *pFileList;
-    const unsigned long (*ReadRawFile)(std::vector<FLOAT>&, CSTR&, TradeDataSet*);
+    const unsigned long (TradeDataSet::* ReadRawFile)(std::vector<FLOAT>&, CSTR&);
     
     /* Eigen library */
     typedef float EScalar;

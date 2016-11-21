@@ -87,6 +87,7 @@ void ValueNet::Train()
 
     PortMapList inputPorts, outputPorts;
 
+    // NOTE: do not switch the orders of these ports as TradeDataSet relies on them
     inputPorts.push_back(PortMap(&inputProbe, inputChannel));
     inputPorts.push_back(PortMap(&resetProbe, TradeDataSet::CHANNEL_SIG_NEWSEQ));
     outputPorts.push_back(PortMap(&outputProbe, outputChannel));

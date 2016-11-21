@@ -8,7 +8,7 @@
 
 using namespace fractal;
 
-PolicyDataSet::PolicyDataSet() : reshaper(0, this, &fileList, &ReadRawFile) // reshaper(maxGTck, &, &, &)
+PolicyDataSet::PolicyDataSet() : reshaper(0, this, &fileList, &TradeDataSet::ReadRawFile) // reshaper(maxGTck, &, &, &)
 {
     pReshaper = &reshaper;
     inputDim  = reshaper.GetInputDim();
@@ -46,28 +46,23 @@ const ChannelInfo PolicyDataSet::GetChannelInfo(const unsigned long channelIdx) 
     return channelInfo;
 }
 
-void PolicyDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long channelIdx,
-        const unsigned long frameIdx, void *const frame)
+void PolicyDataSet::PutFrameData(const FLOAT *data, const unsigned long channelIdx, void *const frame)
 {
-    verify(seqIdx < nSeq);
-    verify(frameIdx < nFrame[seqIdx]);
-
     typedef sibyl::Reshaper_p0::vecout_idx idx;
-    auto vecout = target[seqIdx].data() + targetDim * frameIdx;
 
     switch(channelIdx)
     {
         case CHANNEL_INPUT:
-            memcpy(frame, input[seqIdx].data() + inputDim * frameIdx, sizeof(FLOAT) * inputDim);
+            memcpy(frame, data, sizeof(FLOAT) * inputDim);
             break;
 
         case CHANNEL_TARGET:
-            *reinterpret_cast<INT*>(frame) = (INT) ( idx::sell * (vecout[idx::sell] > 0.0f) +
-                                                     idx::buy  * (vecout[idx::buy ] > 0.0f) );
+            *reinterpret_cast<INT*>(frame) = (INT) ( idx::sell * (data[idx::sell] > 0.0f) +
+                                                     idx::buy  * (data[idx::buy ] > 0.0f) );
             break;
 
         case CHANNEL_SIG_NEWSEQ:
-            reinterpret_cast<FLOAT *>(frame)[0] = (FLOAT) (frameIdx == 0);
+            reinterpret_cast<FLOAT *>(frame)[0] = data[0];
             break;
 
         default:
