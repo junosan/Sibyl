@@ -248,7 +248,7 @@ CSTR& RewardModel::BuildMsgOut()
     // For early quit mechanism; if rate_r > 1% and rate_r's slope is negative, exit market
     if (earlyQuit == true && exitMarket == false)
     {
-        const std::size_t covWindow = 120; // 120 ticks = 20 min 
+        const std::size_t covWindow = 1200 / kTimeRates::secPerTick; // 20 min 
         vec_rate_r.resize(covWindow, 1.0);
         vec_rate_r[idx_rate_r] = pPortfolio->GetProfitRate(true);
         idx_rate_r = (idx_rate_r + 1) % covWindow;

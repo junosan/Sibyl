@@ -399,16 +399,18 @@ void Portfolio::WriteState()
         int rng_r = FindRange(tot_s);
         int rng_i = FindRange(index);
 
+        std::size_t bin_size = 300 / kTimeRates::secPerTick; // 5 min
+
         ofs << L"─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─\n"
-            << CandlePlot(u_tot, 11, 0.0f, 1.0f, 30, L"u / tot (0, 1)") << '\n';
+            << CandlePlot(u_tot, 11, 0.0f, 1.0f, bin_size, L"u / tot (0, 1)") << '\n';
 
         std::wstring title_r = L"rate_s (-" + std::to_wstring(rng_r) + L"%, +" + std::to_wstring(rng_r) + L"%)"; 
         ofs << L"─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
-            << CandlePlot(tot_s, 21, (float) -rng_r, (float) rng_r, 30, title_r) << '\n';
+            << CandlePlot(tot_s, 21, (float) -rng_r, (float) rng_r, bin_size, title_r) << '\n';
 
         std::wstring title_i = L"index (-" + std::to_wstring(rng_i) + L"%, +" + std::to_wstring(rng_i) + L"%)";
         ofs << L"─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
-            << CandlePlot(index, 21, (float) -rng_i, (float) rng_i, 30, title_i) << '\n';
+            << CandlePlot(index, 21, (float) -rng_i, (float) rng_i, bin_size, title_i) << '\n';
             
         ofs << L"─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─\n";
         ofs << '\n';
