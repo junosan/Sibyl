@@ -67,8 +67,8 @@ protected:
     std::map<unsigned long, std::vector<fractal::FLOAT>> input;  // buffered input  data (reshaped)
     std::map<unsigned long, std::vector<fractal::FLOAT>> target; // buffered target data (reshaped)
     
-    // for debugging (check that frameIdx is nondecreasing)
-    std::map<unsigned long, unsigned long> lastFrameIdx;
+    // // for debugging (check that frameIdx is nondecreasing)
+    // std::map<unsigned long, unsigned long> lastFrameIdx;
 
     // NOTE: These three must be initialized in the derived class' constructor
     sibyl::Reshaper* pReshaper;
