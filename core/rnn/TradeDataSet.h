@@ -30,6 +30,10 @@ public:
     // Read list file and fill in fileList entries and nSeq
     const unsigned long ReadFileList(const std::string &filename);
 
+    // Actually read files and fill in nFrame, input, target
+    // Any data processing is performed by Reshaper 
+    void ReadData();
+
     // TradeNet refers to the Reshaper used here for use from outside code
     // so that the same Reshaper used during training can be used for inference
     sibyl::Reshaper& Reshaper() { verify(pReshaper != nullptr); return *pReshaper; }
@@ -49,26 +53,18 @@ public:
     const unsigned long ReadRefFile(std::vector<fractal::FLOAT> &vec, const std::string &filename);
 
     // Unused
-    // Actually read files and fill in nFrame, input, target
-    // Any data processing is performed by Reshaper 
-    // void ReadData();
     // const std::string &GetFilename(const unsigned long seqIdx) const { verify(seqIdx < nSeq); return fileList[seqIdx]; }
 
 protected:
     unsigned long nSeq;
 
     // Holds info for each sequence
-    std::vector<std::string> fileList; // file name
-    // std::vector<unsigned long> nFrame; // # of frames = inner_vectors_below.size()
-    // std::vector<std::vector<fractal::FLOAT>> input;  // input  data (after Reshaper processing)
-    // std::vector<std::vector<fractal::FLOAT>> target; // target data (after Reshaper processing)
+    std::vector<std::string> fileList; // file names
 
+    // std::vector<unsigned long> nFrame; // # of frames = inner_vectors_below.size()
     constexpr static long nFrame = std::ceil((double) (6 * 3600 - 10 * 60) / sibyl::kTimeRates::secPerTick) - 1;
-    std::map<unsigned long, std::vector<fractal::FLOAT>> input;  // buffered input  data (reshaped)
-    std::map<unsigned long, std::vector<fractal::FLOAT>> target; // buffered target data (reshaped)
-    
-    // // for debugging (check that frameIdx is nondecreasing)
-    // std::map<unsigned long, unsigned long> lastFrameIdx;
+    std::vector<std::vector<fractal::FLOAT>> input;  // input  data (after Reshaper processing)
+    std::vector<std::vector<fractal::FLOAT>> target; // target data (after Reshaper processing)
 
     // NOTE: These three must be initialized in the derived class' constructor
     sibyl::Reshaper* pReshaper;

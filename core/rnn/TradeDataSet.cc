@@ -85,34 +85,27 @@ const unsigned long TradeDataSet::ReadFileList(const std::string &filename)
     return (nSeq = fileList.size());
 }
 
+void TradeDataSet::ReadData()
+{
+    input.clear();
+    target.clear();
 
-// void TradeDataSet::ReadData()
-// {
-//     unsigned long i;
+    input.shrink_to_fit();
+    target.shrink_to_fit();
 
-//     nFrame.clear();
-//     input.clear();
-//     target.clear();
+    input.resize(nSeq);
+    target.resize(nSeq);
 
-//     nFrame.shrink_to_fit();
-//     input.shrink_to_fit();
-//     target.shrink_to_fit();
+    for(auto i = 0u; i < nSeq; ++i)
+    {
+        unsigned long nRaw, nRef;
 
-//     nFrame.resize(nSeq);
-//     input.resize(nSeq);
-//     target.resize(nSeq);
+        nRaw = ReadRawFile(input[i], fileList[i] + ".raw");
+        nRef = ReadRefFile(target[i], fileList[i] + ".ref");
 
-//     for(i = 0; i < nSeq; i++)
-//     {
-//         unsigned long nRaw, nRef;
-
-//         nRaw = ReadRawFile(input[i], fileList[i] + ".raw", this);
-//         nRef = ReadRefFile(target[i], fileList[i] + ".ref");
-
-//         verify(nRaw == nRef);
-//         nFrame[i] = nRaw;
-//     }
-// }
+        verify(nRaw == nRef);
+    }
+}
 
 const unsigned long TradeDataSet::GetNumChannel() const
 {
@@ -138,56 +131,17 @@ void TradeDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long 
     verify(seqIdx < nSeq);
     verify(frameIdx < nFrame);
 
-    // // if accessing a new input/target file pair, allocate buffer
-    // if (frameIdx == 0 && channelIdx == CHANNEL_INPUT)
-    // {
-    //     auto it = input.find(seqIdx);
-    //     if (std::end(input) != it) input.erase(it);
-
-    //     auto it_success = input.insert(std::make_pair(seqIdx, std::vector<fractal::FLOAT>()));
-    //     verify(it_success.second == true);
-    //     ReadRawFile(it_success.first->second, fileList[seqIdx] + ".raw");
-
-    //     it = target.find(seqIdx);
-    //     if (std::end(target) != it) target.erase(it);
-        
-    //     it_success = target.insert(std::make_pair(seqIdx, std::vector<fractal::FLOAT>()));
-    //     verify(it_success.second == true);
-    //     ReadRefFile(it_success.first->second, fileList[seqIdx] + ".ref");
-
-    //     // // for debugging
-    //     // auto idx_it = lastFrameIdx.find(seqIdx);
-    //     // if (std::end(lastFrameIdx) != idx_it) lastFrameIdx.erase(idx_it);
-    //     // auto idx_it_success = lastFrameIdx.insert(std::make_pair(seqIdx, 0));
-    //     // verify(idx_it_success.second == true);
-    // }
-
     const FLOAT *data(nullptr);
-    FLOAT isFirstFrame = (FLOAT) (frameIdx == 0);
-
-    std::map<unsigned long, std::vector<fractal::FLOAT>>::iterator it;
-    bool inserted(false);
+    const FLOAT isFirstFrame = (FLOAT) (frameIdx == 0);
 
     switch(channelIdx)
     {
         case CHANNEL_INPUT:
-            it = input.find(seqIdx);
-            if (it == std::end(input)) {
-                std::tie(it, inserted) = input.insert(std::make_pair(seqIdx, std::vector<fractal::FLOAT>()));
-                verify(inserted == true);
-                ReadRawFile(it->second, fileList[seqIdx] + ".raw");
-            }
-            data = it->second.data() + inputDim * frameIdx;
+            data = input[seqIdx].data() + inputDim * frameIdx;
             break;
 
         case CHANNEL_TARGET:
-            it = target.find(seqIdx);
-            if (it == std::end(target)) {
-                std::tie(it, inserted) = target.insert(std::make_pair(seqIdx, std::vector<fractal::FLOAT>()));
-                verify(inserted == true);
-                ReadRefFile(it->second, fileList[seqIdx] + ".ref");
-            }
-            data = it->second.data() + targetDim * frameIdx;
+            data = target[seqIdx].data() + targetDim * frameIdx;
             break;
 
         case CHANNEL_SIG_NEWSEQ:
@@ -199,29 +153,6 @@ void TradeDataSet::GetFrameData(const unsigned long seqIdx, const unsigned long 
     }
 
     PutFrameData(data, channelIdx, frame);
-
-    // // for debugging
-    // auto idx_it = lastFrameIdx.find(seqIdx);
-    // verify(idx_it != std::end(lastFrameIdx));
-    // verify(frameIdx >= idx_it->second);
-    // idx_it->second = frameIdx;
-
-    // if done with a input/target file pair, erase buffer
-    if (frameIdx == nFrame - 1 && channelIdx == CHANNEL_TARGET)
-    {
-        it = input.find(seqIdx);
-        verify(it != std::end(input));
-        input.erase(it);
-
-        it = target.find(seqIdx);
-        verify(it != std::end(target));
-        target.erase(it);
-
-        // // for debugging
-        // idx_it = lastFrameIdx.find(seqIdx);
-        // verify(idx_it != std::end(lastFrameIdx));
-        // lastFrameIdx.erase(idx_it);
-    }
 }
 
 const unsigned long TradeDataSet::ReadRawFile(std::vector<fractal::FLOAT> &vec, const std::string &filename)

@@ -11,7 +11,7 @@ namespace fractal
 
 void ValueNet::ConfigureLayers()
 {
-    long N = 2048;
+    long N = 1024;
 
     InitWeightParamUniform initWeightParam;
     initWeightParam.a = -2e-2;
@@ -73,7 +73,7 @@ void ValueNet::Train()
     
     AutoOptimizer autoOptimizer;
 
-    trainDataStream.SetNumStream(30);
+    trainDataStream.SetNumStream(64);
     devDataStream  .SetNumStream(64);
 
     /* Set ports */
@@ -87,7 +87,6 @@ void ValueNet::Train()
 
     PortMapList inputPorts, outputPorts;
 
-    // NOTE: do not switch the orders of these ports as TradeDataSet relies on them
     inputPorts.push_back(PortMap(&inputProbe, inputChannel));
     inputPorts.push_back(PortMap(&resetProbe, TradeDataSet::CHANNEL_SIG_NEWSEQ));
     outputPorts.push_back(PortMap(&outputProbe, outputChannel));
@@ -108,7 +107,7 @@ void ValueNet::Train()
         autoOptimizer.Optimize(rnn,
                 trainDataStream, devDataStream,
                 inputPorts, outputPorts,
-                2 * 1024 * 1024, 2 * 1024 * 1024, 128, 64);
+                8 * 1024 * 1024, 8 * 1024 * 1024, 128, 64);
     }
 
     /* Evaluate the best network */
@@ -125,13 +124,13 @@ void ValueNet::Train()
 
     std::cout << "Train: " << std::endl;
     outputProbe.ResetStatistics();
-    evaluator.Evaluate(rnn, trainDataStream, inputPorts, outputPorts, 4 * 1024 * 1024, 32);
+    evaluator.Evaluate(rnn, trainDataStream, inputPorts, outputPorts, 8 * 1024 * 1024, 32);
     outputProbe.PrintStatistics(std::cout);
     std::cout << std::endl;
 
     std::cout << "  Dev: " << std::endl;
     outputProbe.ResetStatistics();
-    evaluator.Evaluate(rnn, devDataStream, inputPorts, outputPorts, 4 * 1024 * 1024, 32);
+    evaluator.Evaluate(rnn, devDataStream, inputPorts, outputPorts, 8 * 1024 * 1024, 32);
     outputProbe.PrintStatistics(std::cout);
     std::cout << std::endl;
 }
