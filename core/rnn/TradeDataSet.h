@@ -32,7 +32,11 @@ public:
 
     // Actually read files and fill in nFrame, input, target
     // Any data processing is performed by Reshaper 
-    void ReadData();
+    void ReadData(bool verbose = false);
+
+    // Dump data in memory to *.input, *.target files in their respective directories
+    // ReadData must be called first
+    void DumpData(const std::string &path, bool verbose = false);
 
     // TradeNet refers to the Reshaper used here for use from outside code
     // so that the same Reshaper used during training can be used for inference

@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <cmath>
 #include <iostream>
+#include <set>
 
 using namespace fractal;
 
@@ -66,16 +67,17 @@ const unsigned long TradeDataSet::ReadFileList(const std::string &filename)
     {
         if((*it)[0] == '/') /* Absolute path */
         {
-            fileList[i] = *it;
+            fileList[i] = *it; // use as is
         }
         else /* Relative path */
         {
             pos = filename.find_last_of('/');
-            if(pos != std::string::npos)
+            if(pos != std::string::npos) // .list file in a different relative path
             {
+                // get .list file's path and append data file 
                 fileList[i] = filename.substr(0, pos + 1) + *it;
             }
-            else
+            else // .list file in pwd
             {
                 fileList[i] = *it;
             }
@@ -85,7 +87,7 @@ const unsigned long TradeDataSet::ReadFileList(const std::string &filename)
     return (nSeq = fileList.size());
 }
 
-void TradeDataSet::ReadData()
+void TradeDataSet::ReadData(bool verbose)
 {
     input.clear();
     target.clear();
@@ -96,14 +98,57 @@ void TradeDataSet::ReadData()
     input.resize(nSeq);
     target.resize(nSeq);
 
+    const unsigned long tenth = nSeq / 10;
+
     for(auto i = 0u; i < nSeq; ++i)
     {
+        if (verbose == true && i % tenth == 0 && i > 0)
+            std::cerr << i / tenth << "0% ";
+
         unsigned long nRaw, nRef;
 
         nRaw = ReadRawFile(input[i], fileList[i] + ".raw");
         nRef = ReadRefFile(target[i], fileList[i] + ".ref");
 
         verify(nRaw == nRef);
+    }
+}
+
+void TradeDataSet::DumpData(const std::string &path, bool verbose)
+{
+    std::set<std::string> dates_seen;
+
+    const unsigned long tenth = nSeq / 10;
+
+    for (auto i = 0u; i < nSeq; ++i)
+    {
+        if (verbose == true && i % tenth == 0 && i > 0)
+            std::cerr << i / tenth << "0% ";
+
+        std::string date = fileList[i].substr(0, fileList[i].find_last_of('/'));
+        date = date.substr(date.find_last_of('/') + 1);
+        std::string code = fileList[i].substr(fileList[i].find_last_of('/') + 1);
+        std::string dir = path + '/' + date;
+
+        {
+            bool new_date(false);
+            std::tie(std::ignore, new_date) = dates_seen.insert(date);
+            if (new_date == true)
+                verify(0 == system(std::string("mkdir -p " + dir).c_str()));
+        }
+
+        {
+            std::string filename  = dir + '/' + code + ".input";
+            std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
+            out.write((char*) input[i].data(), input[i].size() * sizeof(fractal::FLOAT));
+        }
+
+        {
+            std::string filename  = dir + '/' + code + ".target";
+            std::ofstream out(filename, std::ios::out | std::ios::binary | std::ios::trunc);
+            out.write((char*) target[i].data(), target[i].size() * sizeof(fractal::FLOAT));
+        }
+        
     }
 }
 

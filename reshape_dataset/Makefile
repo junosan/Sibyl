@@ -3,7 +3,7 @@
 .PHONY: clean realclean
 
 CC=g++
-OUTNAME_BIN=whiten
+OUTNAME_BIN=reshape_dataset
 BUILDDIR_BIN=../../bin
 OBJDIR=../../obj
 
@@ -65,23 +65,29 @@ CPPFLAGS+=$(OPTFLAGS)
 LDFLAGS+=$(OPTFLAGS)
 
 # COREDIR files
+HDRS=$(wildcard $(COREDIR_HDRS)/**/**/**/*.h)
 HDRS=$(wildcard $(COREDIR_HDRS)/**/**/*.h)
 HDRS=$(wildcard $(COREDIR_HDRS)/**/*.h)
 HDRS+=$(wildcard $(COREDIR_HDRS)/*.h)
+HDRS+=$(wildcard $(COREDIR_HDRS)/**/**/**/*.hxx)
 HDRS+=$(wildcard $(COREDIR_HDRS)/**/**/*.hxx)
 HDRS+=$(wildcard $(COREDIR_HDRS)/**/*.hxx)
 HDRS+=$(wildcard $(COREDIR_HDRS)/*.hxx)
+OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/**/**/**/*.cc))
 OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/**/**/*.cc))
 OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/**/*.cc))
 OBJS+=$(patsubst $(COREDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(COREDIR)/*.cc))
 
 # SRCDIR files
+HDRS=$(wildcard $(SRCDIR_HDRS)/**/**/**/*.h)
 HDRS=$(wildcard $(SRCDIR_HDRS)/**/**/*.h)
 HDRS=$(wildcard $(SRCDIR_HDRS)/**/*.h)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/*.h)
+HDRS+=$(wildcard $(SRCDIR_HDRS)/**/**/**/*.hxx)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/**/**/*.hxx)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/**/*.hxx)
 HDRS+=$(wildcard $(SRCDIR_HDRS)/*.hxx)
+OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/**/**/**/*.cc))
 OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/**/**/*.cc))
 OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/**/*.cc))
 OBJS+=$(patsubst $(SRCDIR)/%.cc,$(OBJDIR)/%.o, $(wildcard $(SRCDIR)/*.cc))
