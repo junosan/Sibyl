@@ -3,7 +3,7 @@
 .PHONY: clean realclean
 
 CC=g++
-OUTNAME_BIN=rnnclnt
+OUTNAME_BIN=sophia
 BUILDDIR_BIN=../../bin
 OBJDIR=../../obj
 
@@ -17,7 +17,7 @@ SRCDIR=./
 SRCDIR_HDRS=./
 SRCDIR_CUDA=$(SRCDIR)
 
-LIBS=-lfractal
+LIBS=-lfractal -lzmq
 LIBDIR=$(HOMEDIR)/fractal-git/build/lib
 LDFLAGS=-Wl,-rpath $(HOMEDIR)/fractal-git/build/lib
 
@@ -97,7 +97,7 @@ all:$(TARGET_BIN)
 
 $(TARGET_BIN):$(OBJS) 
 	@mkdir -p $(@D)
-	$(CC) -o $(TARGET_BIN)    $(OBJS) $(LDFLAGS) $(LIBS)
+	$(CC) -o $(TARGET_BIN)   $(OBJS) $(LDFLAGS) $(LIBS)
 
 # dependencies
 $(OBJDIR)/%.o:$(COREDIR)/%.cc $(HDRS)
