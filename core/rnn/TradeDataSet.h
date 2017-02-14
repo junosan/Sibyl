@@ -66,7 +66,7 @@ protected:
     std::vector<std::string> fileList; // file names
 
     // std::vector<unsigned long> nFrame; // # of frames = inner_vectors_below.size()
-    constexpr static long nFrame = std::ceil((double) (6 * 3600 - 10 * 60) / sibyl::kTimeRates::secPerTick) - 1;
+    constexpr static long nFrame = std::ceil((double) sibyl::kTimeBounds::stop / sibyl::kTimeRates::secPerTick) - 1;
     std::vector<std::vector<fractal::FLOAT>> input;  // input  data (after Reshaper processing)
     std::vector<std::vector<fractal::FLOAT>> target; // target data (after Reshaper processing)
 

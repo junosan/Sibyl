@@ -15,8 +15,9 @@
 #include <sibyl/client/Trader.h>
 #include <sibyl/client/NetClient.h>
 
-#include <rnn/value/ValueNet.h>
-typedef fractal::ValueNet Net;
+#include <rnn/regress/Reshaper_v0.h>
+#include <rnn/regress/VanillaNet.h>
+using Net = fractal::VanillaNet<sibyl::Reshaper_v0>;
 
 int main(int argc, char *argv[])
 {

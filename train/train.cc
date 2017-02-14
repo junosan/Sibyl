@@ -9,8 +9,9 @@
 
 #include <fractal/fractal.h>
 
-#include <rnn/value/ValueNet.h>
-typedef fractal::ValueNet Net;
+#include <rnn/regress/Reshaper_v0.h>
+#include <rnn/regress/VanillaNet.h>
+using Net = fractal::VanillaNet<sibyl::Reshaper_v0>;
 
 int main(int argc, char *argv[])
 {
@@ -33,4 +34,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-

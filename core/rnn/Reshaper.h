@@ -61,8 +61,9 @@ public:
     virtual void VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code);
     
 protected:
-    virtual FLOAT ReshapePrice(FLOAT p) { return (FLOAT) (std::log((FLOAT) p) * 100.0); }
-    virtual FLOAT ReshapeQuant(INT   q) { return (FLOAT) (std::log((FLOAT) 1 + std::abs(q)) * ((q > 0) - (q < 0)) / 4.0); }
+    virtual FLOAT ReshapePrice(FLOAT p) { return (FLOAT) (std::log(p) * 100.0); }
+    // virtual FLOAT ReshapeQuant(INT   q) { return (FLOAT) (std::log((FLOAT) 1 + std::abs(q)) * ((q > 0) - (q < 0)) / 4.0); }
+    virtual FLOAT ReshapeQuant(FLOAT q) { return (FLOAT) (std::log(1. + std::abs(q)) * ((q > 0.f) - (q < 0.f)) / 4.0); }
     
     constexpr static const double kR2V = 100.0;
     virtual FLOAT ReshapeG_R2V(FLOAT g) { return (FLOAT) (g * kR2V); }
@@ -70,6 +71,8 @@ protected:
 
     unsigned long maxGTck, inputDim, targetDim;
     void WhitenVector(FLOAT *vec); // to be used by State2VecIn
+
+    bool fullWhitening; // overwrite in a derived class to false if applicable
     
 private:
     /* TradeDataSet */

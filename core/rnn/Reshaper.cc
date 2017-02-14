@@ -13,7 +13,7 @@ Reshaper::Reshaper(unsigned long maxGTck_,
                              TradeDataSet *pTradeDataSet_,
                              std::vector<std::string> *pFileList_,
                              const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&))
-                             : useWhitening(false)
+                             : fullWhitening(true), useWhitening(false)
 {
     verify(maxGTck_ >= 0 && pTradeDataSet_ != nullptr && pFileList_ != nullptr && ReadRawFile_ != nullptr);
     maxGTck       = maxGTck_;
@@ -122,7 +122,11 @@ void Reshaper::CalcWhiteningMatrix(CSTR &filename_mean, CSTR &filename_whitening
     EMatrix Q = (M0.adjoint() * M0) / EScalar(M0.rows() - 1); // K x K
     M0.resize(0, 0);                           // N x K -> 0 x 0 (free memory)
     
-    Eigen::SelfAdjointEigenSolver<EMatrix> solver(Q);
+    // Use Q for full ZCA whitening
+    // Use Q.diagonal().asDiagonal() for mean/stdev compensation only
+    EMatrix R = (fullWhitening == true ? Q : Q.diagonal().asDiagonal());
+
+    Eigen::SelfAdjointEigenSolver<EMatrix> solver(R);
     matWhitening = solver.operatorInverseSqrt(); // K x K
     
     // std::cout << "mean vector\n" << matMean << std::endl;

@@ -4,13 +4,29 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#include "ValueNet.h"
+#ifndef REGRESS_VANILLANET_H_
+#define REGRESS_VANILLANET_H_
+
+#include "../TradeNet.h"
+#include "RegressDataSet.h"
 
 namespace fractal
 {
 
-void ValueNet::ConfigureLayers()
+template <class TReshaper>
+class VanillaNet : public TradeNet<RegressDataSet<TReshaper>>
 {
+public:
+    void Train() override;
+private:
+    void ConfigureLayers() override;
+};
+
+template <class TReshaper>
+void VanillaNet<TReshaper>::ConfigureLayers()
+{
+    auto &rnn = this->rnn;
+
     long N = 1024;
 
     InitWeightParamUniform initWeightParam;
@@ -22,9 +38,9 @@ void ValueNet::ConfigureLayers()
     dropoutLayerParam.dropoutRate = 0.0;
 
     rnn.AddLayer("BIAS", ACT_BIAS, AGG_DONTCARE, 1);
-    rnn.AddLayer("INPUT", ACT_LINEAR, AGG_DONTCARE, inputDim);
+    rnn.AddLayer("INPUT", ACT_LINEAR, AGG_DONTCARE, this->inputDim);
     rnn.AddLayer("RESET", ACT_ONE_MINUS_LINEAR, AGG_DONTCARE, 1);
-    rnn.AddLayer("OUTPUT", ACT_LINEAR, AGG_SUM, outputDim);
+    rnn.AddLayer("OUTPUT", ACT_LINEAR, AGG_SUM, this->outputDim);
 
     basicLayers::AddFastLstmLayer(rnn, "LSTM[0]", "BIAS", 1, N, true, initWeightParam);
     basicLayers::AddFastLstmLayer(rnn, "LSTM[1]", "BIAS", 1, N, true, initWeightParam);
@@ -67,13 +83,17 @@ void ValueNet::ConfigureLayers()
     rnn.AddConnection("BIAS", "OUTPUT", initWeightParam);
 }
 
-void ValueNet::Train()
+template <class TReshaper>
+void VanillaNet<TReshaper>::Train()
 {
-    verify(runType == RunType::train);
-    
+    auto &rnn             = this->rnn;
+    auto &trainDataStream = this->trainDataStream;
+    auto &devDataStream   = this->devDataStream;
+    verify(this->runType == VanillaNet<TReshaper>::RunType::train);
+
     AutoOptimizer autoOptimizer;
 
-    trainDataStream.SetNumStream(64);
+    trainDataStream.SetNumStream(32);
     devDataStream  .SetNumStream(64);
 
     /* Set ports */
@@ -87,13 +107,13 @@ void ValueNet::Train()
 
     PortMapList inputPorts, outputPorts;
 
-    inputPorts.push_back(PortMap(&inputProbe, inputChannel));
+    inputPorts.push_back(PortMap(&inputProbe, this->inputChannel));
     inputPorts.push_back(PortMap(&resetProbe, TradeDataSet::CHANNEL_SIG_NEWSEQ));
-    outputPorts.push_back(PortMap(&outputProbe, outputChannel));
+    outputPorts.push_back(PortMap(&outputProbe, this->outputChannel));
 
     /* Training */
     {
-        autoOptimizer.SetWorkspacePath(workspacePath);
+        autoOptimizer.SetWorkspacePath(this->workspacePath);
         autoOptimizer.SetInitLearningRate(1e-5);
         autoOptimizer.SetMinLearningRate(1e-7);
         autoOptimizer.SetLearningRateDecayRate(0.5);
@@ -107,7 +127,7 @@ void ValueNet::Train()
         autoOptimizer.Optimize(rnn,
                 trainDataStream, devDataStream,
                 inputPorts, outputPorts,
-                8 * 1024 * 1024, 8 * 1024 * 1024, 128, 64);
+                8 * 1024 * 1024, 8 * 1024 * 1024, 256, 128);
     }
 
     /* Evaluate the best network */
@@ -136,3 +156,5 @@ void ValueNet::Train()
 }
 
 }
+
+#endif /* REGRESS_VANILLANET_H_ */

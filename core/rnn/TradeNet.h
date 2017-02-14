@@ -8,7 +8,6 @@
 #define TRADENET_H_
 
 #include <fractal/fractal.h>
-#include "value/ValueDataSet.h"
 
 #include <ctime>
 #include <cstdio>
@@ -101,8 +100,8 @@ void TradeNet<TDataSet>::Configure(Engine &engine, RunType runType_,
     rnn.SetComputeLocs({1});
     
     /* Configure channels */
-    inputChannel  = TradeDataSet::CHANNEL_INPUT;
-    outputChannel = TradeDataSet::CHANNEL_TARGET;
+    inputChannel  = TDataSet::CHANNEL_INPUT;
+    outputChannel = TDataSet::CHANNEL_TARGET;
 
     inputDim  = devData.GetChannelInfo(inputChannel ).frameDim;
     outputDim = devData.GetChannelInfo(outputChannel).frameDim;

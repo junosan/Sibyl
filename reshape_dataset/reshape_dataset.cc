@@ -7,8 +7,9 @@
 #include <iostream>
 #include <string>
 
-#include <rnn/value/ValueDataSet.h>
-typedef ValueDataSet DataSet;
+#include <rnn/regress/RegressDataSet.h>
+#include <rnn/regress/Reshaper_v0.h>
+using DataSet = RegressDataSet<sibyl::Reshaper_v0>;
 
 int main(int argc, char *argv[])
 {

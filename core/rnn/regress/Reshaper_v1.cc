@@ -4,7 +4,7 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#include "Reshaper_n0.h"
+#include "Reshaper_v1.h"
 
 #include <sibyl/Security.h>
 #include <sibyl/time_common.h>
@@ -13,32 +13,32 @@
 namespace sibyl
 {
 
-Reshaper_n0::Reshaper_n0(unsigned long maxGTck_,
+Reshaper_v1::Reshaper_v1(unsigned long maxGTck_,
                         TradeDataSet *pTradeDataSet_,
                         std::vector<std::string> *pFileList_,
                         const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&))
                         : Reshaper(maxGTck_, pTradeDataSet_, pFileList_, ReadRawFile_),
                           b_th(1.0), s_th(1.0)
 {
-    maxGTck   = 0;  // overwrite Reshaper's constructor value 
+    maxGTck   = 1;  // overwrite Reshaper's constructor value 
     inputDim  = 44;
-    targetDim = 2;  // overwrite Reshaper's constructor value
+    targetDim = 1;  // overwrite Reshaper's constructor value
 }
 
-void Reshaper_n0::ReadConfig(CSTR &filename)
+void Reshaper_v1::ReadConfig(CSTR &filename)
 {
     Config cfg(filename);
     
     auto &ss_b_th = cfg.Get("B_TH");
     ss_b_th >> b_th;
     verify(ss_b_th.fail() == false);
-    
+
     auto &ss_s_th = cfg.Get("S_TH");
     ss_s_th >> s_th;
     verify(ss_s_th.fail() == false);
 }
 
-void Reshaper_n0::State2VecIn(FLOAT *vec, const ItemState &state)
+void Reshaper_v1::State2VecIn(FLOAT *vec, const ItemState &state)
 {
     // const long interval = kTimeRates::secPerTick; // seconds
     // const long T = (const long)(std::ceil((6 * 3600 - 10 * 60)/interval) - 1);
@@ -52,7 +52,18 @@ void Reshaper_n0::State2VecIn(FLOAT *vec, const ItemState &state)
         iItems->second.initPr = state.tbr[idx::ps1].p;
     }
     auto &i = iItems->second; // reference to current ItemMem
-
+    
+    // store idleG
+    KOSPI<Security<PQ>> sec;
+    double s0f  = sec.TckLo(state.tbr[idx::ps1].p) * (1.0 - sec.dSF());
+    double b0f  =           state.tbr[idx::ps1].p  * (1.0 + sec.dBF());
+    double idleG = (s0f - b0f) / (s0f + b0f); // note: negative value
+    verify(idleG < 0.0);
+    if (1 == state.time / kTimeRates::secPerTick) i.idleG.clear();
+    i.idleG.push_back(idleG);
+    i.cursor = i.idleG.size() - 1; // advance time tick for VecOut2Reward
+    // verify((int) i.idleG.size() == state.time / kTimeRates::secPerTick); // for debugging training
+    
     unsigned long idxInput = 0;
     
     // // t
@@ -103,33 +114,66 @@ void Reshaper_n0::State2VecIn(FLOAT *vec, const ItemState &state)
     WhitenVector(vec); // this alters vector only if matrices are initialized
 }
 
-void Reshaper_n0::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
+void Reshaper_v1::Reward2VecOut(FLOAT *vec, const Reward &reward, CSTR &code)
 {
-    if (vec == nullptr) return;
+    auto iItems = items.find(code);
+    verify(iItems != std::end(items));
+    auto &i = iItems->second; // reference to current ItemMem
+    
+    if (vec == nullptr) // rewind idleG's cursor
+    {
+        i.cursor = 0;
+        return;
+    }
+    
+    verify(i.cursor < i.idleG.size());
+    double idleG = i.idleG[i.cursor++]; // time tick advanced by repeated calls to this function
+    
+    // use Gs0 as the only signal, where
+    //     -Gs0 substitutes Gb1
+    //     Gs0 substitues Gcb1, but with a different threshold (e.g., cb_th = s_th - 0.25)
 
-    // Supply target with similar scales as before for similar magnitudes of gradients
+    // G0' = (G0 - idle) / (2 * -idle) = 0.5 - G0 / (2 * idle)
+    double G0s_scaled = 0.5 - reward.G0.s / (2.0 * idleG);
 
     unsigned long idxTarget = 0;
     
-    vec[idxTarget++] = ReshapeG_R2V(reward.G0.s);
-    vec[idxTarget++] = ReshapeG_R2V(reward.G0.b);
+    vec[idxTarget++] = (FLOAT) G0s_scaled;
     
     verify(targetDim == idxTarget);
 }
 
-void Reshaper_n0::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
+void Reshaper_v1::VecOut2Reward(Reward &reward, const FLOAT *vec, CSTR &code)
 {
-    unsigned long idxTarget = 0;
-
-    reward.G0.s = vec[idxTarget++] - s_th;
-    reward.G0.b = vec[idxTarget++] - b_th;
+    const auto iItems = items.find(code);
+    verify(iItems != std::end(items));
+    const auto &i = iItems->second; // reference to current ItemMem
     
-    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].s  = (FLOAT)   0.0;
-    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].b  = (FLOAT)   0.0;
-    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cs = (FLOAT) 100.0;
-    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cb = (FLOAT) 100.0;
+    verify(i.cursor < i.idleG.size());
+    double idleG = i.idleG[i.cursor]; // time tick advanced by State2VecIn
+    
+    unsigned long idxTarget = 0;
+    
+    double G0s_scaled = (double) vec[idxTarget++];
     
     verify(targetDim == idxTarget);
+
+    double G1b_scaled = -G0s_scaled;
+    double G1cb_scaled = G0s_scaled;
+    double cb_th = s_th - 0.25; // cb_th expected to be unimportant
+
+    // G0 = (G0' - 0.5) * (2 * -idle) = (1 - 2 * G0') * idle
+    reward.G0.s = (s_th - 2.0 * G0s_scaled) * idleG;
+    reward.G0.b = 0.;
+
+    reward.G[0].b  = (b_th  - 2.0 * G1b_scaled ) * idleG;
+    reward.G[0].cb = (cb_th - 2.0 * G1cb_scaled) * idleG;
+    
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].s  = (FLOAT)   0.0;
+    for (std::size_t j = 1; j < (std::size_t)idx::tckN; j++) reward.G[j].b  = (FLOAT)   0.0;
+    for (std::size_t j = 0; j < (std::size_t)idx::tckN; j++) reward.G[j].cs = (FLOAT) 100.0;
+    for (std::size_t j = 1; j < (std::size_t)idx::tckN; j++) reward.G[j].cb = (FLOAT) 100.0;
+    
 }
 
 }

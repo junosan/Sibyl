@@ -268,12 +268,11 @@ void Portfolio::WriteState()
         filename.append("client_cur.log");
     
     static const std::size_t size= 1 << 10;
-    static wchar_t buf[size];
+    static char  buf[size];
     const int  nItemPerLine = 4;
     const char itemSpacer[] = "        ";
     
-    std::wofstream ofs(filename);
-    ofs.imbue(std::locale("en_US.UTF-8"));
+    std::ofstream ofs(filename);
     if (ofs.is_open() == true)
     {
         SEval se = Evaluate();
@@ -291,63 +290,63 @@ void Portfolio::WriteState()
                 return ss.str();
             } 
         };
-        auto FillLeft = [](std::wofstream &ofs, const wchar_t *buf) {
+        auto FillLeft = [](std::ofstream &ofs, const char *buf) {
             constexpr std::size_t leftColWidth = 50;
-            ofs << buf << std::setw(leftColWidth - std::wcslen(buf)) << "";
+            ofs << buf << std::setw(leftColWidth - strlen(buf)) << "";
         };
-        auto FillRight = [&](std::wofstream &ofs, std::size_t n) {
+        auto FillRight = [&](std::ofstream &ofs, std::size_t n) {
             ofs << GetNthCnt(n).c_str() << "    " << GetNthCnt(n + colHeight).c_str() << '\n';
         };
 
         int timeCur = time; // std::atomic_int
         
-        swprintf(buf, size, L"t = %5d sec", timeCur);
+        sprintf(buf, "t = %5d sec", timeCur);
         FillLeft(ofs, buf); ofs << (topCnts.size() > 0 ? "top\n" : "\n");
 
-        swprintf(buf, size, L"  bal  u  %12" PRId64, se.balU   );
+        sprintf(buf, "  bal  u  %12" PRId64, se.balU   );
         FillLeft(ofs, buf); FillRight(ofs, 0);
 
-        swprintf(buf, size, L"  bal b_o %12" PRId64, se.balBO  );
+        sprintf(buf, "  bal b_o %12" PRId64, se.balBO  );
         FillLeft(ofs, buf); FillRight(ofs, 1);
 
-        swprintf(buf, size, L"  evl cnt %12" PRId64, se.evalCnt);
+        sprintf(buf, "  evl cnt %12" PRId64, se.evalCnt);
         FillLeft(ofs, buf); FillRight(ofs, 2);
 
-        swprintf(buf, size, L"  evl s_o %12" PRId64, se.evalSO );
+        sprintf(buf, "  evl s_o %12" PRId64, se.evalSO );
         FillLeft(ofs, buf); FillRight(ofs, 3);
 
-        swprintf(buf, size, L"  evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)", se.evalTot,
+        sprintf(buf, "  evl tot %12" PRId64 " (r%+.2f%%) (s%+.2f%%)", se.evalTot,
             ((double) se.evalTot / balRef - 1.0) * 100.0, ((double) se.evalTot / balInit - 1.0) * 100.0);
         FillLeft(ofs, buf); FillRight(ofs, 4);
 
-        // swprintf(buf, size, L"   sum  b  %12" PRId64 "\n" , sum.buy   ); ofs << buf;
-        // swprintf(buf, size, L"   sum  s  %12" PRId64 "\n" , sum.sell  ); ofs << buf;
+        // sprintf(buf, "   sum  b  %12" PRId64 "\n" , sum.buy   ); ofs << buf;
+        // sprintf(buf, "   sum  s  %12" PRId64 "\n" , sum.sell  ); ofs << buf;
         buf[0] = '\0';
         FillLeft(ofs, buf); FillRight(ofs, 5);
         
-        swprintf(buf, size, L"sum [t_o]          bal    quant      evt");
+        sprintf(buf, "sum [t_o]          bal    quant      evt");
         FillLeft(ofs, buf); FillRight(ofs, 6);
 
         // for (std::size_t idx = idx::ps1; idx <= idx::pb1; idx++)
         // {
-        //     swprintf(buf, size, L"     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
+        //     sprintf(buf, "     [%s%2d] ", ((int)idx <= idx::ps1 ? "s" : "b"),
         //         (idx <= idx::ps1 ? (int)idx::ps1 - (int)idx + 1 : (int)idx - (int)idx::pb1 + 1)); ofs << buf;
-        //     swprintf(buf, size, L"%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
+        //     sprintf(buf, "%12" PRId64 " %8" PRId64 " %8" PRId64 "\n",
         //         sum.tck_orig[idx].bal, sum.tck_orig[idx].q, sum.tck_orig[idx].evt); ofs << buf;
         //     if (idx == idx::ps1)
         //     {
         //         taken out below
         //     }
         // }
-        swprintf(buf, size, L"    [s 0] %12" PRId64 " %8" PRId64 " %8" PRId64,
+        sprintf(buf, "    [s 0] %12" PRId64 " %8" PRId64 " %8" PRId64,
             sum.tck_orig[idxTckOrigS0].bal, sum.tck_orig[idxTckOrigS0].q, sum.tck_orig[idxTckOrigS0].evt);
         FillLeft(ofs, buf); FillRight(ofs, 7);
 
-        swprintf(buf, size, L"    [b 0] %12" PRId64 " %8" PRId64 " %8" PRId64,
+        sprintf(buf, "    [b 0] %12" PRId64 " %8" PRId64 " %8" PRId64,
             sum.tck_orig[idxTckOrigB0].bal, sum.tck_orig[idxTckOrigB0].q, sum.tck_orig[idxTckOrigB0].evt);
         FillLeft(ofs, buf); FillRight(ofs, 8);
 
-        swprintf(buf, size, L"    [f+t] %12" PRId64, sum.feetax);
+        sprintf(buf, "    [f+t] %12" PRId64, sum.feetax);
         FillLeft(ofs, buf); FillRight(ofs, 9);
 
         ofs << '\n';
@@ -401,18 +400,18 @@ void Portfolio::WriteState()
 
         std::size_t bin_size = 300 / kTimeRates::secPerTick; // 5 min
 
-        ofs << L"─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─\n"
-            << CandlePlot(u_tot, 11, 0.0f, 1.0f, bin_size, L"u / tot (0, 1)") << '\n';
+        ofs << "─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─────┰─────┬─\n"
+            << CandlePlot(u_tot, 11, 0.0f, 1.0f, bin_size, "u / tot (0, 1)") << '\n';
 
-        std::wstring title_r = L"rate_s (-" + std::to_wstring(rng_r) + L"%, +" + std::to_wstring(rng_r) + L"%)"; 
-        ofs << L"─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
+        std::string title_r = "rate_s (-" + std::to_string(rng_r) + "%, +" + std::to_string(rng_r) + "%)"; 
+        ofs << "─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
             << CandlePlot(tot_s, 21, (float) -rng_r, (float) rng_r, bin_size, title_r) << '\n';
 
-        std::wstring title_i = L"index (-" + std::to_wstring(rng_i) + L"%, +" + std::to_wstring(rng_i) + L"%)";
-        ofs << L"─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
+        std::string title_i = "index (-" + std::to_string(rng_i) + "%, +" + std::to_string(rng_i) + "%)";
+        ofs << "─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─────╂─────┼─\n"
             << CandlePlot(index, 21, (float) -rng_i, (float) rng_i, bin_size, title_i) << '\n';
             
-        ofs << L"─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─\n";
+        ofs << "─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─────┸─────┴─\n";
         ofs << '\n';
         
         ofs << "cnt\n";
@@ -423,7 +422,7 @@ void Portfolio::WriteState()
             const auto &i = *code_pItem.second;
             if (i.cnt > 0)
             {
-                swprintf(buf, size, L"      {%s} %8d (%6d)", code_pItem.first.c_str(), i.Ps0(), i.cnt); ofs << buf;
+                sprintf(buf, "      {%s} %8d (%6d)", code_pItem.first.c_str(), i.Ps0(), i.cnt); ofs << buf;
                 if (nItemPerLine == ++iCnt)
                 {
                     ofs << '\n';
@@ -449,7 +448,7 @@ void Portfolio::WriteState()
                     {
                         int tck = i.P2Tck(o.p, o.type); // 0-based tick
                         if (tck == idx::tckN) tck = 98;     // display as 99 if not found
-                        swprintf(buf, size, L"[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1,
+                        sprintf(buf, "[%s%2d] {%s} %8d (%6d)", (type == OrdType::buy ? "b" : "s"), tck + 1,
                             code_pItem.first.c_str(), o.p, o.q); ofs << buf;
                         if (nItemPerLine == ++iCnt)
                         {
@@ -464,7 +463,7 @@ void Portfolio::WriteState()
             if (iCnt != 0) ofs << '\n';
         };
         
-        swprintf(buf, size, L"ord  [t_c] (%4d)\n", nOrdTot); ofs << buf;
+        sprintf(buf, "ord  [t_c] (%4d)\n", nOrdTot); ofs << buf;
         ListOrder(OrdType::buy) ;
         ListOrder(OrdType::sell);
         ofs << std::endl;

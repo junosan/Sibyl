@@ -4,8 +4,8 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#ifndef SIBYL_RESHAPER_N0_H_
-#define SIBYL_RESHAPER_N0_H_
+#ifndef SIBYL_RESHAPER_V1_H_
+#define SIBYL_RESHAPER_V1_H_
 
 #include "../Reshaper.h"
 
@@ -16,10 +16,10 @@
 namespace sibyl
 {
 
-class Reshaper_n0 : public Reshaper
+class Reshaper_v1 : public Reshaper
 {
 public:
-    Reshaper_n0(unsigned long maxGTck_, // this will be ignored and overwritten
+    Reshaper_v1(unsigned long maxGTck_, // this will be ignored and overwritten
                 TradeDataSet *pTradeDataSet_,
                 std::vector<std::string> *pFileList_,
                 const unsigned long (TradeDataSet::* ReadRawFile_)(std::vector<FLOAT>&, CSTR&));
@@ -42,11 +42,13 @@ private:
     struct ItemMem {
         FLOAT initPr;
         std::array<PQ, idx::szTb> lastTb;
-        ItemMem() : initPr(0.0f), lastTb{} {}
+        std::vector<double> idleG;
+        std::size_t cursor; // points at idx for current time in idleG
+        ItemMem() : initPr(0.0f), lastTb{}, cursor(0) {}
     };
     std::map<STR, ItemMem> items;
 };
 
 }
 
-#endif /* SIBYL_RESHAPER_N0_H_ */
+#endif /* SIBYL_RESHAPER_V1_H_ */

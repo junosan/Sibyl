@@ -9,8 +9,9 @@
 #include <sibyl/client/Trader.h>
 #include <sibyl/client/NetClient.h>
 
-#include <rnn/value/ValueDataSet.h>
-using Data = ValueDataSet;
+#include <rnn/regress/Reshaper_v0.h>
+#include <rnn/regress/RegressDataSet.h>
+using Data = RegressDataSet<sibyl::Reshaper_v0>;
 
 #include <string>
 #include <iostream>
@@ -18,6 +19,8 @@ using Data = ValueDataSet;
 #include <vector>
 #include <cassert>
 #include <cmath>
+#include <map>
+#include <sstream>
 
 int main(int argc, char *argv[])
 {
@@ -45,9 +48,11 @@ int main(int argc, char *argv[])
     NetClient netClient(&trader);
     netClient.SetVerbose(argc == 7 && std::string(argv[6]) == "-v");
     
-    std::string workspaces; // ; delimited 
+    std::string info; // ; and \n delimited 
     std::vector<Data> datas;
+    std::vector<std::map<std::string, int>> id_idx_maps;
 
+    // Initialize from each workspace
     {
         std::ifstream pathList(argv[3]);
         if (pathList.is_open() == false)
@@ -59,11 +64,33 @@ int main(int argc, char *argv[])
         {
             if (workspace.empty() == true) continue;
             if (workspace[0] != '/') workspace = path + "/" + workspace;
+            info += workspace + ';';
+
             datas.emplace_back();
             datas.back().Reshaper().ReadConfig(argv[2]);
             verify(true == datas.back().Reshaper().ReadWhiteningMatrix
                 (workspace + "/mean.matrix", workspace + "/whitening.matrix"));
-            workspaces += workspace + ';';
+            
+            // Build code -> idx_during_training map
+            id_idx_maps.emplace_back();
+            std::ifstream indice_file(workspace + "/ids.order");
+            if (indice_file.is_open() == false)
+            {
+                std::cerr << "<ids.order> inaccessible at " << workspace << '\n';
+                exit(1);
+            }
+
+            std::string indice;
+            std::getline(indice_file, indice);
+
+            int idx(0);
+            std::istringstream iss(indice);
+            for (std::string id; std::getline(iss, id, ';');)
+            {
+                bool success;
+                std::tie(std::ignore, success) = id_idx_maps.back().emplace(id, idx++);
+                verify(success == true);
+            }
         }
     }
     const auto nNet = datas.size();
@@ -81,12 +108,14 @@ int main(int argc, char *argv[])
 
 
     /* ================================= */
-    /*       Setup IPC with Sophia       */
+    /*  Setup communication with Sophia  */
     /* ================================= */
 
     zmq::context_t context(1);
     zmq::socket_t socket(context, ZMQ_REQ);
-    socket.connect("ipc:///tmp/sophia_sibyl");
+
+    // using IPC here, but also supports TCP if communicating over a network
+    socket.connect("ipc:///tmp/sophia_ipc");
 
 
     /* ================================= */
@@ -113,14 +142,28 @@ int main(int argc, char *argv[])
             inputStride  = nStream * inputDim;
             targetStride = nStream * targetDim;
 
-            // Inform Sophia of workspaces & nStream (== batch_size in Sophia)
-            workspaces += std::to_string(nStream);
-            const auto bytes = workspaces.size();
+            // Inform Sophia of workspaces, nStream (== batch_size in Sophia), and id_indices
+            info += std::to_string(nStream) + '\n';
+
+            const auto &vecState = trader.portfolio.GetStateVec();
+            for (auto n = 0u; n < nNet; ++n)
+            {
+                for (auto b = 0u; b < nStream; ++b)
+                {
+                    const auto it = id_idx_maps[n].find(vecState[b].code);
+                    verify(it != std::end(id_idx_maps[n])); // crash on code unseed during training
+                    info += std::to_string(it->second) + ';';
+                }
+                if (info.back() == ';') info.pop_back();
+                if (n < nNet - 1) info += '\n';
+            }
+
+            const auto bytes = info.size();
             zmq::message_t beg(bytes);
-            memcpy(beg.data(), workspaces.data(), bytes);
+            memcpy(beg.data(), info.data(), bytes);
             socket.send(beg);
 
-            // Need to receive once before sending another
+            // Need to receive once before sending another (REQ/REP)
             zmq::message_t rcv;
             socket.recv(&rcv);
 
@@ -141,13 +184,7 @@ int main(int argc, char *argv[])
                                                     vecState[b]);
             }
 
-            // // debug
-            // std::cerr << "Sending : ["
-            //           << vecIn[0] << ", "
-            //           << vecIn[1] << ", "
-            //           << vecIn[2] << ", "
-            //           << vecIn[3] << "]\n";
-            // Invoke Sophia::Ensemble::run_one_step
+            // Send vecIn to Sophia and retrieve vecOut
             {
                 auto bytes = vecIn.size() * sizeof(FLOAT);
                 zmq::message_t msg(bytes);
@@ -163,12 +200,6 @@ int main(int argc, char *argv[])
                 FLOAT* ptr = static_cast<FLOAT*>(rcv.data());
                 vecOut.assign(ptr, ptr + numel);
             }
-            // // debug
-            // std::cerr << "Received: ["
-            //           << vecOut[0] << ", "
-            //           << vecOut[1] << ", "
-            //           << vecOut[2] << ", "
-            //           << vecOut[3] << "]\n";
             
             // Allocate 0-filled Reward vector
             auto &vecReward = trader.model.GetRewardVec(); 

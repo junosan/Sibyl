@@ -4,13 +4,29 @@
 /*                        Proprietary and confidential                        */
 /* ========================================================================== */
 
-#include "NegCorrNet.h"
+#ifndef CLASSIF_VANILLANET_H_
+#define CLASSIF_VANILLANET_H_
+
+#include "../TradeNet.h"
+#include "ClassifDataSet.h"
 
 namespace fractal
 {
 
-void NegCorrNet::ConfigureLayers()
+template <class TReshaper>
+class VanillaNet : public TradeNet<ClassifDataSet<TReshaper>>
 {
+public:
+    void Train() override;
+private:
+    void ConfigureLayers() override;
+};
+
+template <class TReshaper>
+void VanillaNet<TReshaper>::ConfigureLayers()
+{
+    auto &rnn = this->rnn;
+
     long N = 1024;
 
     InitWeightParamUniform initWeightParam;
@@ -22,9 +38,9 @@ void NegCorrNet::ConfigureLayers()
     dropoutLayerParam.dropoutRate = 0.0;
 
     rnn.AddLayer("BIAS", ACT_BIAS, AGG_DONTCARE, 1);
-    rnn.AddLayer("INPUT", ACT_LINEAR, AGG_DONTCARE, inputDim);
+    rnn.AddLayer("INPUT", ACT_LINEAR, AGG_DONTCARE, this->inputDim);
     rnn.AddLayer("RESET", ACT_ONE_MINUS_LINEAR, AGG_DONTCARE, 1);
-    rnn.AddLayer("OUTPUT", ACT_SIGMOID, AGG_SUM, outputDim);
+    rnn.AddLayer("OUTPUT", ACT_SOFTMAX, AGG_SUM, this->outputDim);
 
     basicLayers::AddFastLstmLayer(rnn, "LSTM[0]", "BIAS", 1, N, true, initWeightParam);
     basicLayers::AddFastLstmLayer(rnn, "LSTM[1]", "BIAS", 1, N, true, initWeightParam);
@@ -67,19 +83,23 @@ void NegCorrNet::ConfigureLayers()
     rnn.AddConnection("BIAS", "OUTPUT", initWeightParam);
 }
 
-void NegCorrNet::Train()
+template <class TReshaper>
+void VanillaNet<TReshaper>::Train()
 {
-    verify(runType == RunType::train);
+    auto &rnn             = this->rnn;
+    auto &trainDataStream = this->trainDataStream;
+    auto &devDataStream   = this->devDataStream;
+    verify(this->runType == VanillaNet<TReshaper>::RunType::train);
     
     AutoOptimizer autoOptimizer;
 
-    trainDataStream.SetNumStream(64);
+    trainDataStream.SetNumStream(30);
     devDataStream  .SetNumStream(64);
 
     /* Set ports */
-    InputProbe inputProbe;
-    InputProbe resetProbe;
-    NegLogCorrProbe outputProbe;
+    InputProbe        inputProbe;
+    InputProbe        resetProbe;
+    MultiClassifProbe outputProbe;
 
     rnn.LinkProbe(inputProbe , "INPUT");
     rnn.LinkProbe(resetProbe , "RESET");
@@ -87,13 +107,15 @@ void NegCorrNet::Train()
 
     PortMapList inputPorts, outputPorts;
 
-    inputPorts.push_back(PortMap(&inputProbe, inputChannel));
-    inputPorts.push_back(PortMap(&resetProbe, TradeDataSet::CHANNEL_SIG_NEWSEQ));
-    outputPorts.push_back(PortMap(&outputProbe, outputChannel));
+    // NOTE: do not switch the orders of these ports as TradeDataSet relies on them
+    inputPorts .push_back(PortMap(&inputProbe , this->inputChannel));
+    inputPorts .push_back(PortMap(&resetProbe , TradeDataSet::CHANNEL_SIG_NEWSEQ));
+    outputPorts.push_back(PortMap(&outputProbe, this->outputChannel));
 
     /* Training */
     {
-        autoOptimizer.SetWorkspacePath(workspacePath);
+
+        autoOptimizer.SetWorkspacePath(this->workspacePath);
         autoOptimizer.SetInitLearningRate(1e-5);
         autoOptimizer.SetMinLearningRate(1e-7);
         autoOptimizer.SetLearningRateDecayRate(0.5);
@@ -104,10 +126,22 @@ void NegCorrNet::Train()
         //autoOptimizer.SetRmsprop(true);
         autoOptimizer.SetRmsDecayRate(0.99);
 
+/*
+        autoOptimizer.SetWorkspacePath(workspacePath);
+        autoOptimizer.SetInitLearningRate(1e-5);
+        autoOptimizer.SetMinLearningRate(1e-7);
+        autoOptimizer.SetLearningRateDecayRate(0.1);
+        autoOptimizer.SetMaxRetryCount(3);
+        autoOptimizer.SetMomentum(0.9);
+        autoOptimizer.SetWeightNoise(0.0);
+        autoOptimizer.SetAdadelta(true);
+        //autoOptimizer.SetRmsprop(true);
+        autoOptimizer.SetRmsDecayRate(0.99);
+*/
         autoOptimizer.Optimize(rnn,
                 trainDataStream, devDataStream,
                 inputPorts, outputPorts,
-                8 * 1024 * 1024, 8 * 1024 * 1024, 128, 64);
+                2 * 1024 * 1024, 2 * 1024 * 1024, 128, 64);
     }
 
     /* Evaluate the best network */
@@ -122,17 +156,23 @@ void NegCorrNet::Train()
 
     Evaluator evaluator;
 
-    std::cout << "Train: " << std::endl;
     outputProbe.ResetStatistics();
-    evaluator.Evaluate(rnn, trainDataStream, inputPorts, outputPorts, 8 * 1024 * 1024, 32);
-    outputProbe.PrintStatistics(std::cout);
-    std::cout << std::endl;
+    evaluator.Evaluate(rnn, trainDataStream, inputPorts, outputPorts, 4 * 1024 * 1024, 32);
+    printf( "Train :  MSE: %f  ACE: %f  FER: %f  BPC: %f\n",
+            outputProbe.GetMeanSquaredError(),
+            outputProbe.GetAverageCrossEntropy(),
+            outputProbe.GetFrameErrorRate(),
+            outputProbe.GetAverageCrossEntropy() / log(2.0) );
 
-    std::cout << "  Dev: " << std::endl;
     outputProbe.ResetStatistics();
-    evaluator.Evaluate(rnn, devDataStream, inputPorts, outputPorts, 8 * 1024 * 1024, 32);
-    outputProbe.PrintStatistics(std::cout);
-    std::cout << std::endl;
+    evaluator.Evaluate(rnn, devDataStream, inputPorts, outputPorts, 4 * 1024 * 1024, 32);
+    printf( "  Dev :  MSE: %f  ACE: %f  FER: %f  BPC: %f\n",
+            outputProbe.GetMeanSquaredError(),
+            outputProbe.GetAverageCrossEntropy(),
+            outputProbe.GetFrameErrorRate(),
+            outputProbe.GetAverageCrossEntropy() / log(2.0) );
 }
 
 }
+
+#endif /* CLASSIF_VANILLANET_H_ */
