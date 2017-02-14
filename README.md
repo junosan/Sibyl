@@ -65,15 +65,15 @@ There are 4 constituents of a trading model in this diagram:
 - **Reshaper model**
   : process input & target/output of RNN in a way that makes more sense
     for a RNN to learn;
-    `class Reshaper` in `core/rnn` and its derived classes
+    `class Reshaper` in `src/core/rnn` and its derived classes
 - **RNN model**
   : given preprocessed input, generate output, which becomes a real-time
     estimation of the target after Reshaper processing;
-    `class TradeNet` in `core/rnn` and its derived classes
+    `class TradeNet` in `src/core/rnn` and its derived classes
 - **Portfolio model**
   : given a set of returns of different security items, determines the price,
     size, and timing of order requests;
-    `class Model` in `core/sibyl/client` and its derived classes
+    `class Model` in `src/core/sibyl/client` and its derived classes
 
 
 ## Programs in this repository
@@ -100,20 +100,21 @@ For *Sophia*:
 
 ## Directory structure
 
-The script files included in `readme/scripts.zip` show how to train,
-backtest, and execute live trades. They assume the following directory
-structure. This isn't the most logical of structures, so change
+The script files included in directory `run` show how to train,
+backtest, and execute live trades.
+They assume the following directory structure.
+This isn't the most logical of structures, so change
 them if you want (in particular, `MATLAB` is just a name here).
 
-    $HOME
+    $ROOT
       fractal-git (Fractal repository, cloned and locally built)
       MATLAB
         Data (zipped plain text market data for each date)
         DataV (zipped transformed binary data for each date)
         fractal
           DataV (unzipped and split into train/dev set for training)
-      Sibyl
-        src (this repository, cloned)
+      Sibyl (this repository, cloned)
+        src (source code)
         run (script and config files)
         bin (compiled binary)
       Sophia
@@ -124,7 +125,7 @@ them if you want (in particular, `MATLAB` is just a name here).
 
 
 ## Example
-`readme/example.zip` includes sample data and a pre-trained RNN to demonstrate
+Directory `examples` includes sample data and a pre-trained RNN to demonstrate
 the backtesting feature.
 
 
@@ -136,7 +137,7 @@ See *KiwoomScribe* for data format.
 *KiwoomScribe* collects ca. 500 security items per day, and each security
 item comprises 2 to 4 plain text files (trade events, order book events, etc).
 Data is ca. 30 MB compressed (ca. 900 MB raw) for each date.
-Zipped for each date and placed in `$HOME/MATLAB/Data` as `yyyymmdd.zip`.
+Zipped for each date and placed in `$ROOT/MATLAB/Data` as `yyyymmdd.zip`.
 
 ### Converting market data to `.raw`/`.ref` files (Return model)
 Binary files for training RNNs. 
@@ -146,19 +147,19 @@ Binary files for training RNNs.
           a part of this repository);
           after preprocessing by Reshaper, becomes target for RNN
 
-See `core/rnn/TradeDataSet.cc` for binary data format of `.raw`, `.ref`, etc.
-Zipped for each date and placed in `$HOME/MATLAB/DataV` as `yyyymmdd.zip`.
+See `src/core/rnn/TradeDataSet.cc` for binary data formats
+Zipped for each date and placed in `$ROOT/MATLAB/DataV` as `yyyymmdd.zip`.
 
 ### Splitting train/dev/test sets
-Make sure only the binary data for train + dev set are in `$HOME/MATLAB/DataV`
+Make sure only the binary data for train + dev set are in `$ROOT/MATLAB/DataV`
 (binary data aren't needed for the test set).
 
-From `$HOME/MATLAB/fractal`
+From `$ROOT/MATLAB/fractal`
 - (Optional) Run `gen_rand_datalist.sh` and `parse_datalist.sh` to randomly
   designate specific dates to be put in dev set (stored as `devset.txt`)
 - Edit and run `prepare_data.sh`
-  - this unzips the files from `$HOME/MATLAB/DataV`
-    to `$HOME/MATLAB/fractal/DataV` and creates a sequence list `list.txt`
+  - this unzips the files from `$ROOT/MATLAB/DataV`
+    to `$ROOT/MATLAB/fractal/DataV` and creates a sequence list `list.txt`
 - Edit and run `split_dataset.sh`
   - this takes a list of dates to be put in the dev set from `devset.txt`
     and splits the dataset
@@ -169,24 +170,24 @@ From `$HOME/MATLAB/fractal`
 ## Training/backtesting/live-trading using *Fractal*
 
 ### Training
-- Compile `train` from `$HOME/Sibyl/src/train`
+- Compile `train` from `$ROOT/Sibyl/src/train`
   - choose the TradeNet (which defines neural net architecture) and Reshaper
     in `train.cc`
   - `make clean`, then `make`
   - may need to correct the library paths in `Makefile`
-- Run `$HOME/Sibyl/run/train/train_batch_0.sh`
+- Run `$ROOT/Sibyl/run/train/train_batch_0.sh`
   - set paths of binaries, dataset, and workspace in the script file
   - multiple training sessions can be queued to be run in sequence
   - multiple training sessions can be run simultaneously if you have
-    multiple GPUs; see `$HOME/Sibyl/run/train/train_batch_1.sh`
+    multiple GPUs; see `$ROOT/Sibyl/run/train/train_batch_1.sh`
 
 ### Backtesting
-- Compile `simserv` from `$HOME/Sibyl/src/simserv` with `make`
-- Compile `rnnclnt` from `$HOME/Sibyl/src/rnnclnt`
+- Compile `simserv` from `$ROOT/Sibyl/src/simserv` with `make`
+- Compile `rnnclnt` from `$ROOT/Sibyl/src/rnnclnt`
   - choose the TradeNet and Reshaper in `rnnclnt.cc`;
     these should be the same as those chosen during training
   - `make clean`, then `make`
-- Use script files in `$HOME/Sibyl/run/rnn`
+- Use script files in `$ROOT/Sibyl/run/rnn`
   - `run_g.sh`: runs backtest for a single date `$1`
     - `workspace.list` chooses which trained RNN to use
       (can run multiple in ensemble)
@@ -200,7 +201,7 @@ From `$HOME/MATLAB/fractal`
 
 ### Live-trading
 - Launch an agent (e.g., KiwoomAgent), possibly on a different machine
-- Run `$HOME/Sibyl/run/rnn/net.sh`
+- Run `$ROOT/Sibyl/run/rnn/net.sh`
   - set address & port of the agent's machine in the script file
   - set configuration files referred to in the script file
 
@@ -208,33 +209,33 @@ From `$HOME/MATLAB/fractal`
 ## Training/backtesting/live-trading using *Sophia*
 
 ### Training
-- Compile `reshape_dataset` from `$HOME/Sibyl/src/reshape_dataset`
+- Compile `reshape_dataset` from `$ROOT/Sibyl/src/reshape_dataset`
   - choose the Reshaper in `reshape_dateset.cc`
   - `make clean`, then `make`
   - may need to correct the library paths in `Makefile`
-- Run `$HOME/Sibyl/run/reshape_dataset/reshape.sh` after setting paths in
+- Run `$ROOT/Sibyl/run/reshape_dataset/reshape.sh` after setting paths in
   the script file
-- Run `$HOME/Sophia/run/train_0.sh`
-  - neural net structure is configured directly in `$HOME/Sophia/src/train.py`
+- Run `$ROOT/Sophia/run/train_0.sh`
+  - neural net structure is configured directly in `$ROOT/Sophia/src/train.py`
   - similar to above, multiple training sessions can be run in sequence or in
     parallel
 
 ### Backtesting/live-trading
-- Compile `simserv` from `$HOME/Sibyl/src/simserv` with `make`
-- Compile `sophia` from `$HOME/Sibyl/src/sophia`
+- Compile `simserv` from `$ROOT/Sibyl/src/simserv` with `make`
+- Compile `sophia` from `$ROOT/Sibyl/src/sophia`
   - choose the Reshaper in `sophia.cc`; should be the same as that for training
   - `make clean`, then `make`
-- Use script files in `$HOME/Sibyl/run/sophia`
-  - they function identically to those in `$HOME/Sibyl/run/rnn`
+- Use script files in `$ROOT/Sibyl/run/sophia`
+  - they function identically to those in `$ROOT/Sibyl/run/rnn`
 
 
 # Screenshot
 
-While operating, client updates `$HOME/Sibyl/bin/state/client_cur.log`
+While operating, client updates `$ROOT/Sibyl/bin/state/client_cur.log`
 in real-time to show a summary of what's going on. This file can be `watch`'ed
 in the terminal to monitor the current state of backtesting/live-trading.
 Note that this is only meant to be a quick-glance summary; full logs are
-stored in `$HOME/Sibyl/bin/log`, in human-readable and binary formats.
+stored in `$ROOT/Sibyl/bin/log`, in human-readable and binary formats.
 
 <img src="readme/client_state.png" width="566"/>
 

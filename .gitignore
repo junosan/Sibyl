@@ -1,7 +1,8 @@
 # Ignore files specific to this project
-list_source.sh
-notes.txt
-core/Eigen/
+src/list_source.sh
+bin/
+etc/
+obj/
 
 
 # Ignore macOS files
