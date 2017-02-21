@@ -14,8 +14,9 @@ distributed systems or within the same system.
   - backtesting simulator
   - agent for relaying order request/status to/from a broker
 - Client side
-  - order request generators using RNNs (for real-time) or pre-calculated
-    reference target signals (for testing)
+  - order request generators using RNNs (for real-time)
+  - order request generators using pre-calculated reference target signals
+    (for testing)
 
 
 ## Requirements
@@ -24,7 +25,7 @@ Version numbers are not hard requirements.
 
 ### RNN backends
 - [Fractal](https://github.com/KyuyeonHwang/Fractal) (commit `261f1fd`)
-  : based on C++/CUDA; much faster than *Sophia*
+  : based on C++/CUDA; faster than *Sophia*
 - [Sophia](https://github.com/junosan/Sophia) (commit `3ab4359`)
   : based on Python/Theano; less VRAM usage than *Fractal*,
     and more flexibility in experimental RNN structures
@@ -32,13 +33,14 @@ Version numbers are not hard requirements.
 With regards to backtesting/live-trading, both backends function identically.
 
 ### Common
-- [Eigen](http://eigen.tuxfamily.org) (3.2.10)
+- [Eigen](http://eigen.tuxfamily.org) (3.3.2)
   : Linear algebra library, used for data preprocessing
-- [ZeroMQ](http://zeromq.org) (4.2.0)
+- [ZeroMQ](http://zeromq.org) (4.2.0),
+  with [C++ binding](https://github.com/zeromq/cppzmq)
   : Messaging library, used for real-time inference using RNNs trained by
     *Sophia* via interprocess communication (IPC) or over a network (TCP)
 
-### Broker frontends
+### Broker frontends (for data collection & live-trading)
 This project has been tested extensively in South Korean KOSPI market using 
 *Kiwoom Securities* OpenAPI.
 Following two repositories provide frontends for collecting real-time data
@@ -55,6 +57,9 @@ These are for Windows only, due to restrictions by Kiwoom Securities.
 
 
 ## Block diagram
+The operations of data collection, modeling, training, backtesting,
+and live-trading are summarized in the following diagram.
+
 <img src="readme/block_diagram.png" width="640"/>
 
 There are 4 constituents of a trading model in this diagram:
@@ -101,13 +106,13 @@ For *Sophia*:
 ## Directory structure
 
 The script files included in directory `run` show how to train,
-backtest, and execute live trades.
+backtest (also see Sample Data section below), and execute live trades.
 They assume the following directory structure.
 This isn't the most logical of structures, so change
 them if you want (in particular, `MATLAB` is just a name here).
 
-    $ROOT
-      fractal-git (Fractal repository, cloned and locally built)
+```
+    $ROOT (a base directory, not /)
       MATLAB
         Data (zipped plain text market data for each date)
         DataV (zipped transformed binary data for each date)
@@ -119,17 +124,15 @@ them if you want (in particular, `MATLAB` is just a name here).
         bin (compiled binary)
       Sophia
         src (Sophia repository, cloned)
-        run (script and config files)
+        run (script files for training)
       reshaped_dataset (batch preprocessed data for Sophia)
       workspace (RNN models saved here)
-
-
-## Example
-Directory `examples` includes sample data and a pre-trained RNN to demonstrate
-the backtesting feature.
+```
 
 
 ## Preparing data
+This repository does not contain materials for preparing the data, but
+it is still discussed below for completeness.
 
 ### Collecting real-time intraday market data
 See *KiwoomScribe* for data format.
@@ -137,22 +140,26 @@ See *KiwoomScribe* for data format.
 *KiwoomScribe* collects ca. 500 security items per day, and each security
 item comprises 2 to 4 plain text files (trade events, order book events, etc).
 Data is ca. 30 MB compressed (ca. 900 MB raw) for each date.
-Zipped for each date and placed in `$ROOT/MATLAB/Data` as `yyyymmdd.zip`.
+Zipped for each date and placed in `$ROOT/MATLAB/Data` as `$YYYYMMDD.zip`.
 
 ### Converting market data to `.raw`/`.ref` files (Return model)
 Binary files for training RNNs. 
 - `.raw`: raw market data;
-          after preprocessing by Reshaper, becomes input for RNN
+          after preprocessing by `class Reshaper`, becomes input for RNN
 - `.ref`: transformed market data, a.k.a. signals (this transformation is not
           a part of this repository);
-          after preprocessing by Reshaper, becomes target for RNN
+          after preprocessing by `class Reshaper`, becomes target for RNN
 
-See `src/core/rnn/TradeDataSet.cc` for binary data formats
-Zipped for each date and placed in `$ROOT/MATLAB/DataV` as `yyyymmdd.zip`.
+See `src/core/rnn/TradeDataSet.cc` for binary data formats.
+Zipped for each date and placed in `$ROOT/MATLAB/DataV` as `$YYYYMMDD.zip`.
 
 ### Splitting train/dev/test sets
 Make sure only the binary data for train + dev set are in `$ROOT/MATLAB/DataV`
 (binary data aren't needed for the test set).
+
+```
+NOTE: NEEDS REVISION
+```
 
 From `$ROOT/MATLAB/fractal`
 - (Optional) Run `gen_rand_datalist.sh` and `parse_datalist.sh` to randomly
@@ -174,7 +181,8 @@ From `$ROOT/MATLAB/fractal`
   - choose the TradeNet (which defines neural net architecture) and Reshaper
     in `train.cc`
   - `make clean`, then `make`
-  - may need to correct the library paths in `Makefile`
+  - assumes required libraries installed in the global zone
+    (`/usr/local/include`, `/usr/local/lib`)
 - Run `$ROOT/Sibyl/run/train/train_batch_0.sh`
   - set paths of binaries, dataset, and workspace in the script file
   - multiple training sessions can be queued to be run in sequence
@@ -232,8 +240,9 @@ From `$ROOT/MATLAB/fractal`
 # Screenshot
 
 While operating, client updates `$ROOT/Sibyl/bin/state/client_cur.log`
-in real-time to show a summary of what's going on. This file can be `watch`'ed
-in the terminal to monitor the current state of backtesting/live-trading.
+in real-time to show a summary of what's going on.
+This file can be `watch cat`'ed in the terminal to monitor the current state
+of backtesting/live-trading.
 Note that this is only meant to be a quick-glance summary; full logs are
 stored in `$ROOT/Sibyl/bin/log`, in human-readable and binary formats.
 
@@ -256,7 +265,7 @@ Statistics legend
 Screenshot above shows statistics only for the 0-th relative price ticks
 (immediate orders only), as only these were assumed in the
 Return/Portfolio/Reshaper models in use. However, the simulator is able to
-handle arbitrarily priced orders (within the collected tick data range).
+handle arbitrarily priced limit-orders (within the collected tick data range).
 
 Charts legend
 - `░`: between starting/ending values of a rising segment
@@ -266,3 +275,24 @@ Charts legend
 - top chart: ratio of unused balance
 - middle chart: profit rate wrt the starting prices (in %, auto-scales)
 - bottom chart: market's main index (in above screenshot, KOSPI200)
+
+
+# Sample data
+[Releases page](https://github.com/junosan/Sibyl/releases) includes sample
+data and pre-trained RNNs to demonstrate the backtesting feature.
+
+- Install the requirements
+  (*Fractal* and *Eigen* are required, *Sophia* (+*ZeroMQ*) is optional)
+  - *Fractal* (requires CUDA): install to `/usr/local/{include,lib}`
+  - *Sophia* (requires Theano & CUDA): copy `.py` files to `$ROOT/Sophia/src`
+    - *ZeroMQ*: install to `/usr/local/{include,lib}`;
+      *cppzmq* is header-only and should be installed to `/usr/local/include`
+  - *Eigen*: header-only; install to `/usr/local/include/Eigen`
+- Copy the zipped market data into `$ROOT/MATLAB/Data/$DATE.zip`
+- Copy the workspace directories into `$ROOT/workspace/$WORKSPACE_NAME`
+- See Backtesting sections above for launching backtests with either *Fractal*
+  or *Sophia*
+  - Script files and config files in `$ROOT/Sibyl/run/rnn` (for *Fractal*)
+    and `$ROOT/Sibyl/run/sophia` (for *Sophia*) are preconfigured to launch
+    backtests on the sample data with appropriate model parameters
+  - In either directory, run `./run_g_list.sh comb.txt`

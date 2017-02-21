@@ -29,7 +29,7 @@ namespace fractal
 {
 
 // Encapsulates code blocks for fractal::Rnn training or inference
-// Base class for ValueNet and PolicyNet
+// Base class for specific neural net architectures (e.g., VanillaNet)
 template <class TDataSet>
 class TradeNet
 {

@@ -43,6 +43,10 @@ public:
     NetAgent() : verbose(false)
                 { bufTCP = new char[kTCPBufSize];
                   bufMsg = new char[kTCPBufSize]; }
+    NetAgent           (const NetAgent&) = delete;
+    NetAgent& operator=(const NetAgent&) = delete;
+    NetAgent           (NetAgent&&) = delete;
+    NetAgent& operator=(NetAgent&&) = delete;
     ~NetAgent() { delete[] bufTCP;
                   delete[] bufMsg; }
 protected:

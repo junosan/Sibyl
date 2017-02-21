@@ -11,15 +11,15 @@ HOMEDIR=../../..
 
 COREDIR=../core
 COREDIR_HDRS=$(COREDIR)
-INCDIR=$(HOMEDIR)/fractal-git/build/include $(COREDIR)
+INCDIR=$(COREDIR)
 
 SRCDIR=./
 SRCDIR_HDRS=./
 SRCDIR_CUDA=$(SRCDIR)
 
 LIBS=-lfractal -lzmq
-LIBDIR=$(HOMEDIR)/fractal-git/build/lib
-LDFLAGS=-Wl,-rpath $(HOMEDIR)/fractal-git/build/lib
+LIBDIR=
+LDFLAGS=
 
 CUDA_PATH=/usr/local/cuda
 GPU_ARCH=-gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,code=sm_35

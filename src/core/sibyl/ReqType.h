@@ -20,7 +20,7 @@
 // Req is sent from a client (rnnclnt, refclnt) to a server (KiwoomAgent, simserv) with syntax:
 //
 // b 000660 36000 2
-// [type] [code] [price] [quant]
+// <type> <code> <price> <quant>
 //     type     b, s, cb, cs
 //     code     string
 //     price    > 0
@@ -28,7 +28,7 @@
 //              otherwise uses designated quantity
 //
 // mb 000660 36000 2 36500
-// [type] [code] [oldprice] [quant] [newprice]
+// <type> <code> <oldprice> <quant> <newprice>
 //     type     mb, ms
 //     code     string
 //     oldprice > 0
