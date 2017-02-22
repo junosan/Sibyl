@@ -31,12 +31,15 @@ int main(int argc, char *argv[])
     std::string path(argv[0]);
     path.resize(path.find_last_of('/'));
     
+    verify(system(std::string("mkdir -p " + path + "/log").c_str()) == 0);
+    verify(system(std::string("mkdir -p " + path + "/state").c_str()) == 0);
+
     using namespace sibyl;
     
     Simulation simulation;
     if (0 != simulation.LoadData(argv[1], argv[2]))
         exit(1);
-    
+
     SimulationServer server(&simulation);
     server.SetVerbose(true);
     {

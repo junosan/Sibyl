@@ -46,6 +46,9 @@ int main(int argc, char *argv[])
     /*                  Setup sibyl                  */
     /* ============================================= */
     
+    verify(system(std::string("mkdir -p " + path + "/log").c_str()) == 0);
+    verify(system(std::string("mkdir -p " + path + "/state").c_str()) == 0);
+
     using namespace sibyl;
     
     Trader trader;

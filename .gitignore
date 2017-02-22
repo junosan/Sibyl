@@ -3,6 +3,7 @@ src/list_source.sh
 bin/
 etc/
 obj/
+sample_data/
 
 
 # Ignore macOS files
