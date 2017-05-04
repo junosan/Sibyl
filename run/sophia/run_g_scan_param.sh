@@ -9,7 +9,7 @@ rm -f $LOG_FILE
 
 for b_th in     `$SCRIPT_PATH/gen_range.sh 0.80 0.10 1.10`; do
     for s_th in `$SCRIPT_PATH/gen_range.sh 0.50 0.10 0.80`; do
-        #if ([ `echo "$b_th != 0.7" | bc` == 1 ] && [ `echo "$b_th != 0.8" | bc` == 1 ] && [ `echo "$b_th != 0.9" | bc` == 1 ]) || ([ `echo "$s_th != 0.5" | bc` == 1 ] && [ `echo "$s_th != 0.6" | bc` == 1 ] && [ `echo "$s_th != 0.7" | bc` == 1 ]); then
+        #if [ `echo "$b_th % 0.1 == 0 && $s_th % 0.1 == 0" | bc` == 0 ]; then
         rm -f $CONFIG_FILE
         touch $CONFIG_FILE
         
